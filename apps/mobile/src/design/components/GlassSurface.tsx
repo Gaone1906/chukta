@@ -3,6 +3,7 @@ import { GlassView } from 'expo-glass-effect';
 import type { ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { useBlurTarget } from '../blurTarget';
 import { ANDROID_BLUR_METHOD, getGlassBackend } from '../glassConfig';
 import { blur as blurToken, color, radius as radiusToken, shadow } from '../tokens';
 
@@ -43,6 +44,7 @@ export function GlassSurface({
   contentStyle,
 }: GlassSurfaceProps) {
   const backend = getGlassBackend();
+  const blurTarget = useBlurTarget();
 
   const shell: StyleProp<ViewStyle> = [
     styles.shell,
@@ -77,7 +79,8 @@ export function GlassSurface({
           <BlurView
             intensity={intensity}
             tint="dark"
-            experimentalBlurMethod={ANDROID_BLUR_METHOD}
+            blurMethod={ANDROID_BLUR_METHOD}
+            blurTarget={blurTarget}
             style={StyleSheet.absoluteFill}
           />
           <View style={[StyleSheet.absoluteFill, { backgroundColor: fill }]} />

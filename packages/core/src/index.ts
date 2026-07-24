@@ -8,5 +8,5 @@
 // see plan/phase-02-core-money.md. Money and formatting shipped early because Phase 1's
 // balance chip needs en-IN grouping.
 
-export * from './money.js';
-export * from './format.js';
+export * from './money';
+export * from './format';

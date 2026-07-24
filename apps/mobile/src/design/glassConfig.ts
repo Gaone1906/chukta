@@ -37,15 +37,38 @@ export function getGlassBackend(): GlassBackend {
   if (Platform.OS === 'ios') return 'blur';
 
   if (Platform.OS === 'android') {
-    // dimezisBlurView needs RenderEffect, which is API 31 (Android 12).
-    return typeof Platform.Version === 'number' && Platform.Version >= 31 ? 'blur' : 'fallback';
+    // Deliberately the opaque fallback for now — see ANDROID_BLUR_STATUS below.
+    return 'fallback';
   }
 
   return 'fallback';
 }
 
 /**
- * Android's blur needs an explicit experimental method or it silently renders a flat tint.
- * Kept here so no component has to remember it.
+ * Android blur method. `dimezisBlurViewSdk31Plus` uses RenderEffect where it exists and falls
+ * back to a flat tint on older devices by itself, which is what we want — plain
+ * `dimezisBlurView` is documented as slow below API 31.
+ *
+ * This ONLY takes effect alongside a `blurTarget` ref; see design/blurTarget.tsx.
  */
-export const ANDROID_BLUR_METHOD = 'dimezisBlurView' as const;
+export const ANDROID_BLUR_METHOD = 'dimezisBlurViewSdk31Plus' as const;
+
+/**
+ * WHY ANDROID DEFAULTS TO THE OPAQUE FALLBACK
+ *
+ * On the API 36 emulator (software GPU), a `BlurView` sampling a `BlurTargetView` crashes the
+ * process with SIGSEGV on the RenderThread. Isolated carefully: mounting `BlurTargetView` on
+ * its own is fine, and the app runs; adding the blur on top of it is what kills it.
+ *
+ * That is very likely an emulator/SwiftShader limitation rather than a real-device bug, but it
+ * cannot be confirmed without physical hardware — so the safe default wins, and blur stays one
+ * switch away (`forceGlassBackend('blur')`, or the kitchen sink's backend picker).
+ *
+ * Worth knowing: over this design's smooth ambient gradient, the blurred and opaque surfaces
+ * look nearly identical. The translucent fill, the hairline border and the inner top highlight
+ * are what read as glass — the blur contributes far less than expected. So the fallback is a
+ * genuinely acceptable shipping state for Android, not a placeholder.
+ *
+ * TODO(Phase 10): verify on a physical low-end Android device and flip the default if it holds.
+ */
+export const ANDROID_BLUR_STATUS = 'fallback-pending-device-verification' as const;

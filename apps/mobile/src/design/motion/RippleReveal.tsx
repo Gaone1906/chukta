@@ -13,7 +13,8 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 
-import { ANDROID_BLUR_METHOD } from '../glassConfig';
+import { useBlurTarget } from '../blurTarget';
+import { ANDROID_BLUR_METHOD, getGlassBackend } from '../glassConfig';
 import { motion } from '../tokens';
 import { useReduceMotion } from '../useReduceMotion';
 import {
@@ -56,7 +57,13 @@ export interface RippleRevealProps {
 export function RippleReveal({ from, to, origin, onDone, durationMs = motion.ripple.duration }: RippleRevealProps) {
   const { width, height } = useWindowDimensions();
   const reduceMotion = useReduceMotion();
+  const blurTarget = useBlurTarget();
   const progress = useSharedValue(0);
+
+  // Must respect the same backend switch as GlassSurface. Rendering a BlurView here regardless
+  // is what crashed the emulator: the glass had already degraded to the opaque fallback, but
+  // the transition kept blurring anyway.
+  const canBlur = getGlassBackend() !== 'fallback';
 
   const rMax = maxRadius(width, height, origin.x, origin.y);
 
@@ -93,19 +100,30 @@ export function RippleReveal({ from, to, origin, onDone, durationMs = motion.rip
     intensity: rippleEase(progress.value) * 8,
   }));
 
+  /** Stand-in for the blur when blur is unavailable: the old screen dims as it recedes. */
+  const outgoingScrimStyle = useAnimatedStyle(() => ({
+    opacity: rippleEase(progress.value) * 0.35,
+  }));
+
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       <Animated.View style={[StyleSheet.absoluteFill, outgoingStyle]}>
         {from}
-        {!reduceMotion ? (
+        {reduceMotion ? null : canBlur ? (
           <AnimatedBlurView
             pointerEvents="none"
             tint="dark"
-            experimentalBlurMethod={ANDROID_BLUR_METHOD}
+            blurMethod={ANDROID_BLUR_METHOD}
+            blurTarget={blurTarget}
             animatedProps={outgoingBlurProps}
             style={StyleSheet.absoluteFill}
           />
-        ) : null}
+        ) : (
+          <Animated.View
+            pointerEvents="none"
+            style={[StyleSheet.absoluteFill, styles.scrim, outgoingScrimStyle]}
+          />
+        )}
       </Animated.View>
 
       <MaskedView
@@ -168,6 +186,7 @@ function TrailingRing({
 
 const styles = StyleSheet.create({
   maskCanvas: { flex: 1, backgroundColor: 'transparent' },
+  scrim: { backgroundColor: '#0A0405' },
   maskCircle: { position: 'absolute', backgroundColor: '#000' },
   ring: { position: 'absolute', borderColor: 'rgba(184,150,60,0.55)' },
 });

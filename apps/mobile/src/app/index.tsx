@@ -35,6 +35,7 @@ export default function KitchenSink() {
   const [backend, setBackend] = useState<GlassBackend | 'auto'>('auto');
   const [sealKey, setSealKey] = useState(0);
   const [ripple, setRipple] = useState<{ x: number; y: number } | null>(null);
+  const [rippleMs, setRippleMs] = useState<number>(900);
 
   const ping = useCallback((message: string) => {
     setToast(message);
@@ -116,7 +117,7 @@ export default function KitchenSink() {
             <BalanceChip balance={money(12345678900n, 'INR')} />
             <BalanceChip balance={money(-150050n, 'INR')} />
           </View>
-          <Text style={styles.note}>₹1,23,45,67,890 must group the Indian way, not 12,345,678.90</Text>
+          <Text style={styles.note}>₹12,34,56,789 must group the Indian way (lakh/crore), not 123,456,789</Text>
         </GlassSurface>
       </Section>
 
@@ -145,8 +146,17 @@ export default function KitchenSink() {
       <Section title="Ripple transition">
         <Text style={styles.note}>
           Tap the FAB. Circular reveal from the tap point, three trailing rings, outgoing screen
-          blurs and eases back.
+          recedes. Slow motion makes the wavefront and the rings reviewable frame by frame.
         </Text>
+        <View style={styles.rowWrap}>
+          {([900, 4000] as const).map((ms) => (
+            <Pressable key={ms} onPress={() => setRippleMs(ms)}>
+              <GlassSurface radius={999} active={rippleMs === ms} elevation="none" contentStyle={styles.pill}>
+                <Text style={styles.pillText}>{ms === 900 ? 'normal' : 'slow motion'}</Text>
+              </GlassSurface>
+            </Pressable>
+          ))}
+        </View>
       </Section>
     </ScrollView>
   );
@@ -158,6 +168,7 @@ export default function KitchenSink() {
           from={content}
           to={<RippleTarget onBack={() => setRipple(null)} />}
           origin={ripple}
+          durationMs={rippleMs}
           onDone={() => {}}
         />
       ) : (
@@ -176,7 +187,9 @@ export default function KitchenSink() {
 function RippleTarget({ onBack }: { onBack: () => void }) {
   const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.flex, styles.target, { paddingTop: insets.top + 80 }]}>
+    // Opaque on purpose: the reveal is only legible if the incoming screen actually covers the
+    // outgoing one. Real screens get this from the ambient background behind the navigator.
+    <View style={[styles.flex, styles.target, styles.targetOpaque, { paddingTop: insets.top + 80 }]}>
       <Seal size={150} state="settled" label="" />
       <Text style={styles.h1}>Revealed</Text>
       <Text style={styles.sub}>This screen arrived through the ripple.</Text>
@@ -219,5 +232,6 @@ const styles = StyleSheet.create({
   sealRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
   fab: { position: 'absolute', right: 24 },
   target: { alignItems: 'center', gap: 14 },
+  targetOpaque: { backgroundColor: color.bgBase },
   targetButton: { marginTop: 20, width: 200 },
 });

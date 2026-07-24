@@ -7,7 +7,7 @@
  * and test rather than one we hope is present at runtime.
  */
 
-import { exponentOf, symbolOf, type Money } from './money.js';
+import { exponentOf, symbolOf, type Money } from './money';
 
 export type GroupingStyle = 'indian' | 'western';
 

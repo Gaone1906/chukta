@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
-import { formatAmount, groupDigits, balanceCaption } from '../src/format.js';
-import { money, exponentOf, add, sum, subtract } from '../src/money.js';
+import { formatAmount, groupDigits, balanceCaption } from '../src/format';
+import { money, exponentOf, add, sum, subtract } from '../src/money';
 
 describe('groupDigits', () => {
   it('groups the Indian way: last three, then twos', () => {

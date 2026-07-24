@@ -19,7 +19,7 @@ Use `Phase 0:` for repo-level chores that belong to no feature phase.
 | # | Phase | File | Status | Est. |
 |---|---|---|---|---|
 | 0 | Repo & scaffold | [phase-00-repo-scaffold.md](phase-00-repo-scaffold.md) | ✅ done | 2–3 d |
-| 1 | Design system & motion | [phase-01-design-system.md](phase-01-design-system.md) | 🟡 in progress | 1 wk |
+| 1 | Design system & motion | [phase-01-design-system.md](phase-01-design-system.md) | ✅ done (Android verified; iOS pending toolchain) | 1 wk |
 | 2 | `packages/core` money engine | [phase-02-core-money.md](phase-02-core-money.md) | ⬜ not started (money + formatting landed early) | 0.5 wk |
 | 3 | Supabase backend | [phase-03-backend.md](phase-03-backend.md) | ⬜ not started | 2 wk |
 | 4 | Auth & onboarding | [phase-04-auth-onboarding.md](phase-04-auth-onboarding.md) | ⬜ not started | 1 wk |
@@ -63,6 +63,8 @@ Everything from 4 onward is sequential.
 | 2 | Currency: Help FAQ says one per group, feature spec says per-expense override. Schema implements per-expense. | Phase 3 | open |
 | 3 | Domain for Universal Links / App Links (invite deep links) | Phase 7 | open |
 | 4 | Sentry for crash reporting — assumed yes | Phase 10 | assumed |
+| 7 | **Android blur** defaults to the opaque fallback — a `BlurView` sampling a `BlurTargetView` SIGSEGVs the emulator's software GPU. Needs a physical device to confirm and flip. | Phase 10 | open |
+| 8 | Whole iOS side is unrun — no Xcode on this machine yet. The Liquid Glass branch is written from the API contract, not tested. | Phase 4 | open |
 | 5 | Apple Developer Program + Google Play enrolment | Phase 4 / 11 | user will do |
 | 6 | Legal review of `legal/terms.md` + `legal/privacy.md` before submission | Phase 11 | drafted, unreviewed |
 
@@ -104,3 +106,33 @@ Everything from 4 onward is sequential.
 - Xcode is not installed yet (Command Line Tools only). Not blocking until iOS device/
   Simulator work in Phase 4. Android SDK is present.
 - Apple/Google developer accounts not enrolled — blocks Phase 4 Sign in with Apple.
+
+### Phase 1 — Design system & motion — ✅ done, 2026-07-25
+
+**Done**
+- `tokens.ts`, fonts (Rozha One + Hind), `GlassSurface` with three backends behind one switch,
+  `AmbientBackground`, `Row`/`BalanceChip`, `SegmentedSwitcher`, `GlassButton`, `FAB`, `Seal`,
+  `Toast`, and the `RippleReveal` transition.
+- `@hisaab/core` gained `money.ts` + `format.ts` early — the balance chip needs en-IN
+  lakh/crore grouping, and it is our own implementation rather than `Intl` because Hermes' ICU
+  support differs across platforms.
+- Kitchen sink at `src/app/index.tsx`: every primitive, a glass-backend picker, and a
+  slow-motion ripple toggle.
+- Verified on the API 36 emulator: fonts, ambient glow, switcher, rows, chips, settled badge,
+  seal spinner→stamp, `₹12,34,56,789` grouping, and the ripple (circular mask, trailing gold
+  ring, receding outgoing layer) all confirmed by screenshot.
+- 23 tests green (13 money/format, 10 ripple maths); typecheck and lint clean.
+
+**Findings worth carrying forward**
+- **Android blur is off by default.** `BlurView` + `BlurTargetView` SIGSEGVs the emulator's
+  RenderThread. Isolated: the target view alone is fine, adding the blur kills it. Almost
+  certainly a SwiftShader limitation, but unprovable without hardware. See the long comment in
+  `design/glassConfig.ts`.
+- Over this design's smooth ambient gradient, blurred and opaque surfaces look nearly
+  identical — the fill, hairline border and inner top highlight are what read as glass. So
+  the Android fallback is an acceptable shipping state, not a stopgap.
+- `expo-blur` changed API in SDK 57: `experimentalBlurMethod` → `blurMethod`, and Android now
+  needs an explicit `blurTarget` ref or it silently renders no blur at all.
+- Metro does not resolve `./foo.js` → `./foo.ts`. `packages/core` uses extensionless relative
+  imports; adding a `.js` extension breaks the bundler while tsc and Vitest stay happy.
+- The emulator's default 6GB data partition is too small for an 85MB debug APK; raised to 16GB.
