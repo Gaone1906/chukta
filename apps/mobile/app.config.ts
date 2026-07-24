@@ -4,7 +4,10 @@ import type { ExpoConfig } from 'expo/config';
 // stores, so the final name is decided before submission (plan/PROGRESS.md, open question #1).
 // The bundle identifier is NOT flexible — it is painful to change after first submission.
 const DISPLAY_NAME = process.env.APP_DISPLAY_NAME ?? 'Hisaab';
-const BUNDLE_ID = 'club.uni.hisaab';
+
+// Product-named and namespace-neutral. Never shown to users, so it can stay `hisaab` even if
+// the store display name has to change. Owning hisaab.com is not required for this.
+const BUNDLE_ID = 'com.hisaab.app';
 
 const config: ExpoConfig = {
   name: DISPLAY_NAME,

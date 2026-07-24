@@ -52,7 +52,7 @@ Everything from 4 onward is sequential.
 
 | # | Question | Blocks | Status |
 |---|---|---|---|
-| 1 | Store display name — "Hisaab" is taken. Bundle id proposed as `club.uni.hisaab` | Phase 11 | open |
+| 1 | Store display name — "Hisaab" is taken. Bundle id settled: `com.hisaab.app` | Phase 11 | name open |
 | 2 | Currency: Help FAQ says one per group, feature spec says per-expense override. Schema implements per-expense. | Phase 3 | open |
 | 3 | Domain for Universal Links / App Links (invite deep links) | Phase 7 | open |
 | 4 | Sentry for crash reporting — assumed yes | Phase 10 | assumed |
@@ -81,8 +81,9 @@ Everything from 4 onward is sequential.
   `react-native-web`, `react-dom`, the web script and the demo screens rather than carrying
   a broken build.
 - **`app.config.ts` replaces `app.json`.** Needed so the store display name can stay a
-  variable (`APP_DISPLAY_NAME`) while the bundle id `club.uni.hisaab` is fixed now — open
-  question #1 is about the name, not the identifier.
+  variable (`APP_DISPLAY_NAME`) while the bundle id `com.hisaab.app` is fixed now — open
+  question #1 is about the name, not the identifier. (Initially proposed as `club.uni.hisaab`,
+  inferred from an email domain — wrong: this is a personal project with no org affiliation.)
 - **eslint pinned to 9.x.** `eslint-plugin-react` (a transitive dep of `eslint-config-expo`)
   crashes on ESLint 10. Revisit when it ships a compatible release.
 - **Kept `support.js` and `image-slot.js`** instead of deleting them. They are vendored

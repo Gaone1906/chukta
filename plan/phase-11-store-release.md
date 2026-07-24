@@ -20,8 +20,8 @@ Apple enrolment also gates Sign in with Apple in Phase 4, so it isn't really a P
 
 > ⚠️ **Open question #1.** "Hisaab" already exists on the stores, so the display name needs
 > deciding. It's a variable (`APP_DISPLAY_NAME` in `app.config.ts`) precisely so this can be
-> settled late. The bundle id `club.uni.hisaab` is already fixed and doesn't need to match the
-> display name.
+> settled late. The bundle id `com.hisaab.app` is already fixed and doesn't need to match the
+> display name — users never see it.
 
 Check availability on both stores before committing.
 
