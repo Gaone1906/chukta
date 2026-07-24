@@ -3,7 +3,14 @@
 Single place to answer "where are we". Update the status table and the log at the end of
 every phase. Each phase has its own file in this directory with the detailed work list.
 
-**Last updated:** 2026-07-25 (end of Phase 0)
+**Last updated:** 2026-07-25 (Phase 1)
+
+## Conventions
+
+**Every commit is prefixed with its phase** — `Phase 3: add expense RPCs`. So
+`git log --oneline | head -1` tells you which phase is in flight without reading anything
+else, and `git log --oneline | grep '^.\{8\} Phase 2:'` pulls a phase's whole history.
+Use `Phase 0:` for repo-level chores that belong to no feature phase.
 
 ---
 
@@ -12,8 +19,8 @@ every phase. Each phase has its own file in this directory with the detailed wor
 | # | Phase | File | Status | Est. |
 |---|---|---|---|---|
 | 0 | Repo & scaffold | [phase-00-repo-scaffold.md](phase-00-repo-scaffold.md) | ✅ done | 2–3 d |
-| 1 | Design system & motion | [phase-01-design-system.md](phase-01-design-system.md) | ⬜ not started | 1 wk |
-| 2 | `packages/core` money engine | [phase-02-core-money.md](phase-02-core-money.md) | ⬜ not started | 0.5 wk |
+| 1 | Design system & motion | [phase-01-design-system.md](phase-01-design-system.md) | 🟡 in progress | 1 wk |
+| 2 | `packages/core` money engine | [phase-02-core-money.md](phase-02-core-money.md) | ⬜ not started (money + formatting landed early) | 0.5 wk |
 | 3 | Supabase backend | [phase-03-backend.md](phase-03-backend.md) | ⬜ not started | 2 wk |
 | 4 | Auth & onboarding | [phase-04-auth-onboarding.md](phase-04-auth-onboarding.md) | ⬜ not started | 1 wk |
 | 5 | Core loop | [phase-05-core-loop.md](phase-05-core-loop.md) | ⬜ not started | 3 wk |
