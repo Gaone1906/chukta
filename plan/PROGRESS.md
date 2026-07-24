@@ -73,9 +73,18 @@ Everything from 4 onward is sequential.
 - npm workspaces monorepo: `apps/mobile` (Expo SDK 57), `packages/core`, `supabase/`
 - GitHub Actions: typecheck, lint, test
 - `legal/terms.md` and `legal/privacy.md` drafted
-- Private repo created and pushed
+- Private repo `Gaone1906/hisaab` created and pushed; **CI green on first run**
 
 **Deviations from plan**
+- **Stripped web support from the Expo app.** The SDK 57 default template ships a demo app
+  with web-only CSS modules that don't typecheck. Since this is iOS + Android only, removed
+  `react-native-web`, `react-dom`, the web script and the demo screens rather than carrying
+  a broken build.
+- **`app.config.ts` replaces `app.json`.** Needed so the store display name can stay a
+  variable (`APP_DISPLAY_NAME`) while the bundle id `club.uni.hisaab` is fixed now — open
+  question #1 is about the name, not the identifier.
+- **eslint pinned to 9.x.** `eslint-plugin-react` (a transitive dep of `eslint-config-expo`)
+  crashes on ESLint 10. Revisit when it ships a compatible release.
 - **Kept `support.js` and `image-slot.js`** instead of deleting them. They are vendored
   prototype-viewer runtime; without them the reference screens can't be rendered in a
   browser, which the plan's own verification step requires. Documented in
