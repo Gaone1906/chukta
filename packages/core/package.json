@@ -1,0 +1,22 @@
+{
+  "name": "@hisaab/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pure money logic: split allocation, debt simplification, FX, formatting. No React Native, no I/O.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "fast-check": "^4.9.0",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.10"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "hisaab",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Split shared expenses with friends. Every feature free, forever.",
+  "license": "UNLICENSED",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20.19.4"
+  },
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "mobile": "npm run start --workspace @hisaab/mobile",
+    "android": "npm run android --workspace @hisaab/mobile",
+    "ios": "npm run ios --workspace @hisaab/mobile",
+    "db:start": "supabase start",
+    "db:reset": "supabase db reset",
+    "db:diff": "supabase db diff",
+    "db:types": "supabase gen types typescript --local > packages/core/src/db-types.ts",
+    "design-reference": "python3 -m http.server 8080 --directory design-reference"
+  },
+  "devDependencies": {
+    "supabase": "^2.109.1",
+    "typescript": "~6.0.3"
+  }
+}

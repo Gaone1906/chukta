@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck · Lint · Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # The money engine is the one place a bug costs users real money.
+      # These are property tests — see plan/phase-02-core-money.md.
+      - name: Test
+        run: npm run test
+
+  database:
+    name: Migrations apply cleanly
+    runs-on: ubuntu-latest
+    # Enable once supabase/migrations/ has content (Phase 3).
+    if: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase db start
+      - name: Reset from scratch
+        run: supabase db reset
+      - name: pgTAP
+        run: supabase test db
