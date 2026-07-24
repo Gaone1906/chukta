@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hisaab — clickable prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Hind:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050203;
+    --oxblood: #7A2833;
+    --gold: #B8963C;
+    --gold-bright: #D9B65A;
+    --cream: #F4EDE4;
+    --glass: rgba(255,255,255,.05);
+    --glass-border: rgba(255,255,255,.12);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--cream);
+    font-family: 'Hind', system-ui, sans-serif;
+    display: flex; align-items: flex-start; justify-content: center; gap: 34px;
+    padding: 34px 28px 60px;
+  }
+  a { color: rgba(255,255,255,.55); text-decoration: none; }
+
+  /* ---------- side panels ---------- */
+  .panel { width: 264px; flex: none; padding-top: 6px; }
+  .panel.right { width: 288px; }
+  .eyebrow {
+    font: 400 10.5px 'Hind', sans-serif; letter-spacing: 2.4px;
+    text-transform: uppercase; color: rgba(255,255,255,.28);
+    margin: 0 0 12px;
+  }
+  .card {
+    border: 1px solid var(--glass-border); background: var(--glass);
+    border-radius: 20px; padding: 16px; margin-bottom: 16px;
+    backdrop-filter: blur(20px) saturate(160%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 6px 22px rgba(0,0,0,.34);
+  }
+  .group-title {
+    font: 500 11px 'Hind', sans-serif; letter-spacing: 1.6px; text-transform: uppercase;
+    color: rgba(255,255,255,.34); margin: 14px 0 7px;
+  }
+  .group-title:first-child { margin-top: 0; }
+  .jump {
+    display: block; width: 100%; text-align: left; cursor: pointer;
+    border: 1px solid transparent; background: transparent; border-radius: 11px;
+    padding: 7px 10px; margin-bottom: 2px;
+    font: 400 13.5px 'Hind', sans-serif; color: rgba(255,255,255,.62);
+    transition: background .16s ease, color .16s ease, border-color .16s ease;
+  }
+  .jump:hover { background: rgba(255,255,255,.06); color: var(--cream); }
+  .jump[aria-current="true"] {
+    border-color: rgba(184,150,60,.55); background: rgba(184,150,60,.16); color: #F6E9CB;
+  }
+
+  /* ---------- stage ---------- */
+  .stage-wrap { flex: none; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .titlebar { display: flex; align-items: center; gap: 12px; height: 40px; }
+  .titlebar h1 {
+    margin: 0; font: 400 25px 'Rozha One', serif; color: var(--cream); letter-spacing: .4px;
+  }
+  .chip {
+    border: 1px solid var(--glass-border); background: var(--glass); color: rgba(255,255,255,.72);
+    border-radius: 999px; padding: 6px 14px; cursor: pointer;
+    font: 500 13px 'Hind', sans-serif;
+    transition: border-color .16s ease, background .16s ease, color .16s ease;
+  }
+  .chip:hover:not(:disabled) { border-color: rgba(184,150,60,.6); background: rgba(184,150,60,.14); color: #F6E9CB; }
+  .chip:disabled { opacity: .3; cursor: default; }
+
+  #stage {
+    position: relative; width: 390px; height: 844px; flex: none;
+    border-radius: 44px; overflow: hidden; background: #0A0405;
+    box-shadow: 0 40px 90px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.06);
+  }
+  /* Both layers stay laid out at all times — the incoming screen has to have real geometry
+     before we can find and isolate its 390x844 phone frame. Visibility is opacity, not
+     display, for exactly that reason. */
+  #stage iframe {
+    position: absolute; inset: 0; width: 390px; height: 844px;
+    border: 0; display: block; background: #0A0405;
+    opacity: 0; z-index: 1; pointer-events: none;
+  }
+  #stage iframe.active { opacity: 1; z-index: 2; pointer-events: auto; }
+
+  .hint { font: 300 12.5px/1.6 'Hind', sans-serif; color: rgba(255,255,255,.34); }
+  .hint strong { color: rgba(255,255,255,.62); font-weight: 500; }
+  .gap { font: 300 12.5px/1.6 'Hind', sans-serif; color: rgba(217,182,90,.72); }
+  kbd {
+    border: 1px solid var(--glass-border); background: rgba(255,255,255,.06);
+    border-radius: 5px; padding: 1px 5px; font: 500 11px 'Hind', sans-serif;
+    color: rgba(255,255,255,.6);
+  }
+  .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--gold); margin-right: 7px; vertical-align: middle; }
+</style>
+</head>
+<body>
+
+  <div class="panel">
+    <p class="eyebrow">Screens</p>
+    <div class="card"><nav id="flowmap"></nav></div>
+    <p class="hint">
+      <kbd>Esc</kbd> or <kbd>←</kbd> goes back. Click any screen above to jump straight to it.
+    </p>
+  </div>
+
+  <div class="stage-wrap">
+    <div class="titlebar">
+      <button class="chip" id="back" disabled>← Back</button>
+      <h1 id="title">Entry</h1>
+      <button class="chip" id="restart">Restart</button>
+    </div>
+    <div id="stage">
+      <iframe id="layerA" title="Screen A"></iframe>
+      <iframe id="layerB" title="Screen B"></iframe>
+    </div>
+    <p class="hint" id="breadcrumb"></p>
+  </div>
+
+  <div class="panel right">
+    <p class="eyebrow">On this screen</p>
+    <div class="card"><p class="hint" id="notes" style="margin:0"></p></div>
+    <div class="card">
+      <p class="hint" style="margin:0 0 8px"><strong>What this is</strong></p>
+      <p class="hint" style="margin:0 0 10px">
+        The original design prototypes, wired together so you can walk the real flows.
+        Nothing here is app code — it's the visual source of truth.
+      </p>
+      <p class="hint" style="margin:0 0 10px">
+        Screen changes use the designed ripple: a circular reveal easing out from where you
+        tapped, three trailing gold rings, and the outgoing screen blurring back.
+      </p>
+      <p class="hint" style="margin:0">
+        Six screens animate themselves on entry (Settle up, Settings, Tip jar, Help, About,
+        Add friend), so those swap instantly and play their own ripple instead of two at once.
+      </p>
+    </div>
+    <div class="card" style="border-color:rgba(184,150,60,.32)">
+      <p class="gap" style="margin:0 0 8px"><span class="dot"></span><strong style="color:#D9B65A">Taps that go nowhere</strong></p>
+      <p class="hint" style="margin:0">
+        Are usually screens that were never designed — expense detail, edit expense, date and
+        payer pickers, group settings, and every empty and error state. See
+        <em>plan/phase-10-states-polish.md</em>.
+      </p>
+    </div>
+  </div>
+
+<script src="../assets/hisaab-ripple.js"></script>
+<script src="./prototype.js"></script>
+</body>
+</html>
