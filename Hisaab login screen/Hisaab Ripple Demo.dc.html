@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Hind:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#050203; }
+  a { color:rgba(255,255,255,.55); text-decoration:none; }
+  a:hover { color:#D9B65A; }
+</style>
+</helmet>
+
+<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:#050203;padding:40px 24px;box-sizing:border-box;font-family:'Hind',system-ui,sans-serif">
+  <dc-import name="Hisaab Ripple Step" mode="forward" live="{{ true }}" hint-size="390px,844px"></dc-import>
+  <span style="font:400 11px 'Hind',sans-serif;letter-spacing:2.4px;text-transform:uppercase;color:rgba(255,255,255,.3)">Tap + to go in · chevron to come back</span>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{}"></script>
+</body>
+</html>

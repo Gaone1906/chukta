@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Hind:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#050203; }
+  a { color:rgba(255,255,255,.55); text-decoration:none; }
+  a:hover { color:#D9B65A; }
+  @keyframes hs-drift { 0%{transform:translate3d(0,0,0) scale(1)} 50%{transform:translate3d(14px,-18px,0) scale(1.06)} 100%{transform:translate3d(0,0,0) scale(1)} }
+  @keyframes hs-drift2 { 0%{transform:translate3d(0,0,0) scale(1.04)} 50%{transform:translate3d(-18px,12px,0) scale(1)} 100%{transform:translate3d(0,0,0) scale(1.04)} }
+  .hs-scroll::-webkit-scrollbar { width:0; height:0; }
+</style>
+</helmet>
+
+<div style="position:relative;width:390px;height:844px;flex:none;overflow:hidden;border-radius:44px;background:#0A0405;box-shadow:0 40px 90px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.06);font-family:'Hind',system-ui,sans-serif">
+
+  <div style="{{ homeStyle }}">
+    <div style="position:absolute;inset:0;overflow:hidden;border-radius:44px;background:radial-gradient(120% 76% at 50% 18%, #2A1216 0%, #150A0C 46%, #0A0405 100%)">
+      <div style="position:absolute;top:-150px;left:-120px;width:340px;height:340px;border-radius:50%;background:#7A2833;filter:blur(56px);opacity:.5;animation:hs-drift 18s ease-in-out infinite"></div>
+      <div style="position:absolute;top:260px;right:-160px;width:300px;height:300px;border-radius:50%;background:#B8963C;filter:blur(52px);opacity:.26;animation:hs-drift2 22s ease-in-out infinite"></div>
+      <div style="position:absolute;bottom:-180px;left:-90px;width:380px;height:330px;border-radius:50%;background:#7A2833;filter:blur(60px);opacity:.42;animation:hs-drift 26s ease-in-out infinite"></div>
+    </div>
+
+    <div style="position:absolute;top:0;left:0;right:0;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 30px;font:500 14px 'Hind',sans-serif;color:rgba(255,255,255,.9);z-index:3">
+      <span>9:41</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="display:block;width:17px;height:11px;border-radius:2px;background:rgba(255,255,255,.9)"></span>
+        <span style="display:block;width:15px;height:11px;border-radius:2px;background:rgba(255,255,255,.55)"></span>
+        <span style="display:block;width:24px;height:12px;border-radius:3px;border:1px solid rgba(255,255,255,.5);position:relative"><span style="position:absolute;top:2px;left:2px;bottom:2px;width:14px;border-radius:1.5px;background:rgba(255,255,255,.9)"></span></span>
+      </div>
+    </div>
+
+    <div style="position:relative;z-index:2;height:100%;box-sizing:border-box;padding:66px 22px 0;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:21px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);box-shadow:inset 0 1px 0 rgba(255,255,255,.16)">
+          <svg width="17" height="18" viewBox="0 0 17 18" fill="none">
+            <circle cx="8.5" cy="5.4" r="3.6" stroke="rgba(244,237,228,.85)" stroke-width="1.4"></circle>
+            <path d="M1.8 16.5c0-3.1 3-5.2 6.7-5.2s6.7 2.1 6.7 5.2" stroke="rgba(244,237,228,.85)" stroke-width="1.4" stroke-linecap="round"></path>
+          </svg>
+        </div>
+        <x-import component-from-global-scope="hisaab-mark" from="./assets/hisaab-mark.js" width="124" hint-size="124px,40px" style="display:block;opacity:0.92"></x-import>
+      </div>
+
+      <div style="margin-top:20px;position:relative;display:flex;height:48px;padding:5px;box-sizing:border-box;border-radius:24px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);box-shadow:inset 0 1px 0 rgba(255,255,255,.18)">
+        <div style="position:absolute;top:5px;bottom:5px;left:5px;width:calc(50% - 5px);border-radius:19px;border:1px solid rgba(184,150,60,.55);background:rgba(184,150,60,.18)"></div>
+        <span style="position:relative;flex:1;display:flex;align-items:center;justify-content:center;font:500 15px 'Hind',sans-serif;color:#F6E9CB">Groups</span>
+        <span style="position:relative;flex:1;display:flex;align-items:center;justify-content:center;font:500 15px 'Hind',sans-serif;color:rgba(255,255,255,.45)">People</span>
+      </div>
+
+      <div style="margin-top:18px;display:flex;flex-direction:column;gap:11px">
+        <x-import component-from-global-scope="hisaab-row" from="./assets/hisaab-row.js" name="Goa, finally" meta="6 members" amount="12480" direction="owe" hint-size="100%,76px" style="display:block"></x-import>
+        <x-import component-from-global-scope="hisaab-row" from="./assets/hisaab-row.js" name="Flat 302" meta="3 members" amount="840" direction="owe" hint-size="100%,76px" style="display:block"></x-import>
+        <x-import component-from-global-scope="hisaab-row" from="./assets/hisaab-row.js" name="Sunday football" meta="11 members" amount="0" hint-size="100%,76px" style="display:block"></x-import>
+        <x-import component-from-global-scope="hisaab-row" from="./assets/hisaab-row.js" name="Wedding season" meta="8 members" amount="3150" direction="owed" hint-size="100%,76px" style="display:block"></x-import>
+      </div>
+    </div>
+
+    <div style="position:absolute;left:0;right:0;bottom:0;height:150px;z-index:3;pointer-events:none;background:linear-gradient(180deg, rgba(10,4,5,0) 0%, rgba(10,4,5,.72) 58%, rgba(10,4,5,.94) 100%)"></div>
+
+    <button type="button" onClick="{{ onFab }}" aria-label="Add an expense" style="position:absolute;right:24px;bottom:46px;z-index:4;display:flex;align-items:center;justify-content:center;width:62px;height:62px;padding:0;border-radius:31px;border:1px solid rgba(184,150,60,.6);background:rgba(184,150,60,.2);backdrop-filter:blur(20px) saturate(175%);box-shadow:inset 0 1px 0 rgba(255,255,255,.24), 0 12px 34px rgba(0,0,0,.55), 0 0 26px rgba(184,150,60,.22);cursor:pointer;transition:transform .16s ease" style-active="transform:scale(.94)">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2.6v14.8M2.6 10h14.8" stroke="#F6E9CB" stroke-width="1.9" stroke-linecap="round"></path></svg>
+    </button>
+
+    <div style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:4;width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.3)"></div>
+  </div>
+
+  <div style="{{ formStyle }}">
+    <div style="position:absolute;inset:0;overflow:hidden;border-radius:44px;background:radial-gradient(120% 76% at 50% 14%, #2A1216 0%, #150A0C 46%, #0A0405 100%)">
+      <div style="position:absolute;top:-150px;left:-120px;width:330px;height:330px;border-radius:50%;background:#7A2833;filter:blur(56px);opacity:.5"></div>
+      <div style="position:absolute;top:290px;right:-160px;width:300px;height:300px;border-radius:50%;background:#B8963C;filter:blur(52px);opacity:.24"></div>
+      <div style="position:absolute;bottom:-180px;left:-90px;width:380px;height:330px;border-radius:50%;background:#7A2833;filter:blur(60px);opacity:.42"></div>
+    </div>
+
+    <div style="position:absolute;top:0;left:0;right:0;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 30px;font:500 14px 'Hind',sans-serif;color:rgba(255,255,255,.9);z-index:3">
+      <span>9:41</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="display:block;width:17px;height:11px;border-radius:2px;background:rgba(255,255,255,.9)"></span>
+        <span style="display:block;width:15px;height:11px;border-radius:2px;background:rgba(255,255,255,.55)"></span>
+        <span style="display:block;width:24px;height:12px;border-radius:3px;border:1px solid rgba(255,255,255,.5);position:relative"><span style="position:absolute;top:2px;left:2px;bottom:2px;width:14px;border-radius:1.5px;background:rgba(255,255,255,.9)"></span></span>
+      </div>
+    </div>
+
+    <div style="position:relative;z-index:2;height:100%;box-sizing:border-box;padding:66px 22px 0;display:flex;flex-direction:column">
+      <button type="button" onClick="{{ onBack }}" aria-label="Back" style="align-self:flex-start;display:flex;align-items:center;justify-content:center;width:42px;height:42px;padding:0;border-radius:21px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);backdrop-filter:blur(18px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.16);cursor:pointer;transition:transform .16s ease" style-active="transform:scale(.94)">
+        <svg width="9" height="15" viewBox="0 0 9 15" fill="none"><path d="M7.5 1.5 2 7.5l5.5 6" stroke="rgba(244,237,228,.85)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      </button>
+
+      <div style="margin-top:14px;display:flex;flex-direction:column;gap:4px">
+        <span style="font:400 10.5px 'Hind',sans-serif;letter-spacing:2.2px;text-transform:uppercase;color:rgba(184,150,60,.75)">New expense in</span>
+        <span style="font-family:'Rozha One',serif;font-size:32px;line-height:1.08;color:#F4EDE4;letter-spacing:.3px">Goa, finally</span>
+      </div>
+
+      <div style="margin-top:16px;display:flex;flex-direction:column;gap:12px">
+        <div style="position:relative;overflow:hidden;padding:20px 20px 18px;box-sizing:border-box;border-radius:26px;background:rgba(255,255,255,0.05);backdrop-filter:blur(23px) saturate(180%);border:1px solid rgba(255,255,255,0.12);box-shadow:0 8px 30px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.22)">
+          <span style="display:block;font:400 10.5px 'Hind',sans-serif;letter-spacing:2.2px;text-transform:uppercase;color:rgba(255,255,255,.35)">Amount</span>
+          <div style="margin-top:8px;display:flex;align-items:baseline;gap:8px">
+            <span style="font:500 34px 'Hind',sans-serif;color:rgba(184,150,60,.9)">₹</span>
+            <span style="font:600 46px 'Hind',sans-serif;color:#F4EDE4;letter-spacing:.5px">4,320</span>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;height:54px;padding:0 17px;box-sizing:border-box;border:1px solid rgba(255,255,255,.14);border-radius:20px;background:rgba(255,255,255,.06);box-shadow:inset 0 1px 0 rgba(255,255,255,.16);font:400 16px 'Hind',sans-serif;color:rgba(255,255,255,.3)">What's this for?</div>
+
+        <div style="display:flex;align-items:center;gap:12px;height:54px;padding:0 16px;box-sizing:border-box;border:1px solid rgba(255,255,255,.14);border-radius:20px;background:rgba(255,255,255,.06);box-shadow:inset 0 1px 0 rgba(255,255,255,.16)">
+          <span style="flex:1;font:300 13px 'Hind',sans-serif;letter-spacing:1.6px;text-transform:uppercase;color:rgba(255,255,255,.35)">Date</span>
+          <span style="font:500 15px 'Hind',sans-serif;color:#F4EDE4">Today, 25 Jul</span>
+        </div>
+
+        <div style="display:flex;gap:7px">
+          <span style="height:38px;padding:0 12px;display:flex;align-items:center;border:1px solid rgba(184,150,60,.75);border-radius:19px;background:rgba(184,150,60,.2);font:500 13px 'Hind',sans-serif;color:#F6E9CB">Equal</span>
+          <span style="height:38px;padding:0 12px;display:flex;align-items:center;border:1px solid rgba(255,255,255,.14);border-radius:19px;background:rgba(255,255,255,.05);font:500 13px 'Hind',sans-serif;color:rgba(255,255,255,.5)">Exact</span>
+          <span style="height:38px;padding:0 12px;display:flex;align-items:center;border:1px solid rgba(255,255,255,.14);border-radius:19px;background:rgba(255,255,255,.05);font:500 13px 'Hind',sans-serif;color:rgba(255,255,255,.5)">Percentage</span>
+          <span style="height:38px;padding:0 12px;display:flex;align-items:center;border:1px solid rgba(255,255,255,.14);border-radius:19px;background:rgba(255,255,255,.05);font:500 13px 'Hind',sans-serif;color:rgba(255,255,255,.5)">Shares</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="position:absolute;left:22px;right:22px;bottom:40px;z-index:4;display:flex;align-items:center;justify-content:center;height:54px;box-sizing:border-box;border:1px solid rgba(184,150,60,.55);border-radius:27px;background:rgba(184,150,60,.18);box-shadow:inset 0 1px 0 rgba(255,255,255,.22), 0 10px 28px rgba(0,0,0,.5);font:600 16px 'Hind',sans-serif;color:#F6E9CB;letter-spacing:.3px">Save expense</div>
+
+    <div style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:4;width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.3)"></div>
+  </div>
+
+  <div style="position:absolute;inset:0;z-index:9;pointer-events:none;overflow:hidden;border-radius:44px">
+    <sc-for list="{{ rings }}" as="r" hint-placeholder-count="3">
+      <div style="{{ r.style }}"></div>
+    </sc-for>
+  </div>
+
+  <sc-if value="{{ tapDot }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ tapDot }}"></div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;forward&quot;,&quot;back&quot;],&quot;default&quot;:&quot;forward&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;progress&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0,&quot;min&quot;:0,&quot;max&quot;:1,&quot;step&quot;:0.05,&quot;tsType&quot;:&quot;number&quot;},&quot;live&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;tapDot&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+var W = 390, H = 844;
+var FAB = { x: 337, y: 767 };
+var BACK = { x: 45, y: 87 };
+var EASE = function (t) { return 1 - Math.pow(1 - t, 2.6); };
+
+class Component extends DCLogic {
+  state = { p: null, dir: null };
+
+  componentWillUnmount() { cancelAnimationFrame(this._raf); }
+
+  run(dir) {
+    cancelAnimationFrame(this._raf);
+    var self = this, t0 = performance.now(), dur = 950;
+    this.setState({ p: 0, dir: dir });
+    var step = function (now) {
+      var t = Math.min(1, (now - t0) / dur);
+      self.setState({ p: t });
+      if (t < 1) self._raf = requestAnimationFrame(step);
+      else self.setState({ p: dir === "back" ? 0 : 1, dir: "forward" });
+    };
+    this._raf = requestAnimationFrame(step);
+  }
+
+  layer(z, revealing, p, origin, extra) {
+    var s = "position:absolute;inset:0;z-index:" + z + ";overflow:hidden;border-radius:44px;";
+    if (revealing) {
+      var rMax = Math.max(
+        Math.hypot(origin.x, origin.y), Math.hypot(W - origin.x, origin.y),
+        Math.hypot(origin.x, H - origin.y), Math.hypot(W - origin.x, H - origin.y)
+      );
+      var r = EASE(p) * rMax;
+      s += "clip-path:circle(" + r.toFixed(1) + "px at " + origin.x + "px " + origin.y + "px);";
+      s += "-webkit-clip-path:circle(" + r.toFixed(1) + "px at " + origin.x + "px " + origin.y + "px);";
+    }
+    return s + (extra || "");
+  }
+
+  dissolve(p) {
+    var e = EASE(p);
+    return "filter:blur(" + (3.4 * e).toFixed(2) + "px) saturate(" + (1 - 0.28 * e).toFixed(2) + ");" +
+           "transform:scale(" + (1 - 0.02 * e).toFixed(4) + ");";
+  }
+
+  renderVals() {
+    var self = this;
+    var mode = this.props.mode === "back" ? "back" : "forward";
+    var live = !!this.props.live;
+    var p = this.state.p !== null ? this.state.p : (this.props.progress != null ? Number(this.props.progress) : (mode === "back" ? 0 : 0));
+    var dir = this.state.dir || mode;
+    var origin = dir === "back" ? BACK : FAB;
+    var mid = p > 0 && p < 1;
+
+    // forward: form reveals over home. back: home reveals over form.
+    var homeStyle, formStyle;
+    if (dir === "back") {
+      formStyle = this.layer(2, false, p, origin, this.dissolve(p));
+      homeStyle = this.layer(3, p < 1, p, origin);
+    } else {
+      homeStyle = this.layer(2, false, p, origin, this.dissolve(p));
+      formStyle = this.layer(3, p < 1, p, origin);
+    }
+
+    var rMax = Math.max(
+      Math.hypot(origin.x, origin.y), Math.hypot(W - origin.x, origin.y),
+      Math.hypot(origin.x, H - origin.y), Math.hypot(W - origin.x, H - origin.y)
+    );
+    var r = EASE(p) * rMax;
+    var rings = [0, 1, 2].map(function (i) {
+      var rr = Math.max(0, r - i * rMax * 0.085);
+      var op = mid ? Math.max(0, 1 - p) * (i === 0 ? 0.9 : i === 1 ? 0.5 : 0.28) : 0;
+      return {
+        style: "position:absolute;left:" + origin.x + "px;top:" + origin.y + "px;width:" + (rr * 2).toFixed(0) +
+          "px;height:" + (rr * 2).toFixed(0) + "px;border-radius:50%;border:1px solid rgba(184,150,60,.6);" +
+          "transform:translate(-50%,-50%);filter:blur(" + (i ? i * 1.3 : 0.5) + "px);opacity:" + op.toFixed(3) + ";pointer-events:none"
+      };
+    });
+
+    var showDot = this.props.tapDot === true || this.props.tapDot === "true";
+    return {
+      homeStyle: homeStyle,
+      formStyle: formStyle,
+      rings: rings,
+      tapDot: showDot
+        ? "position:absolute;left:" + origin.x + "px;top:" + origin.y + "px;width:74px;height:74px;margin:-37px 0 0 -37px;border-radius:50%;border:1.5px solid rgba(184,150,60,.85);box-shadow:0 0 26px rgba(184,150,60,.4), inset 0 0 22px rgba(184,150,60,.22);z-index:10;pointer-events:none"
+        : false,
+      onFab: function () { if (live) self.run("forward"); },
+      onBack: function () { if (live) self.run("back"); }
+    };
+  }
+}
+
+</script>
+</body>
+</html>

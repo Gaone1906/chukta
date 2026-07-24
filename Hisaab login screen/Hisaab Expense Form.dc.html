@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Hind:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#050203; }
+  a { color:rgba(255,255,255,.55); text-decoration:none; }
+  a:hover { color:#D9B65A; }
+  @keyframes hs-drift { 0%{transform:translate3d(0,0,0) scale(1)} 50%{transform:translate3d(14px,-18px,0) scale(1.06)} 100%{transform:translate3d(0,0,0) scale(1)} }
+  @keyframes hs-drift2 { 0%{transform:translate3d(0,0,0) scale(1.04)} 50%{transform:translate3d(-18px,12px,0) scale(1)} 100%{transform:translate3d(0,0,0) scale(1.04)} }
+  @keyframes hs-rise { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
+  input.hs-f { -webkit-appearance:none; caret-color:#D9B65A; }
+  input.hs-f:focus { outline:none; border-color:rgba(184,150,60,.7) !important; background:rgba(184,150,60,.1) !important; box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 0 0 3px rgba(184,150,60,.12) !important; }
+  input.hs-f::placeholder { color:rgba(255,255,255,.24); font-weight:300; }
+  input.hs-amt { -webkit-appearance:none; caret-color:#D9B65A; }
+  input.hs-amt:focus { outline:none; }
+  input.hs-amt::placeholder { color:rgba(255,255,255,.2); }
+  input.hs-name { -webkit-appearance:none; caret-color:#D9B65A; }
+  input.hs-name:focus { outline:none; border-bottom-color:rgba(184,150,60,.85) !important; }
+  input.hs-name::placeholder { color:rgba(255,255,255,.34); }
+  .hs-scroll::-webkit-scrollbar { width:0; height:0; }
+  .hs-tab[data-on="true"] { border-color:rgba(184,150,60,.75) !important; background:rgba(184,150,60,.2) !important; color:#F6E9CB !important; }
+</style>
+</helmet>
+
+<div style="position:relative;width:390px;height:844px;flex:none;overflow:hidden;border-radius:44px;background:radial-gradient(120% 76% at 50% 14%, #2A1216 0%, #150A0C 46%, #0A0405 100%);box-shadow:0 40px 90px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.06);font-family:'Hind',system-ui,sans-serif">
+
+  <div style="position:absolute;inset:0;overflow:hidden;pointer-events:none">
+    <div style="position:absolute;top:-150px;left:-120px;width:330px;height:330px;border-radius:50%;background:#7A2833;filter:blur(56px);opacity:.5;animation:hs-drift 18s ease-in-out infinite"></div>
+    <div style="position:absolute;top:290px;right:-160px;width:300px;height:300px;border-radius:50%;background:#B8963C;filter:blur(52px);opacity:.24;animation:hs-drift2 22s ease-in-out infinite"></div>
+    <div style="position:absolute;bottom:-180px;left:-90px;width:380px;height:330px;border-radius:50%;background:#7A2833;filter:blur(60px);opacity:.42;animation:hs-drift 26s ease-in-out infinite"></div>
+  </div>
+
+  <div style="position:absolute;top:0;left:0;right:0;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 30px;font:500 14px 'Hind',sans-serif;color:rgba(255,255,255,.9);letter-spacing:.2px;z-index:4">
+    <span>9:41</span>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="display:block;width:17px;height:11px;border-radius:2px;background:rgba(255,255,255,.9)"></span>
+      <span style="display:block;width:15px;height:11px;border-radius:2px;background:rgba(255,255,255,.55)"></span>
+      <span style="display:block;width:24px;height:12px;border-radius:3px;border:1px solid rgba(255,255,255,.5);position:relative"><span style="position:absolute;top:2px;left:2px;bottom:2px;width:14px;border-radius:1.5px;background:rgba(255,255,255,.9)"></span></span>
+    </div>
+  </div>
+
+  <div style="position:relative;z-index:2;height:100%;box-sizing:border-box;padding:66px 22px 0;display:flex;flex-direction:column">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:42px">
+      <button type="button" onClick="{{ onBack }}" aria-label="Back" style="flex:none;display:flex;align-items:center;justify-content:center;width:42px;height:42px;padding:0;border-radius:21px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);backdrop-filter:blur(18px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.16);cursor:pointer;transition:border-color .18s ease, background .18s ease" style-hover="border-color:rgba(184,150,60,.5);background:rgba(255,255,255,.1)" style-active="border-color:rgba(184,150,60,.85);background:rgba(184,150,60,.14)">
+        <svg width="9" height="15" viewBox="0 0 9 15" fill="none"><path d="M7.5 1.5 2 7.5l5.5 6" stroke="rgba(244,237,228,.85)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      </button>
+
+      <div style="display:flex;align-items:center">
+        <sc-for list="{{ avatars }}" as="p" hint-placeholder-count="3">
+          <span style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;margin-left:-11px;border-radius:17px;border:1.5px solid rgba(20,10,12,.9);background:rgba(255,255,255,.12);font:500 12px 'Hind',sans-serif;color:#F4EDE4">{{ p.initials }}</span>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;display:flex;flex-direction:column;gap:4px;min-height:56px">
+      <span style="font:400 10.5px 'Hind',sans-serif;letter-spacing:2.2px;text-transform:uppercase;color:rgba(184,150,60,.75)">{{ eyebrow }}</span>
+
+      <sc-if value="{{ fixedHeading }}" hint-placeholder-val="{{ true }}">
+        <span style="font-family:'Rozha One',serif;font-size:32px;line-height:1.08;color:#F4EDE4;letter-spacing:.3px;text-shadow:0 2px 24px rgba(184,150,60,.16)">{{ heading }}</span>
+      </sc-if>
+
+      <sc-if value="{{ namable }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <input class="hs-name" type="text" aria-label="Group name" placeholder="Name this group" value="{{ groupName }}" onChange="{{ onGroupName }}" style="width:100%;padding:2px 0 4px;border:none;border-bottom:1px solid rgba(184,150,60,.35);background:none;font-family:'Rozha One',serif;font-size:32px;line-height:1.08;color:#F4EDE4;letter-spacing:.3px" />
+          <span style="font:300 12.5px/1.45 'Hind',sans-serif;color:rgba(255,255,255,.42);text-wrap:pretty">{{ nameHelp }}</span>
+        </div>
+      </sc-if>
+    </div>
+
+    <div class="hs-scroll" style="margin-top:16px;flex:1;overflow-y:auto;padding-bottom:120px;display:flex;flex-direction:column;gap:12px">
+
+      <div style="flex:none;position:relative;overflow:hidden;padding:20px 20px 18px;box-sizing:border-box;border-radius:26px;background:rgba(255,255,255,0.05);backdrop-filter:blur(23px) saturate(180%);-webkit-backdrop-filter:blur(23px) saturate(180%);border:1px solid rgba(255,255,255,0.12);box-shadow:0 8px 30px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.22)">
+        <div style="position:absolute;top:0;left:12%;right:12%;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);pointer-events:none"></div>
+        <span style="display:block;font:400 10.5px 'Hind',sans-serif;letter-spacing:2.2px;text-transform:uppercase;color:rgba(255,255,255,.35)">Amount</span>
+        <div style="margin-top:8px;display:flex;align-items:baseline;gap:8px">
+          <span style="font:500 34px 'Hind',sans-serif;color:rgba(184,150,60,.9);letter-spacing:.5px">₹</span>
+          <input class="hs-amt" type="text" inputMode="decimal" aria-label="Amount" placeholder="0" value="{{ amountText }}" onChange="{{ onAmount }}" style="flex:1;min-width:0;border:none;background:none;font:600 46px 'Hind',sans-serif;color:#F4EDE4;letter-spacing:.5px;padding:0" />
+        </div>
+      </div>
+
+      <input class="hs-f" type="text" aria-label="What's this for?" placeholder="What's this for?" value="{{ note }}" onChange="{{ onNote }}" style="flex:none;width:100%;height:54px;box-sizing:border-box;padding:0 17px;border:1px solid rgba(255,255,255,.14);border-radius:20px;background:rgba(255,255,255,.06);backdrop-filter:blur(18px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.16);font:400 16px 'Hind',sans-serif;color:#F4EDE4;transition:border-color .18s ease, background .18s ease, box-shadow .18s ease" />
+
+      <button type="button" onClick="{{ onDate }}" style="flex:none;display:flex;align-items:center;gap:12px;width:100%;height:54px;padding:0 16px;box-sizing:border-box;text-align:left;border:1px solid rgba(255,255,255,.14);border-radius:20px;background:rgba(255,255,255,.06);backdrop-filter:blur(18px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.16);cursor:pointer;transition:border-color .18s ease, background .18s ease" style-hover="border-color:rgba(184,150,60,.45);background:rgba(255,255,255,.09)" style-active="border-color:rgba(184,150,60,.8)">
+        <svg width="17" height="17" viewBox="0 0 18 18" fill="none"><rect x="1.8" y="3.4" width="14.4" height="12.8" rx="3" stroke="rgba(244,237,228,.6)" stroke-width="1.3"></rect><path d="M1.8 7.4h14.4M5.8 1.8v2.6m6.4-2.6v2.6" stroke="rgba(244,237,228,.6)" stroke-width="1.3" stroke-linecap="round"></path></svg>
+        <span style="flex:1;font:300 13px 'Hind',sans-serif;letter-spacing:1.6px;text-transform:uppercase;color:rgba(255,255,255,.35)">Date</span>
+        <span style="font:500 15px 'Hind',sans-serif;color:#F4EDE4">Today, 25 Jul</span>
+        <svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M1.5 1l4 5-4 5" stroke="rgba(255,255,255,.3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      </button>
+
+      <button type="button" onClick="{{ onPayer }}" style="flex:none;display:flex;align-items:center;gap:12px;width:100%;height:54px;padding:0 16px;box-sizing:border-box;text-align:left;border:1px solid rgba(255,255,255,.14);border-radius:20px;background:rgba(255,255,255,.06);backdrop-filter:blur(18px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.16);cursor:pointer;transition:border-color .18s ease, background .18s ease" style-hover="border-color:rgba(184,150,60,.45);background:rgba(255,255,255,.09)" style-active="border-color:rgba(184,150,60,.8)">
+        <svg width="17" height="17" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="6" r="3.4" stroke="rgba(244,237,228,.6)" stroke-width="1.3"></circle><path d="M2.6 16c0-3 2.9-5 6.4-5s6.4 2 6.4 5" stroke="rgba(244,237,228,.6)" stroke-width="1.3" stroke-linecap="round"></path></svg>
+        <span style="flex:1;font:300 13px 'Hind',sans-serif;letter-spacing:1.6px;text-transform:uppercase;color:rgba(255,255,255,.35)">Who paid</span>
+        <span style="font:500 15px 'Hind',sans-serif;color:#F4EDE4">You</span>
+        <svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M1.5 1l4 5-4 5" stroke="rgba(255,255,255,.3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      </button>
+
+      <div style="flex:none;margin-top:2px;min-height:38px;display:flex;gap:7px;overflow-x:auto" class="hs-scroll">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+          <button type="button" class="hs-tab" data-on="{{ t.on }}" onClick="{{ t.onPick }}" style="flex:none;height:38px;padding:0 12px;box-sizing:border-box;border:1px solid rgba(255,255,255,.14);border-radius:19px;background:rgba(255,255,255,.05);backdrop-filter:blur(18px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.14);cursor:pointer;font:500 13px 'Hind',sans-serif;color:rgba(255,255,255,.5);letter-spacing:.1px;white-space:nowrap;transition:border-color .18s ease, background .18s ease, color .18s ease">{{ t.label }}</button>
+        </sc-for>
+      </div>
+
+      <div style="flex:none;position:relative;overflow:hidden;padding:18px 18px 16px;box-sizing:border-box;border-radius:24px;background:rgba(255,255,255,0.05);backdrop-filter:blur(22px) saturate(180%);-webkit-backdrop-filter:blur(22px) saturate(180%);border:1px solid rgba(255,255,255,0.12);box-shadow:inset 0 1px 0 rgba(255,255,255,0.2), 0 6px 20px rgba(0,0,0,.28)">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">
+          <span style="font:400 10.5px 'Hind',sans-serif;letter-spacing:2.2px;text-transform:uppercase;color:rgba(255,255,255,.35)">Split preview</span>
+          <span style="font:300 12px 'Hind',sans-serif;color:rgba(255,255,255,.32)">{{ splitNote }}</span>
+        </div>
+
+        <div style="margin-top:13px;display:flex;flex-direction:column;gap:10px">
+          <sc-for list="{{ shares }}" as="s" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="flex:none;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:17px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.1);font:500 12.5px 'Hind',sans-serif;color:#F4EDE4">{{ s.initials }}</span>
+              <span style="flex:1;font:400 14.5px 'Hind',sans-serif;color:rgba(244,237,228,.86)">{{ s.name }}</span>
+              <span style="font:600 15px 'Hind',sans-serif;color:#F4EDE4;letter-spacing:.2px">{{ s.amount }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="position:absolute;left:0;right:0;bottom:0;height:130px;z-index:3;pointer-events:none;background:linear-gradient(180deg, rgba(10,4,5,0) 0%, rgba(10,4,5,.74) 56%, rgba(10,4,5,.95) 100%)"></div>
+
+  <button type="button" onClick="{{ onSave }}" style="position:absolute;left:22px;right:22px;bottom:40px;z-index:4;display:flex;align-items:center;justify-content:center;height:54px;box-sizing:border-box;border:1px solid rgba(184,150,60,.55);border-radius:27px;background:rgba(184,150,60,.18);backdrop-filter:blur(20px) saturate(175%);box-shadow:inset 0 1px 0 rgba(255,255,255,.22), 0 10px 28px rgba(0,0,0,.5), 0 0 24px rgba(184,150,60,.18);cursor:pointer;transition:transform .16s ease, background .18s ease, border-color .18s ease" style-hover="background:rgba(184,150,60,.26);border-color:rgba(184,150,60,.85)" style-active="transform:scale(.985);background:rgba(184,150,60,.34)">
+    <span style="font:600 16px 'Hind',sans-serif;color:#F6E9CB;letter-spacing:.3px">Save expense</span>
+  </button>
+
+  <div style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:4;width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.3)"></div>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:22px;right:22px;top:112px;z-index:6;padding:13px 16px;border-radius:16px;text-align:center;font:400 13.5px 'Hind',sans-serif;color:#F4EDE4;background:rgba(255,255,255,.07);backdrop-filter:blur(22px) saturate(180%);border:1px solid rgba(184,150,60,.35);box-shadow:0 8px 30px rgba(0,0,0,.5);animation:hs-rise 320ms ease both">{{ toast }}</div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;eyebrow&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;New expense&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;heading&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Who's paying what&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;namable&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;amount&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:2400,&quot;min&quot;:0,&quot;max&quot;:100000,&quot;tsType&quot;:&quot;number&quot;},&quot;participants&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;{initials:string,name:string}[]&quot;}}">
+var TYPES = ["Equal", "Exact", "Percentage", "Shares", "Itemized"];
+
+class Component extends DCLogic {
+  state = { amount: null, note: "", type: "Equal", groupName: "", toast: null };
+
+  ping(msg) {
+    clearTimeout(this._t);
+    this.setState({ toast: msg });
+    this._t = setTimeout(function () { this.setState({ toast: null }); }.bind(this), 2000);
+  }
+
+  componentWillUnmount() { clearTimeout(this._t); }
+
+  people() {
+    var p = this.props.participants;
+    if (p && p.length) return p;
+    return [{ initials: "You", name: "You" }, { initials: "PS", name: "Priya" }, { initials: "AV", name: "Arjun" }];
+  }
+
+  weights(n, type) {
+    var w = [], i;
+    if (type === "Shares") { for (i = 0; i < n; i++) w.push(i === 0 ? 2 : 1); return w; }
+    if (type === "Percentage") { for (i = 0; i < n; i++) w.push(i === 0 ? 40 : 60 / (n - 1 || 1)); return w; }
+    if (type === "Exact") { for (i = 0; i < n; i++) w.push(i === 0 ? 1.4 : 1); return w; }
+    if (type === "Itemized") { for (i = 0; i < n; i++) w.push(i % 2 === 0 ? 1.25 : 0.75); return w; }
+    for (i = 0; i < n; i++) w.push(1);
+    return w;
+  }
+
+  renderVals() {
+    var self = this;
+    var people = this.people();
+    var type = this.state.type;
+    var amount = this.state.amount === null ? (this.props.amount || 2400) : Number(this.state.amount) || 0;
+    var w = this.weights(people.length, type);
+    var total = w.reduce(function (a, b) { return a + b; }, 0);
+
+    var notes = {
+      Equal: "Split evenly",
+      Exact: "Enter exact amounts",
+      Percentage: "By percentage",
+      Shares: "By shares",
+      Itemized: "Per item"
+    };
+
+    return {
+      eyebrow: this.props.eyebrow || "New expense",
+      heading: this.props.heading || "Who's paying what",
+      namable: !!this.props.namable,
+      fixedHeading: !this.props.namable,
+      groupName: this.state.groupName,
+      nameHelp: this.state.groupName.trim()
+        ? "Saved as a group — you can add more expenses to it later."
+        : "Leave blank and this stays a one-time expense between these people.",
+      avatars: people,
+      amountText: amount ? String(amount) : "",
+      note: this.state.note,
+      splitNote: notes[type] + " · " + people.length + " people",
+      tabs: TYPES.map(function (t) {
+        return { label: t, on: t === type ? "true" : "false", onPick: function () { self.setState({ type: t }); } };
+      }),
+      shares: people.map(function (p, i) {
+        var v = total ? amount * w[i] / total : 0;
+        return {
+          initials: p.initials,
+          name: p.name || p.initials,
+          amount: "₹" + Math.round(v).toLocaleString("en-IN")
+        };
+      }),
+      toast: this.state.toast,
+      onAmount: function (e) { self.setState({ amount: e.target.value.replace(/[^0-9.]/g, "") }); },
+      onNote: function (e) { self.setState({ note: e.target.value }); },
+      onGroupName: function (e) { self.setState({ groupName: e.target.value }); },
+      onDate: function () { self.ping("Date picker — demo only."); },
+      onPayer: function () { self.ping("Who paid — demo only."); },
+      onBack: function () { self.ping("Back — demo only."); },
+      onSave: function () {
+        var g = self.state.groupName.trim();
+        self.ping(self.props.namable && g ? "Saved to new group \u201c" + g + "\u201d — demo only." : "Expense saved — demo only.");
+      }
+    };
+  }
+}
+
+</script>
+</body>
+</html>

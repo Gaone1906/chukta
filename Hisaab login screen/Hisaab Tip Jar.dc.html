@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Hind:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#050203; }
+  a { color:rgba(255,255,255,.55); text-decoration:none; }
+  a:hover { color:#D9B65A; }
+  @keyframes hs-drift { 0%{transform:translate3d(0,0,0) scale(1)} 50%{transform:translate3d(14px,-18px,0) scale(1.06)} 100%{transform:translate3d(0,0,0) scale(1)} }
+  @keyframes hs-drift2 { 0%{transform:translate3d(0,0,0) scale(1.04)} 50%{transform:translate3d(-18px,12px,0) scale(1)} 100%{transform:translate3d(0,0,0) scale(1.04)} }
+  @keyframes hs-rise { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
+  input.hs-custom { -webkit-appearance:none; caret-color:#D9B65A; }
+  input.hs-custom:focus { outline:none; }
+  input.hs-custom::placeholder { color:rgba(255,255,255,.26); font-weight:300; }
+  .hs-cwrap:focus-within { border-color:rgba(184,150,60,.7) !important; background:rgba(184,150,60,.1) !important; box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 0 0 3px rgba(184,150,60,.12) !important; }
+  .hs-preset[data-on="true"] { border-color:rgba(184,150,60,.8) !important; background:rgba(184,150,60,.22) !important; color:#F6E9CB !important; }
+  .hs-scroll::-webkit-scrollbar { width:0; height:0; }
+</style>
+</helmet>
+
+<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#050203;padding:40px 24px;box-sizing:border-box;font-family:'Hind',system-ui,sans-serif">
+
+  <div style="position:relative;width:390px;height:844px;flex:none;overflow:hidden;border-radius:44px;background:#0A0405;box-shadow:0 40px 90px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.06)">
+
+    <div style="position:absolute;inset:0;border-radius:44px;overflow:hidden;background:radial-gradient(120% 76% at 45% 22%, #241014 0%, #120809 55%, #0A0405 100%);filter:blur(3px) saturate(.7)">
+      <div style="position:absolute;top:150px;left:26px;right:120px;height:52px;border-radius:18px;border:1px solid rgba(184,150,60,.16);background:rgba(184,150,60,.08)"></div>
+      <div style="position:absolute;top:222px;left:26px;right:26px;height:46px;border-radius:18px;border:1px solid rgba(255,255,255,.05);background:rgba(255,255,255,.03)"></div>
+      <div style="position:absolute;top:284px;left:26px;right:26px;height:46px;border-radius:18px;border:1px solid rgba(255,255,255,.05);background:rgba(255,255,255,.03)"></div>
+    </div>
+
+    <div style="{{ sheetStyle }}">
+      <div style="position:absolute;inset:0;overflow:hidden;border-radius:44px;background:radial-gradient(120% 76% at 50% 18%, #2A1216 0%, #150A0C 46%, #0A0405 100%)">
+        <div style="position:absolute;top:-140px;left:-120px;width:330px;height:330px;border-radius:50%;background:#7A2833;filter:blur(56px);opacity:.5;animation:hs-drift 18s ease-in-out infinite"></div>
+        <div style="position:absolute;top:250px;right:-150px;width:310px;height:310px;border-radius:50%;background:#B8963C;filter:blur(52px);opacity:.3;animation:hs-drift2 22s ease-in-out infinite"></div>
+        <div style="position:absolute;bottom:-180px;left:-90px;width:380px;height:330px;border-radius:50%;background:#7A2833;filter:blur(60px);opacity:.42;animation:hs-drift 26s ease-in-out infinite"></div>
+      </div>
+
+      <div style="position:absolute;top:0;left:0;right:0;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 30px;font:500 14px 'Hind',sans-serif;color:rgba(255,255,255,.9);z-index:4">
+        <span>9:41</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="display:block;width:17px;height:11px;border-radius:2px;background:rgba(255,255,255,.9)"></span>
+          <span style="display:block;width:15px;height:11px;border-radius:2px;background:rgba(255,255,255,.55)"></span>
+          <span style="display:block;width:24px;height:12px;border-radius:3px;border:1px solid rgba(255,255,255,.5);position:relative"><span style="position:absolute;top:2px;left:2px;bottom:2px;width:14px;border-radius:1.5px;background:rgba(255,255,255,.9)"></span></span>
+        </div>
+      </div>
+
+      <div style="position:relative;z-index:2;height:100%;box-sizing:border-box;padding:66px 22px 0;display:flex;flex-direction:column">
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <button type="button" onClick="{{ onBack }}" aria-label="Back" style="flex:none;display:flex;align-items:center;justify-content:center;width:42px;height:42px;padding:0;border-radius:21px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);backdrop-filter:blur(18px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.16);cursor:pointer;transition:transform .16s ease, border-color .18s ease, background .18s ease" style-hover="border-color:rgba(184,150,60,.5);background:rgba(255,255,255,.1)" style-active="transform:scale(.94);border-color:rgba(184,150,60,.85)">
+            <svg width="9" height="15" viewBox="0 0 9 15" fill="none"><path d="M7.5 1.5 2 7.5l5.5 6" stroke="rgba(244,237,228,.85)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          </button>
+
+          <x-import component-from-global-scope="hisaab-mark" from="./assets/hisaab-mark.js" width="104" hint-size="104px,34px" style="display:block;opacity:0.88"></x-import>
+        </div>
+
+        <div class="hs-scroll" style="margin-top:22px;flex:1;overflow-y:auto;padding-bottom:36px;display:flex;flex-direction:column">
+
+          <span style="font-family:'Rozha One',serif;font-size:38px;line-height:1.08;color:#F4EDE4;letter-spacing:.4px;text-shadow:0 2px 24px rgba(184,150,60,.18);text-wrap:pretty">Made free, on purpose.</span>
+
+          <span style="margin-top:12px;font:300 14.5px/1.6 'Hind',sans-serif;color:rgba(255,255,255,.5);text-wrap:pretty">One developer, tired of ad-filled apps charging for basic features, built Hisaab to stay free forever — funded only by people who genuinely enjoy using it. A tip is entirely optional, but we'd really appreciate it. Can't spare one? Rating it, or sharing it with a friend, helps just as much.</span>
+
+          <div style="margin-top:22px;padding:20px 18px 18px;box-sizing:border-box;position:relative;overflow:hidden;border-radius:26px;background:rgba(255,255,255,0.05);backdrop-filter:blur(23px) saturate(180%);-webkit-backdrop-filter:blur(23px) saturate(180%);border:1px solid rgba(255,255,255,0.12);box-shadow:0 8px 30px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.22)">
+            <div style="position:absolute;top:0;left:12%;right:12%;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);pointer-events:none"></div>
+
+            <span style="display:block;font:400 10.5px 'Hind',sans-serif;letter-spacing:2.2px;text-transform:uppercase;color:rgba(255,255,255,.35)">Leave a tip</span>
+
+            <div style="margin-top:13px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+              <sc-for list="{{ presets }}" as="t" hint-placeholder-count="3">
+                <button type="button" class="hs-preset" data-on="{{ t.on }}" onClick="{{ t.onPick }}" style="display:flex;align-items:center;justify-content:center;height:50px;box-sizing:border-box;border:1px solid rgba(255,255,255,.14);border-radius:20px;background:rgba(255,255,255,.06);backdrop-filter:blur(18px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.16);cursor:pointer;font:600 18px 'Hind',sans-serif;color:rgba(244,237,228,.82);letter-spacing:.2px;transition:transform .16s ease, border-color .18s ease, background .18s ease, color .18s ease" style-hover="border-color:rgba(184,150,60,.5)" style-active="transform:scale(.97)">{{ t.label }}</button>
+              </sc-for>
+            </div>
+
+            <div class="hs-cwrap" style="margin-top:10px;display:flex;align-items:center;gap:9px;height:50px;padding:0 16px;box-sizing:border-box;border:1px solid rgba(255,255,255,.14);border-radius:20px;background:rgba(255,255,255,.06);backdrop-filter:blur(18px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.16);transition:border-color .18s ease, background .18s ease, box-shadow .18s ease">
+              <span style="font:500 17px 'Hind',sans-serif;color:rgba(184,150,60,.85)">₹</span>
+              <input class="hs-custom" type="text" inputMode="numeric" aria-label="Custom amount" placeholder="Custom amount" value="{{ custom }}" onChange="{{ onCustom }}" style="flex:1;min-width:0;border:none;background:none;font:500 16px 'Hind',sans-serif;color:#F4EDE4" />
+            </div>
+
+            <button type="button" onClick="{{ onSend }}" style="margin-top:14px;display:flex;align-items:center;justify-content:center;gap:9px;width:100%;height:54px;box-sizing:border-box;border:1px solid rgba(184,150,60,.6);border-radius:27px;background:rgba(184,150,60,.2);backdrop-filter:blur(20px) saturate(175%);box-shadow:inset 0 1px 0 rgba(255,255,255,.24), 0 8px 24px rgba(184,150,60,.18);cursor:pointer;transition:transform .16s ease, background .18s ease, border-color .18s ease" style-hover="background:rgba(184,150,60,.28);border-color:rgba(184,150,60,.9)" style-active="transform:scale(.985);background:rgba(184,150,60,.38)">
+              <svg width="18" height="17" viewBox="0 0 19 18" fill="none"><path d="M9.5 16S1.8 11.6 1.8 6.6A4.3 4.3 0 0 1 9.5 4a4.3 4.3 0 0 1 7.7 2.6C17.2 11.6 9.5 16 9.5 16Z" stroke="#F6E9CB" stroke-width="1.5" stroke-linejoin="round"></path></svg>
+              <span style="font:600 16px 'Hind',sans-serif;color:#F6E9CB;letter-spacing:.3px">{{ sendLabel }}</span>
+            </button>
+          </div>
+
+          <div style="margin-top:20px;display:flex;flex-direction:column;align-items:center;gap:10px">
+            <button type="button" onClick="{{ onRate }}" style="display:flex;align-items:center;justify-content:center;gap:9px;height:44px;padding:0 20px;box-sizing:border-box;border:1px solid rgba(184,150,60,.4);border-radius:22px;background:rgba(184,150,60,.1);backdrop-filter:blur(18px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.14);cursor:pointer;transition:transform .16s ease, border-color .18s ease, background .18s ease" style-hover="border-color:rgba(184,150,60,.7);background:rgba(184,150,60,.18)" style-active="transform:scale(.97);background:rgba(184,150,60,.26)">
+              <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M9 1.8l2.2 4.5 5 .7-3.6 3.5.85 4.95L9 13.1l-4.45 2.3.85-4.95L1.8 7l5-.7L9 1.8Z" stroke="#D9B65A" stroke-width="1.3" stroke-linejoin="round"></path></svg>
+              <span style="font:500 14.5px 'Hind',sans-serif;color:rgba(246,233,203,.9);letter-spacing:.1px">Rate Hisaab</span>
+            </button>
+
+            <button type="button" onClick="{{ onShare }}" style="display:flex;align-items:center;justify-content:center;gap:9px;height:44px;padding:0 20px;box-sizing:border-box;border:1px solid rgba(255,255,255,.14);border-radius:22px;background:rgba(255,255,255,.05);backdrop-filter:blur(18px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.14);cursor:pointer;transition:transform .16s ease, border-color .18s ease, background .18s ease, color .18s ease" style-hover="border-color:rgba(184,150,60,.45);background:rgba(255,255,255,.08)" style-active="transform:scale(.97)">
+              <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><circle cx="13.4" cy="3.6" r="2.4" stroke="rgba(244,237,228,.7)" stroke-width="1.3"></circle><circle cx="4.6" cy="9" r="2.4" stroke="rgba(244,237,228,.7)" stroke-width="1.3"></circle><circle cx="13.4" cy="14.4" r="2.4" stroke="rgba(244,237,228,.7)" stroke-width="1.3"></circle><path d="M11.3 4.9 6.7 7.7m0 2.6 4.6 2.8" stroke="rgba(244,237,228,.7)" stroke-width="1.3" stroke-linecap="round"></path></svg>
+              <span style="font:400 14.5px 'Hind',sans-serif;color:rgba(244,237,228,.78);letter-spacing:.1px">Share Hisaab instead</span>
+            </button>
+
+            <span style="font:300 11px 'Hind',sans-serif;letter-spacing:1.6px;text-transform:uppercase;color:rgba(255,255,255,.24)">One-time only, no subscription</span>
+          </div>
+        </div>
+
+        <div style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.3)"></div>
+      </div>
+    </div>
+
+    <div style="position:absolute;inset:0;z-index:9;pointer-events:none;overflow:hidden;border-radius:44px">
+      <sc-for list="{{ rings }}" as="r" hint-placeholder-count="3">
+        <div style="{{ r.style }}"></div>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:22px;right:22px;top:112px;z-index:10;padding:13px 16px;border-radius:16px;text-align:center;font:400 13.5px 'Hind',sans-serif;color:#F4EDE4;background:rgba(255,255,255,.07);backdrop-filter:blur(22px) saturate(180%);border:1px solid rgba(184,150,60,.35);box-shadow:0 8px 30px rgba(0,0,0,.5);animation:hs-rise 320ms ease both">{{ toast }}</div>
+    </sc-if>
+  </div>
+
+  <button type="button" onClick="{{ onReplay }}" style="padding:9px 16px;border:1px solid rgba(255,255,255,.14);border-radius:20px;background:rgba(255,255,255,.05);cursor:pointer;font:400 10.5px 'Hind',sans-serif;letter-spacing:2.2px;text-transform:uppercase;color:rgba(255,255,255,.4);transition:color .18s ease, border-color .18s ease" style-hover="color:#D9B65A;border-color:rgba(184,150,60,.5)">Replay the ripple</button>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:940}}">
+var W = 390, H = 844;
+var IN_ORIGIN = { x: 60, y: 268 };    // the Tip jar row in the sidebar
+var BACK_ORIGIN = { x: 45, y: 87 };
+var EASE = function (t) { return 1 - Math.pow(1 - t, 2.6); };
+var PRESETS = [99, 199, 499];
+
+function rMaxFrom(o) {
+  return Math.max(
+    Math.hypot(o.x, o.y), Math.hypot(W - o.x, o.y),
+    Math.hypot(o.x, H - o.y), Math.hypot(W - o.x, H - o.y)
+  );
+}
+
+class Component extends DCLogic {
+  state = { p: 0, origin: IN_ORIGIN, closing: false, pick: 199, custom: "", toast: null };
+
+  componentDidMount() { this.open(); }
+  componentWillUnmount() { cancelAnimationFrame(this._raf); clearTimeout(this._t); clearTimeout(this._t2); }
+
+  animate(from, to, origin, closing, done) {
+    cancelAnimationFrame(this._raf);
+    var self = this, t0 = performance.now(), dur = 950;
+    this.setState({ origin: origin, closing: closing });
+    var step = function (now) {
+      var t = Math.min(1, (now - t0) / dur);
+      self.setState({ p: from + (to - from) * t });
+      if (t < 1) self._raf = requestAnimationFrame(step);
+      else if (done) done();
+    };
+    this._raf = requestAnimationFrame(step);
+  }
+
+  open() { this.animate(0, 1, IN_ORIGIN, false); }
+
+  close() {
+    var self = this;
+    this.animate(1, 0, BACK_ORIGIN, true, function () {
+      self._t2 = setTimeout(function () { self.open(); }, 420);
+    });
+  }
+
+  ping(msg) {
+    clearTimeout(this._t);
+    this.setState({ toast: msg });
+    this._t = setTimeout(function () { this.setState({ toast: null }); }.bind(this), 2400);
+  }
+
+  amount() {
+    var c = Number(String(this.state.custom).replace(/[^0-9]/g, ""));
+    return c > 0 ? c : this.state.pick;
+  }
+
+  renderVals() {
+    var self = this;
+    var p = this.state.p, o = this.state.origin, rMax = rMaxFrom(o);
+    var eased = this.state.closing ? p : EASE(p);
+    var r = eased * rMax;
+    var mid = p > 0.01 && p < 0.99;
+    var customActive = Number(String(this.state.custom).replace(/[^0-9]/g, "")) > 0;
+    var amt = this.amount();
+
+    return {
+      sheetStyle: "position:absolute;inset:0;z-index:3;overflow:hidden;border-radius:44px;" +
+        "clip-path:circle(" + r.toFixed(1) + "px at " + o.x + "px " + o.y + "px);" +
+        "-webkit-clip-path:circle(" + r.toFixed(1) + "px at " + o.x + "px " + o.y + "px);",
+      rings: [0, 1, 2].map(function (i) {
+        var rr = Math.max(0, r - i * rMax * 0.085);
+        var op = mid ? Math.min(1, (1 - Math.abs(0.5 - p) * 1.2)) * (i === 0 ? 0.85 : i === 1 ? 0.48 : 0.26) : 0;
+        return {
+          style: "position:absolute;left:" + o.x + "px;top:" + o.y + "px;width:" + (rr * 2).toFixed(0) + "px;height:" +
+            (rr * 2).toFixed(0) + "px;border-radius:50%;border:1px solid rgba(184,150,60,.6);transform:translate(-50%,-50%);" +
+            "filter:blur(" + (i ? i * 1.3 : 0.5) + "px);opacity:" + op.toFixed(3) + ";pointer-events:none"
+        };
+      }),
+      presets: PRESETS.map(function (v) {
+        return {
+          label: "₹" + v,
+          on: !customActive && self.state.pick === v ? "true" : "false",
+          onPick: function () { self.setState({ pick: v, custom: "" }); }
+        };
+      }),
+      custom: this.state.custom,
+      sendLabel: "Send ₹" + amt.toLocaleString("en-IN"),
+      toast: this.state.toast,
+      onCustom: function (e) { self.setState({ custom: e.target.value.replace(/[^0-9]/g, "") }); },
+      onSend: function () { self.ping("Thank you, genuinely — ₹" + self.amount().toLocaleString("en-IN") + " received."); },
+      onShare: function () { self.ping("Share sheet — a link to install Hisaab."); },
+      onRate: function () { self.ping("Opening the App Store rating sheet — demo only."); },
+      onBack: function () { self.close(); },
+      onReplay: function () { self.close(); }
+    };
+  }
+}
+
+</script>
+</body>
+</html>

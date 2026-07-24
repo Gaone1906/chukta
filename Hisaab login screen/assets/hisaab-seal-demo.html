@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hisaab seal — animation asset</title>
+<link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Hind:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="hisaab-seal.js"></script>
+<style>
+  body { margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:44px; padding:60px 24px; box-sizing:border-box;
+         background:radial-gradient(120% 78% at 50% 40%, #2A1216 0%, #150A0C 46%, #0A0405 100%); font-family:Hind, system-ui, sans-serif; }
+  .row { display:flex; align-items:flex-start; gap:56px; flex-wrap:wrap; justify-content:center; }
+  .cell { display:flex; flex-direction:column; align-items:center; gap:14px; }
+  .tag { font:400 10.5px Hind, sans-serif; letter-spacing:2.4px; text-transform:uppercase; color:rgba(255,255,255,.3); }
+  button { padding:11px 20px; border:1px solid rgba(184,150,60,.55); border-radius:24px; background:rgba(184,150,60,.16);
+           font:600 14px Hind, sans-serif; color:#F6E9CB; letter-spacing:.3px; cursor:pointer; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="cell"><hisaab-seal id="live" size="158" delay="1500"></hisaab-seal><span class="tag">animate</span></div>
+    <div class="cell"><hisaab-seal size="158" state="loading"></hisaab-seal><span class="tag">loading</span></div>
+    <div class="cell"><hisaab-seal size="158" state="settled" label=""></hisaab-seal><span class="tag">settled</span></div>
+  </div>
+  <button onclick="document.getElementById('live').play()">Replay</button>
+</body>
+</html>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Hind:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="./assets/image-slot.js"></script>
+<style>
+  body { margin:0; background:#050203; }
+  a { color:rgba(255,255,255,.55); text-decoration:none; }
+  a:hover { color:#D9B65A; }
+  @keyframes hs-drift { 0%{transform:translate3d(0,0,0) scale(1)} 50%{transform:translate3d(14px,-18px,0) scale(1.06)} 100%{transform:translate3d(0,0,0) scale(1)} }
+  @keyframes hs-drift2 { 0%{transform:translate3d(0,0,0) scale(1.04)} 50%{transform:translate3d(-18px,12px,0) scale(1)} 100%{transform:translate3d(0,0,0) scale(1.04)} }
+  @keyframes hs-rise { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
+  input.hs-amt { -webkit-appearance:none; caret-color:#F6DADE; }
+  input.hs-amt:focus { outline:none; }
+  .hs-amtwrap:focus-within { border-color:rgba(184,150,60,.85) !important; box-shadow:0 0 0 3px rgba(184,150,60,.14) !important; }
+</style>
+</helmet>
+
+<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#050203;padding:40px 24px;box-sizing:border-box;font-family:'Hind',system-ui,sans-serif">
+
+  <div style="position:relative;width:390px;height:844px;flex:none;overflow:hidden;border-radius:44px;background:#0A0405;box-shadow:0 40px 90px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.06)">
+
+    <div style="position:absolute;inset:0;border-radius:44px;overflow:hidden;background:radial-gradient(120% 76% at 60% 30%, #241014 0%, #120809 55%, #0A0405 100%);filter:blur(3px) saturate(.7)">
+      <div style="position:absolute;top:180px;left:26px;right:26px;height:120px;border-radius:26px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.03)"></div>
+      <div style="position:absolute;top:330px;left:26px;right:26px;height:76px;border-radius:22px;border:1px solid rgba(255,255,255,.05);background:rgba(255,255,255,.03)"></div>
+      <div style="position:absolute;top:420px;left:26px;right:26px;height:76px;border-radius:22px;border:1px solid rgba(255,255,255,.05);background:rgba(255,255,255,.03)"></div>
+    </div>
+
+    <div style="{{ sheetStyle }}">
+      <div style="position:absolute;inset:0;overflow:hidden;border-radius:44px;background:radial-gradient(120% 76% at 50% 16%, #2A1216 0%, #150A0C 46%, #0A0405 100%)">
+        <div style="position:absolute;top:-150px;left:-120px;width:330px;height:330px;border-radius:50%;background:#7A2833;filter:blur(56px);opacity:.5;animation:hs-drift 18s ease-in-out infinite"></div>
+        <div style="position:absolute;top:300px;right:-160px;width:300px;height:300px;border-radius:50%;background:#B8963C;filter:blur(52px);opacity:.24;animation:hs-drift2 22s ease-in-out infinite"></div>
+        <div style="position:absolute;bottom:-180px;left:-90px;width:380px;height:330px;border-radius:50%;background:#7A2833;filter:blur(60px);opacity:.42;animation:hs-drift 26s ease-in-out infinite"></div>
+      </div>
+
+      <div style="position:absolute;top:0;left:0;right:0;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 30px;font:500 14px 'Hind',sans-serif;color:rgba(255,255,255,.9);z-index:4">
+        <span>9:41</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="display:block;width:17px;height:11px;border-radius:2px;background:rgba(255,255,255,.9)"></span>
+          <span style="display:block;width:15px;height:11px;border-radius:2px;background:rgba(255,255,255,.55)"></span>
+          <span style="display:block;width:24px;height:12px;border-radius:3px;border:1px solid rgba(255,255,255,.5);position:relative"><span style="position:absolute;top:2px;left:2px;bottom:2px;width:14px;border-radius:1.5px;background:rgba(255,255,255,.9)"></span></span>
+        </div>
+      </div>
+
+      <div style="position:relative;z-index:2;height:100%;box-sizing:border-box;padding:66px 22px 0;display:flex;flex-direction:column">
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <button type="button" onClick="{{ onBack }}" aria-label="Back" style="flex:none;display:flex;align-items:center;justify-content:center;width:42px;height:42px;padding:0;border-radius:21px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);backdrop-filter:blur(18px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.16);cursor:pointer;transition:transform .16s ease, border-color .18s ease, background .18s ease" style-hover="border-color:rgba(184,150,60,.5);background:rgba(255,255,255,.1)" style-active="transform:scale(.94);border-color:rgba(184,150,60,.85)">
+          <svg width="9" height="15" viewBox="0 0 9 15" fill="none"><path d="M7.5 1.5 2 7.5l5.5 6" stroke="rgba(244,237,228,.85)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+        </button>
+
+          <span style="flex:none;display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:24px;overflow:hidden;border:1px solid rgba(184,150,60,.45);background:rgba(122,40,51,.45);box-shadow:inset 0 1px 0 rgba(255,255,255,.18);font:500 17px 'Hind',sans-serif;color:#F4EDE4;letter-spacing:.4px">PS</span>
+        </div>
+
+        <div style="margin-top:16px;font-family:'Rozha One',serif;font-size:38px;line-height:1.06;color:#F4EDE4;letter-spacing:.4px;text-shadow:0 2px 24px rgba(184,150,60,.16);max-width:300px;text-wrap:pretty">Settle up with Priya</div>
+
+        <div style="margin-top:18px;padding:22px 20px 20px;box-sizing:border-box;position:relative;overflow:hidden;border-radius:26px;background:rgba(255,255,255,0.05);backdrop-filter:blur(23px) saturate(180%);-webkit-backdrop-filter:blur(23px) saturate(180%);border:1px solid rgba(255,255,255,0.12);box-shadow:0 8px 30px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.22)">
+          <div style="position:absolute;top:0;left:12%;right:12%;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);pointer-events:none"></div>
+          <span style="display:block;font:400 10.5px 'Hind',sans-serif;letter-spacing:2.2px;text-transform:uppercase;color:rgba(255,255,255,.35)">You owe</span>
+          <div style="margin-top:9px;display:flex;align-items:center;gap:9px;padding:7px 15px;box-sizing:border-box;border-radius:17px;border:1px solid rgba(122,40,51,.85);background:rgba(122,40,51,.45);transition:border-color .18s ease" class="hs-amtwrap">
+            <span style="font:600 32px 'Hind',sans-serif;color:rgba(246,218,222,.7)">₹</span>
+            <input class="hs-amt" type="text" inputMode="decimal" aria-label="Amount to pay" value="{{ amount }}" onChange="{{ onAmount }}" style="flex:1;min-width:0;border:none;background:none;padding:0;font:600 32px 'Hind',sans-serif;color:#F6DADE;letter-spacing:.2px" />
+          </div>
+          <span style="display:block;margin-top:13px;font:300 13px 'Hind',sans-serif;color:rgba(255,255,255,.42)">Across 3 shared groups · Weekend trip, Flat 302, Sunday football</span>
+        </div>
+
+        <div style="margin-top:24px;display:flex;flex-direction:column;gap:12px">
+          <span style="font:400 10.5px 'Hind',sans-serif;letter-spacing:2.2px;text-transform:uppercase;color:rgba(255,255,255,.35)">Pay via</span>
+
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:11px">
+            <button type="button" onClick="{{ onPay }}" style="display:flex;flex-direction:column;align-items:center;gap:9px;padding:14px 6px 12px;box-sizing:border-box;border:1px solid rgba(255,255,255,.13);border-radius:22px;background:rgba(255,255,255,.05);backdrop-filter:blur(20px) saturate(175%);box-shadow:inset 0 1px 0 rgba(255,255,255,.18);cursor:pointer;transition:transform .16s ease, border-color .18s ease, background .18s ease" style-hover="border-color:rgba(184,150,60,.5);background:rgba(255,255,255,.09)" style-active="transform:scale(.96);border-color:rgba(184,150,60,.85);background:rgba(184,150,60,.14)">
+              <image-slot id="upi-gpay" style="width:42px;height:42px" shape="rounded" radius="12" fit="contain" placeholder="GPay icon"></image-slot>
+              <span style="font:400 11.5px 'Hind',sans-serif;color:rgba(244,237,228,.8);letter-spacing:.2px">GPay</span>
+            </button>
+            <button type="button" onClick="{{ onPay }}" style="display:flex;flex-direction:column;align-items:center;gap:9px;padding:14px 6px 12px;box-sizing:border-box;border:1px solid rgba(255,255,255,.13);border-radius:22px;background:rgba(255,255,255,.05);backdrop-filter:blur(20px) saturate(175%);box-shadow:inset 0 1px 0 rgba(255,255,255,.18);cursor:pointer;transition:transform .16s ease, border-color .18s ease, background .18s ease" style-hover="border-color:rgba(184,150,60,.5);background:rgba(255,255,255,.09)" style-active="transform:scale(.96);border-color:rgba(184,150,60,.85);background:rgba(184,150,60,.14)">
+              <image-slot id="upi-phonepe" style="width:42px;height:42px" shape="rounded" radius="12" fit="contain" placeholder="PhonePe icon"></image-slot>
+              <span style="font:400 11.5px 'Hind',sans-serif;color:rgba(244,237,228,.8);letter-spacing:.2px">PhonePe</span>
+            </button>
+            <button type="button" onClick="{{ onPay }}" style="display:flex;flex-direction:column;align-items:center;gap:9px;padding:14px 6px 12px;box-sizing:border-box;border:1px solid rgba(255,255,255,.13);border-radius:22px;background:rgba(255,255,255,.05);backdrop-filter:blur(20px) saturate(175%);box-shadow:inset 0 1px 0 rgba(255,255,255,.18);cursor:pointer;transition:transform .16s ease, border-color .18s ease, background .18s ease" style-hover="border-color:rgba(184,150,60,.5);background:rgba(255,255,255,.09)" style-active="transform:scale(.96);border-color:rgba(184,150,60,.85);background:rgba(184,150,60,.14)">
+              <image-slot id="upi-paytm" style="width:42px;height:42px" shape="rounded" radius="12" fit="contain" placeholder="Paytm icon"></image-slot>
+              <span style="font:400 11.5px 'Hind',sans-serif;color:rgba(244,237,228,.8);letter-spacing:.2px">Paytm</span>
+            </button>
+          </div>
+
+          <span style="font:300 12.5px 'Hind',sans-serif;color:rgba(255,255,255,.32)">Opens the app with this amount and Priya's UPI ID pre-filled.</span>
+        </div>
+
+        <div style="flex:1"></div>
+
+        <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding-bottom:34px">
+          <div style="width:100%;height:1px;background:rgba(255,255,255,.09)"></div>
+
+          <button type="button" onClick="{{ onManual }}" style="display:flex;align-items:center;gap:9px;padding:10px 4px;border:none;background:none;cursor:pointer;transition:color .18s ease" style-hover="color:#E4C878">
+            <svg width="15" height="12" viewBox="0 0 14 11" fill="none"><path d="M1.4 5.6l3.6 3.6L12.6 1.6" stroke="#D9B65A" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+            <span style="font:500 14.5px 'Hind',sans-serif;color:#D9B65A;border-bottom:1px solid rgba(184,150,60,.4);letter-spacing:.1px">Mark as settled instead</span>
+          </button>
+
+          <span style="max-width:290px;text-align:center;text-wrap:pretty;font:300 12px/1.5 'Hind',sans-serif;color:rgba(255,255,255,.3)">We'll mark this settled once you confirm the payment went through — nobody here can check your bank.</span>
+        </div>
+
+        <div style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.3)"></div>
+      </div>
+    </div>
+
+    <div style="position:absolute;inset:0;z-index:9;pointer-events:none;overflow:hidden;border-radius:44px">
+      <sc-for list="{{ rings }}" as="r" hint-placeholder-count="3">
+        <div style="{{ r.style }}"></div>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:22px;right:22px;top:112px;z-index:10;padding:13px 16px;border-radius:16px;text-align:center;font:400 13.5px 'Hind',sans-serif;color:#F4EDE4;background:rgba(255,255,255,.07);backdrop-filter:blur(22px) saturate(180%);border:1px solid rgba(184,150,60,.35);box-shadow:0 8px 30px rgba(0,0,0,.5);animation:hs-rise 320ms ease both">{{ toast }}</div>
+    </sc-if>
+  </div>
+
+  <button type="button" onClick="{{ onReplay }}" style="padding:9px 16px;border:1px solid rgba(255,255,255,.14);border-radius:20px;background:rgba(255,255,255,.05);cursor:pointer;font:400 10.5px 'Hind',sans-serif;letter-spacing:2.2px;text-transform:uppercase;color:rgba(255,255,255,.4);transition:color .18s ease, border-color .18s ease" style-hover="color:#D9B65A;border-color:rgba(184,150,60,.5)">Replay the ripple</button>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:940}}">
+var W = 390, H = 844;
+var IN_ORIGIN = { x: 300, y: 300 };   // the "Settle up" button on the previous screen
+var BACK_ORIGIN = { x: 45, y: 87 };   // the back chevron
+var EASE = function (t) { return 1 - Math.pow(1 - t, 2.6); };
+
+function rMaxFrom(o) {
+  return Math.max(
+    Math.hypot(o.x, o.y), Math.hypot(W - o.x, o.y),
+    Math.hypot(o.x, H - o.y), Math.hypot(W - o.x, H - o.y)
+  );
+}
+
+class Component extends DCLogic {
+  state = { p: 0, origin: IN_ORIGIN, closing: false, amount: "1,420", toast: null };
+
+  componentDidMount() { this.open(); }
+  componentWillUnmount() { cancelAnimationFrame(this._raf); clearTimeout(this._t); clearTimeout(this._t2); }
+
+  animate(from, to, origin, closing, done) {
+    cancelAnimationFrame(this._raf);
+    var self = this, t0 = performance.now(), dur = 950;
+    this.setState({ origin: origin, closing: closing });
+    var step = function (now) {
+      var t = Math.min(1, (now - t0) / dur);
+      self.setState({ p: from + (to - from) * t });
+      if (t < 1) self._raf = requestAnimationFrame(step);
+      else if (done) done();
+    };
+    this._raf = requestAnimationFrame(step);
+  }
+
+  open() { this.animate(0, 1, IN_ORIGIN, false); }
+
+  close() {
+    var self = this;
+    this.animate(1, 0, BACK_ORIGIN, true, function () {
+      self._t2 = setTimeout(function () { self.open(); }, 420);
+    });
+  }
+
+  ping(msg) {
+    clearTimeout(this._t);
+    this.setState({ toast: msg });
+    this._t = setTimeout(function () { this.setState({ toast: null }); }.bind(this), 2200);
+  }
+
+  renderVals() {
+    var self = this;
+    var p = this.state.p, o = this.state.origin, rMax = rMaxFrom(o);
+    var eased = this.state.closing ? p : EASE(p);
+    var r = eased * rMax;
+    var mid = p > 0.01 && p < 0.99;
+
+    return {
+      sheetStyle: "position:absolute;inset:0;z-index:3;overflow:hidden;border-radius:44px;" +
+        "clip-path:circle(" + r.toFixed(1) + "px at " + o.x + "px " + o.y + "px);" +
+        "-webkit-clip-path:circle(" + r.toFixed(1) + "px at " + o.x + "px " + o.y + "px);",
+      rings: [0, 1, 2].map(function (i) {
+        var rr = Math.max(0, r - i * rMax * 0.085);
+        var op = mid ? Math.min(1, (1 - Math.abs(0.5 - p) * 1.2)) * (i === 0 ? 0.85 : i === 1 ? 0.48 : 0.26) : 0;
+        return {
+          style: "position:absolute;left:" + o.x + "px;top:" + o.y + "px;width:" + (rr * 2).toFixed(0) + "px;height:" +
+            (rr * 2).toFixed(0) + "px;border-radius:50%;border:1px solid rgba(184,150,60,.6);transform:translate(-50%,-50%);" +
+            "filter:blur(" + (i ? i * 1.3 : 0.5) + "px);opacity:" + op.toFixed(3) + ";pointer-events:none"
+        };
+      }),
+      amount: this.state.amount,
+      toast: this.state.toast,
+      onAmount: function (e) { self.setState({ amount: e.target.value.replace(/[^0-9.,]/g, "") }); },
+      onBack: function () { self.close(); },
+      onReplay: function () { self.close(); },
+      onPay: function () { self.ping("Handing off ₹" + self.state.amount + " to the UPI app — demo only."); },
+      onManual: function () { self.ping("Marked settled — Priya gets a note to confirm."); }
+    };
+  }
+}
+
+</script>
+</body>
+</html>

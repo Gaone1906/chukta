@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stamp export</title>
+<link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Hind:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  html, body { margin:0; background:transparent; }
+  #mark { width:512px; height:512px; }
+</style>
+</head>
+<body>
+  <div id="mark">
+    <svg width="512" height="512" viewBox="0 0 132 132">
+      <defs>
+        <filter id="ink" x="-25%" y="-25%" width="150%" height="150%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="3" seed="7" result="n"></feTurbulence>
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="4.4" xChannelSelector="R" yChannelSelector="G"></feDisplacementMap>
+        </filter>
+        <filter id="mottle" x="0%" y="0%" width="100%" height="100%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.42" numOctaves="4" seed="3" result="t"></feTurbulence>
+          <feColorMatrix in="t" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1.15 0 0 0 -0.3" result="m"></feColorMatrix>
+          <feComposite in="SourceGraphic" in2="m" operator="out"></feComposite>
+        </filter>
+        <path id="arcTop" d="M 16 66 A 50 50 0 0 1 116 66"></path>
+        <path id="arcBot" d="M 117 66 A 51 51 0 0 1 15 66"></path>
+      </defs>
+      <g filter="url(#ink)"><g filter="url(#mottle)">
+        <circle cx="66" cy="66" r="62" fill="none" stroke="#B8963C" stroke-width="2.6" opacity="0.9"></circle>
+        <circle cx="66" cy="66" r="55.5" fill="none" stroke="#B8963C" stroke-width="1" opacity="0.65"></circle>
+        <circle cx="66" cy="66" r="44" fill="none" stroke="#B8963C" stroke-width="1" opacity="0.4" stroke-dasharray="1.5 3.5"></circle>
+        <text fill="#B8963C" font-family="Hind, sans-serif" font-size="8.4" font-weight="500" letter-spacing="3.4" opacity="0.85"><textPath href="#arcTop" startOffset="50%" text-anchor="middle">SQUARED · SETTLED</textPath></text>
+        <text fill="#B8963C" font-family="Hind, sans-serif" font-size="7.6" letter-spacing="3" opacity="0.55"><textPath href="#arcBot" startOffset="50%" text-anchor="middle">NO AWKWARD ASKING</textPath></text>
+        <text x="66" y="72" fill="#B8963C" text-anchor="middle" font-family="'Rozha One', serif" font-size="21" letter-spacing="2.4">HISAAB</text>
+        <rect x="50" y="79" width="32" height="1.2" fill="#B8963C" opacity="0.5"></rect>
+      </g></g>
+    </svg>
+  </div>
+</body>
+</html>

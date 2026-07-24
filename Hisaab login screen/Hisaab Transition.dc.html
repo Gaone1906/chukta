@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Hind:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#050203; }
+  a { color:rgba(255,255,255,.55); text-decoration:none; }
+  a:hover { color:#D9B65A; }
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:#050203;padding:40px 36px 70px;box-sizing:border-box;font-family:'Hind',system-ui,sans-serif">
+
+  <div style="display:flex;flex-direction:column;gap:8px;max-width:880px">
+    <span style="font-family:'Rozha One',serif;font-size:34px;line-height:1.1;color:#F4EDE4;letter-spacing:.3px">Water-ripple screen change</span>
+    <span style="font:300 14.5px/1.55 'Hind',sans-serif;color:rgba(255,255,255,.45);text-wrap:pretty">Every screen change that adds or leaves context — the FAB, the picker's Continue, the back chevron — reveals the next screen through a circular ripple that starts at the tap point. Gold-leaf rings ride the wavefront; the screen being left blurs and eases back a touch, so it reads as dissolving under water rather than sliding away. Roughly 950ms, and it collapses to an instant swap under reduce-motion.</span>
+  </div>
+
+  <div style="margin-top:38px;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <span style="font:500 11px 'Hind',sans-serif;letter-spacing:2.4px;text-transform:uppercase;color:rgba(184,150,60,.85)">Forward · tap the + on Home</span>
+      <span style="font:300 13px 'Hind',sans-serif;color:rgba(255,255,255,.4)">Ripple starts at the FAB, bottom right</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:26px">
+      <div style="display:flex;flex-direction:column;gap:10px;width:390px">
+        <dc-import name="Hisaab Ripple Step" mode="forward" progress="{{ 0 }}" tapDot="{{ true }}" hint-size="390px,844px"></dc-import>
+        <span style="font:400 12px 'Hind',sans-serif;letter-spacing:1.6px;text-transform:uppercase;color:rgba(255,255,255,.32)">1 · tap</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;width:390px">
+        <dc-import name="Hisaab Ripple Step" mode="forward" progress="{{ 0.28 }}" hint-size="390px,844px"></dc-import>
+        <span style="font:400 12px 'Hind',sans-serif;letter-spacing:1.6px;text-transform:uppercase;color:rgba(255,255,255,.32)">2 · ripple opens</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;width:390px">
+        <dc-import name="Hisaab Ripple Step" mode="forward" progress="{{ 0.55 }}" hint-size="390px,844px"></dc-import>
+        <span style="font:400 12px 'Hind',sans-serif;letter-spacing:1.6px;text-transform:uppercase;color:rgba(255,255,255,.32)">3 · halfway, old screen blurring</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;width:390px">
+        <dc-import name="Hisaab Ripple Step" mode="forward" progress="{{ 0.88 }}" hint-size="390px,844px"></dc-import>
+        <span style="font:400 12px 'Hind',sans-serif;letter-spacing:1.6px;text-transform:uppercase;color:rgba(255,255,255,.32)">4 · form revealed</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:44px;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <span style="font:500 11px 'Hind',sans-serif;letter-spacing:2.4px;text-transform:uppercase;color:rgba(184,150,60,.85)">Back · tap the chevron</span>
+      <span style="font:300 13px 'Hind',sans-serif;color:rgba(255,255,255,.4)">Same motion from the top left — the previous screen comes back up through it</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:26px">
+      <div style="display:flex;flex-direction:column;gap:10px;width:390px">
+        <dc-import name="Hisaab Ripple Step" mode="back" progress="{{ 0 }}" tapDot="{{ true }}" hint-size="390px,844px"></dc-import>
+        <span style="font:400 12px 'Hind',sans-serif;letter-spacing:1.6px;text-transform:uppercase;color:rgba(255,255,255,.32)">1 · tap</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;width:390px">
+        <dc-import name="Hisaab Ripple Step" mode="back" progress="{{ 0.34 }}" hint-size="390px,844px"></dc-import>
+        <span style="font:400 12px 'Hind',sans-serif;letter-spacing:1.6px;text-transform:uppercase;color:rgba(255,255,255,.32)">2 · ripple opens</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;width:390px">
+        <dc-import name="Hisaab Ripple Step" mode="back" progress="{{ 0.66 }}" hint-size="390px,844px"></dc-import>
+        <span style="font:400 12px 'Hind',sans-serif;letter-spacing:1.6px;text-transform:uppercase;color:rgba(255,255,255,.32)">3 · Home coming back</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;width:390px">
+        <dc-import name="Hisaab Ripple Step" mode="back" progress="{{ 0.92 }}" hint-size="390px,844px"></dc-import>
+        <span style="font:400 12px 'Hind',sans-serif;letter-spacing:1.6px;text-transform:uppercase;color:rgba(255,255,255,.32)">4 · Home restored</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:44px;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <span style="font:500 11px 'Hind',sans-serif;letter-spacing:2.4px;text-transform:uppercase;color:rgba(184,150,60,.85)">Live</span>
+      <span style="font:300 13px 'Hind',sans-serif;color:rgba(255,255,255,.4)">Tap the + to go in, the chevron to come back</span>
+    </div>
+    <div style="width:390px">
+      <dc-import name="Hisaab Ripple Step" mode="forward" live="{{ true }}" hint-size="390px,844px"></dc-import>
+    </div>
+  </div>
+
+  <div style="margin-top:44px;max-width:660px;padding:22px;box-sizing:border-box;border-radius:24px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);display:flex;flex-direction:column;gap:8px">
+    <span style="font:500 11px 'Hind',sans-serif;letter-spacing:2.4px;text-transform:uppercase;color:rgba(184,150,60,.85)">For engineering</span>
+    <span style="font:300 13.5px/1.6 'Hind',sans-serif;color:rgba(255,255,255,.5);text-wrap:pretty">The effect ships as <span style="color:rgba(244,237,228,.85)">assets/hisaab-ripple.js</span> — call <span style="color:rgba(244,237,228,.85)">HisaabRipple.play({ incoming, outgoing, origin, stage })</span> with the tap point from <span style="color:rgba(244,237,228,.85)">HisaabRipple.originFromEvent(e, stage)</span>. It returns a promise that resolves when the ripple has covered the screen, and no-ops to an instant swap when reduce-motion is set.</span>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{}"></script>
+</body>
+</html>

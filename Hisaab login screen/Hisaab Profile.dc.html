@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Hind:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#050203; }
+  a { color:rgba(255,255,255,.55); text-decoration:none; }
+  a:hover { color:#D9B65A; }
+  @keyframes hs-drift { 0%{transform:translate3d(0,0,0) scale(1)} 50%{transform:translate3d(14px,-18px,0) scale(1.06)} 100%{transform:translate3d(0,0,0) scale(1)} }
+  @keyframes hs-drift2 { 0%{transform:translate3d(0,0,0) scale(1.04)} 50%{transform:translate3d(-18px,12px,0) scale(1)} 100%{transform:translate3d(0,0,0) scale(1.04)} }
+  @keyframes hs-rise { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
+  input.hs-field { -webkit-appearance:none; caret-color:#D9B65A; }
+  input.hs-field:focus { outline:none; border-color:rgba(184,150,60,.75) !important; background:rgba(184,150,60,.1) !important; box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 0 0 3px rgba(184,150,60,.12), 0 0 22px rgba(184,150,60,.2) !important; }
+  input.hs-field::placeholder { color:rgba(255,255,255,.26); font-weight:300; }
+  button.hs-go:disabled { cursor:default; border-color:rgba(255,255,255,.13) !important; background:rgba(255,255,255,.05) !important; box-shadow:inset 0 1px 0 rgba(255,255,255,.12) !important; }
+  button.hs-go:disabled span { color:rgba(255,255,255,.34) !important; }
+</style>
+</helmet>
+
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#050203;padding:24px;box-sizing:border-box;font-family:'Hind',system-ui,sans-serif">
+  <div style="position:relative;width:390px;height:844px;overflow:hidden;border-radius:44px;background:radial-gradient(120% 80% at 50% 24%, #2A1216 0%, #150A0C 45%, #0A0405 100%);box-shadow:0 40px 90px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.06)">
+
+    <div style="position:absolute;inset:0;overflow:hidden;pointer-events:none">
+      <div style="position:absolute;top:-150px;left:-110px;width:330px;height:330px;border-radius:50%;background:#7A2833;filter:blur(56px);opacity:.5;animation:hs-drift 18s ease-in-out infinite"></div>
+      <div style="position:absolute;top:210px;right:-160px;width:300px;height:300px;border-radius:50%;background:#B8963C;filter:blur(52px);opacity:.28;animation:hs-drift2 22s ease-in-out infinite"></div>
+      <div style="position:absolute;bottom:-180px;right:-80px;width:380px;height:330px;border-radius:50%;background:#7A2833;filter:blur(60px);opacity:.45;animation:hs-drift 26s ease-in-out infinite"></div>
+      <div style="position:absolute;bottom:-110px;left:-120px;width:240px;height:240px;border-radius:50%;background:#B8963C;filter:blur(58px);opacity:.2;animation:hs-drift2 30s ease-in-out infinite"></div>
+    </div>
+
+    <div style="position:absolute;top:0;left:0;right:0;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 30px;font:500 14px 'Hind',sans-serif;color:rgba(255,255,255,.9);letter-spacing:.2px;z-index:3">
+      <span>9:41</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="display:block;width:17px;height:11px;border-radius:2px;background:rgba(255,255,255,.9)"></span>
+        <span style="display:block;width:15px;height:11px;border-radius:2px;background:rgba(255,255,255,.55)"></span>
+        <span style="display:block;width:24px;height:12px;border-radius:3px;border:1px solid rgba(255,255,255,.5);position:relative"><span style="position:absolute;top:2px;left:2px;bottom:2px;width:14px;border-radius:1.5px;background:rgba(255,255,255,.9)"></span></span>
+      </div>
+    </div>
+
+    <div style="position:relative;z-index:2;height:100%;box-sizing:border-box;padding:70px 26px 26px;display:flex;flex-direction:column;align-items:center">
+
+      <button type="button" onClick="{{ onBack }}" aria-label="Back" style="position:absolute;left:22px;top:66px;display:flex;align-items:center;justify-content:center;width:40px;height:40px;padding:0;border-radius:20px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);backdrop-filter:blur(18px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.16);cursor:pointer;transition:border-color .18s ease, background .18s ease" style-hover="border-color:rgba(184,150,60,.5);background:rgba(255,255,255,.1)" style-active="border-color:rgba(184,150,60,.85);background:rgba(184,150,60,.14)">
+        <svg width="9" height="15" viewBox="0 0 9 15" fill="none"><path d="M7.5 1.5 2 7.5l5.5 6" stroke="rgba(244,237,228,.85)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      </button>
+
+      <div style="margin-top:6px;display:flex;align-items:center;gap:9px;animation:hs-rise 620ms cubic-bezier(.2,.9,.25,1) both">
+        <span style="display:block;width:20px;height:1px;background:rgba(184,150,60,.5)"></span>
+        <span style="font:500 10.5px 'Hind',sans-serif;letter-spacing:2.6px;text-transform:uppercase;color:rgba(184,150,60,.85)">Step 3 of 3</span>
+        <span style="display:block;width:20px;height:1px;background:rgba(184,150,60,.5)"></span>
+      </div>
+
+      <div style="margin-top:18px;text-align:center;font-family:'Rozha One',serif;font-size:38px;line-height:1.08;color:#F4EDE4;letter-spacing:.4px;animation:hs-rise 640ms 100ms cubic-bezier(.2,.9,.25,1) both;text-shadow:0 2px 24px rgba(184,150,60,.18)">Tell us who you are</div>
+
+      <div style="margin-top:10px;max-width:270px;text-align:center;text-wrap:pretty;font:300 15px/1.45 'Hind',sans-serif;color:rgba(255,255,255,.5);animation:hs-rise 640ms 180ms cubic-bezier(.2,.9,.25,1) both">This is how you'll show up in shared ledgers</div>
+
+      <div style="height:26px"></div>
+
+      <div style="width:100%;border-radius:30px;padding:22px 20px 20px;box-sizing:border-box;position:relative;overflow:hidden;background:rgba(255,255,255,0.05);backdrop-filter:blur(23px) saturate(180%);-webkit-backdrop-filter:blur(23px) saturate(180%);border:1px solid rgba(255,255,255,0.12);box-shadow:0 8px 30px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 0 rgba(255,255,255,0.04);animation:hs-rise 760ms 260ms cubic-bezier(.2,.9,.25,1) both">
+        <div style="position:absolute;top:0;left:14%;right:14%;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);pointer-events:none"></div>
+
+        <div style="display:flex;align-items:center;gap:15px;padding-bottom:18px;margin-bottom:18px;border-bottom:1px solid rgba(255,255,255,.09)">
+          <button type="button" onClick="{{ onPhoto }}" aria-label="Add photo" style="flex:none;display:flex;align-items:center;justify-content:center;width:74px;height:74px;padding:0;border-radius:37px;border:1px solid rgba(184,150,60,.45);background:rgba(255,255,255,.06);backdrop-filter:blur(20px) saturate(175%);box-shadow:inset 0 1px 0 rgba(255,255,255,.2), 0 6px 24px rgba(0,0,0,.35);cursor:pointer;transition:transform .18s ease, border-color .18s ease, background .18s ease" style-hover="border-color:rgba(184,150,60,.85);background:rgba(184,150,60,.1)" style-active="transform:scale(.97);background:rgba(184,150,60,.16)">
+            <svg width="26" height="23" viewBox="0 0 30 26" fill="none">
+              <path d="M2.5 8.5A2.5 2.5 0 0 1 5 6h2.6l1.5-2.6a1 1 0 0 1 .9-.5h8a1 1 0 0 1 .9.5L20.4 6H25a2.5 2.5 0 0 1 2.5 2.5v12A2.5 2.5 0 0 1 25 23H5a2.5 2.5 0 0 1-2.5-2.5v-12Z" stroke="#D9B65A" stroke-width="1.4" stroke-linejoin="round"></path>
+              <circle cx="15" cy="14" r="4.6" stroke="#D9B65A" stroke-width="1.4"></circle>
+            </svg>
+          </button>
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <span style="font:500 15px 'Hind',sans-serif;color:#F4EDE4;letter-spacing:.1px">Add photo</span>
+            <span style="font:300 12.5px 'Hind',sans-serif;color:rgba(255,255,255,.34);letter-spacing:.15px">Optional — you can add it later</span>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <label for="hs-name" style="font:400 11.5px 'Hind',sans-serif;letter-spacing:1.6px;text-transform:uppercase;color:rgba(255,255,255,.35)">Your name</label>
+          <input class="hs-field" id="hs-name" type="text" autoComplete="name" placeholder="Aanya Mehra" value="{{ name }}" onChange="{{ onName }}" style="width:100%;height:54px;box-sizing:border-box;padding:0 17px;border:1px solid rgba(255,255,255,.14);border-radius:18px;background:rgba(255,255,255,.06);backdrop-filter:blur(18px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.16);font:500 16.5px 'Hind',sans-serif;color:#F4EDE4;transition:border-color .18s ease, background .18s ease, box-shadow .18s ease" />
+        </div>
+
+        <div style="margin-top:16px;display:flex;flex-direction:column;gap:6px">
+          <label for="hs-upi" style="display:flex;align-items:baseline;gap:7px;font:400 11.5px 'Hind',sans-serif;letter-spacing:1.6px;text-transform:uppercase;color:rgba(255,255,255,.35)">UPI ID <span style="font:300 10.5px 'Hind',sans-serif;letter-spacing:1.2px;color:rgba(255,255,255,.24)">Optional</span></label>
+          <input class="hs-field" id="hs-upi" type="text" inputMode="email" autoCapitalize="none" placeholder="aanya@okbank" value="{{ upi }}" onChange="{{ onUpi }}" style="width:100%;height:54px;box-sizing:border-box;padding:0 17px;border:1px solid rgba(255,255,255,.14);border-radius:18px;background:rgba(255,255,255,.06);backdrop-filter:blur(18px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.16);font:500 16.5px 'Hind',sans-serif;color:#F4EDE4;transition:border-color .18s ease, background .18s ease, box-shadow .18s ease" />
+          <span style="font:300 12px 'Hind',sans-serif;color:rgba(255,255,255,.34);letter-spacing:.15px">So friends can pay you back directly. Add it whenever.</span>
+        </div>
+
+        <button type="button" class="hs-go" disabled="{{ notReady }}" onClick="{{ onStart }}" style="margin-top:20px;position:relative;display:flex;align-items:center;justify-content:center;width:100%;height:54px;box-sizing:border-box;border:1px solid rgba(184,150,60,.55);border-radius:27px;background:rgba(184,150,60,.16);backdrop-filter:blur(18px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.2), 0 6px 22px rgba(184,150,60,.16);cursor:pointer;transition:transform .16s ease, background .18s ease, border-color .18s ease, box-shadow .18s ease" style-hover="background:rgba(184,150,60,.24);border-color:rgba(184,150,60,.8)" style-active="transform:scale(.982);background:rgba(184,150,60,.32);border-color:#B8963C;box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 0 0 3px rgba(184,150,60,.16)">
+          <span style="font:600 16px 'Hind',sans-serif;color:#F6E9CB;letter-spacing:.3px">Get started</span>
+        </button>
+      </div>
+
+      <div style="flex:1"></div>
+
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;font:400 10.5px 'Hind',sans-serif;letter-spacing:2.4px;text-transform:uppercase;color:rgba(255,255,255,.22)">
+        <span style="display:block;width:22px;height:1px;background:rgba(255,255,255,.16)"></span>
+        <span>No spreadsheet required</span>
+        <span style="display:block;width:22px;height:1px;background:rgba(255,255,255,.16)"></span>
+      </div>
+
+      <div style="width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.3)"></div>
+    </div>
+
+    <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:26px;right:26px;top:120px;z-index:5;padding:13px 16px;border-radius:16px;text-align:center;font:400 13.5px 'Hind',sans-serif;color:#F4EDE4;background:rgba(255,255,255,.07);backdrop-filter:blur(22px) saturate(180%);border:1px solid rgba(184,150,60,.35);box-shadow:0 8px 30px rgba(0,0,0,.5);animation:hs-rise 320ms ease both">{{ toast }}</div>
+    </sc-if>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  state = { name: "", upi: "", toast: null };
+
+  ping(msg) {
+    clearTimeout(this._t);
+    this.setState({ toast: msg });
+    this._t = setTimeout(function () { this.setState({ toast: null }); }.bind(this), 2400);
+  }
+
+  componentWillUnmount() { clearTimeout(this._t); }
+
+  renderVals() {
+    var self = this;
+    var name = this.state.name, upi = this.state.upi;
+    var ready = name.trim().length > 1;
+    return {
+      name: name,
+      upi: upi,
+      notReady: !ready,
+      toast: this.state.toast,
+      onName: function (e) { self.setState({ name: e.target.value }); },
+      onUpi: function (e) { self.setState({ upi: e.target.value }); },
+      onPhoto: function () { self.ping("Photo picker — demo only."); },
+      onStart: function () { self.ping("Welcome, " + name.trim().split(" ")[0] + "."); },
+      onBack: function () { self.ping("Back to verification — demo only."); }
+    };
+  }
+}
+
+</script>
+</body>
+</html>
