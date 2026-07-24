@@ -53,6 +53,6 @@ coverage/
 maestro/**/screenshots/
 maestro/**/*.mp4
 
-# ---------- Prototype runtime (not tracked; see design-reference/README.md) ----------
-design-reference/**/support.js
-design-reference/**/image-slot.js
+# NOTE: design-reference/screens/support.js and design-reference/assets/image-slot.js are
+# vendored third-party prototype-viewer runtime, deliberately tracked so the reference
+# screens still render in a browser. See design-reference/README.md.
