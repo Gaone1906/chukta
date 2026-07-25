@@ -105,10 +105,15 @@ select is(
   'a revision snapshot was recorded'
 );
 
+-- Three, not two. Phase 8 removed the actor filter from `internal.emit_change`: excluding the
+-- person who made the change is a *notification* rule, and having it in the *sync* spine meant
+-- a second device on the same account could never learn about the first one's writes — not
+-- live, and not through sync_pull either, since both read this table. See 0023 and
+-- tests/sync.test.sql. The push drain in Phase 9 is where the actor gets dropped now.
 select is(
   (select count(*) from internal.change_events where entity_id = 'eeee1111-0000-0000-0000-000000000001'),
-  2::bigint,
-  'change events fan out to the other participants, never to the actor'
+  3::bigint,
+  'change events fan out to every participant, the actor included'
 );
 
 -- ---------------------------------------------------------------- idempotency

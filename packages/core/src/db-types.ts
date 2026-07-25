@@ -1196,8 +1196,10 @@ export type Database = {
       }
       upsert_contact_profile: {
         Args: {
+          p_client_mutation_id?: string
           p_display_name: string
           p_kind?: Database["public"]["Enums"]["contact_kind"]
+          p_profile_id?: string
           p_value_norm?: string
         }
         Returns: string
