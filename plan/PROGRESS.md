@@ -3,7 +3,31 @@
 Single place to answer "where are we". Update the status table and the log at the end of
 every phase. Each phase has its own file in this directory with the detailed work list.
 
-**Last updated:** 2026-07-25 (Phase 7, then a round of fixes from using it)
+**Last updated:** 2026-07-25 (Phase 7 done, then a round of fixes from actually using it)
+
+## Where we are, in one screen
+
+**8 of 12 phases done.** 22 migrations, 98 pgTAP tests, 120 TypeScript tests, all green. Tree
+clean, everything pushed.
+
+The whole money loop works and has been walked on a device: sign in → profile → Home → add an
+expense in any of the five split types → see it agree on Home, the group and the person → edit
+it → delete it → settle up. Everything behind the profile button works too: Settings, Invite,
+Tip jar, Help, About.
+
+**iOS is the active target.** Both platforms build and run; the Android emulator is deliberately
+shut down (see "Commands that actually work"). Simulator: iPhone 17 Pro,
+`BB49D14F-3053-4A4E-BDB3-A294A8578AFB`.
+
+**Next:** Phase 8, offline & realtime. Get the Apple enrolment moving in parallel — it has the
+longest lead time of anything on the blocked list.
+
+> **The strongest lesson from this stretch, and it should change how the next phase is
+> verified.** Nearly every real bug found recently came from *using* the app, not from tests —
+> a person you had just named being invisible to the entire app, "Create group" sitting dead
+> with no explanation, the ripple's veil rendering behind the screen it was meant to cover.
+> The suite was green through all of it, because each one was a gap *between* correct parts.
+> Budget a walkthrough at the end of every chunk, not just at the end of a phase.
 
 ## Conventions
 
@@ -324,17 +348,34 @@ xcodebuild -workspace ios/Hisaab.xcworkspace -scheme Hisaab -configuration Debug
 xcrun simctl install <UDID> ios/build/Build/Products/Debug-iphonesimulator/Hisaab.app
 xcrun simctl launch <UDID> com.hisaab.app
 
-# Android: boot, build, run
+# iOS screenshot, when you need to control the timing yourself rather than via a tool call
+xcrun simctl io <UDID> screenshot /tmp/s.png && sips -Z 400 /tmp/s.png --out /tmp/s_small.png
+
+# Android: boot, build, run. NOTE: the emulator is currently SHUT DOWN on purpose — iOS is the
+# active target and qemu was eating the machine. Only boot it when testing Android specifically.
 $ANDROID_HOME/emulator/emulator -avd Medium_Phone_API_36.1 -no-snapshot-save -no-boot-anim &
 cd apps/mobile && npx expo run:android --no-bundler     # ~3-6 min incremental
 npx expo start --dev-client --clear
 adb reverse tcp:8081 tcp:8081                            # required each boot
+adb exec-out screencap -p > /tmp/s.png                  # screenshot
 
-# Screenshot (exec-out avoids a temp file on device)
-adb exec-out screencap -p > /tmp/s.png && sips -Z 800 /tmp/s.png --out /tmp/s_small.png
+# Kill the Android emulator (it does not stop cleanly on its own)
+adb -s emulator-5554 emu kill; pkill -f "emulator/qemu"; pkill -f netsimd
 
-# Database
-npx supabase db reset && npx supabase test db            # local, 77 pgTAP tests
+# Database. `db reset` also wipes auth.users, so seeding is THREE steps, not one — see trap 17.
+npx supabase db reset && npx supabase test db            # local, 98 pgTAP tests
+ANON=$(grep EXPO_PUBLIC_SUPABASE_ANON_KEY apps/mobile/.env.local | cut -d= -f2-)
+curl -s -X POST "http://127.0.0.1:54321/auth/v1/signup" -H "apikey: $ANON" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"dev@hisaab.test","password":"hisaab-dev-password"}' -o /dev/null
+docker exec -i supabase_db_hisaab psql -U postgres -d postgres < supabase/seed.sql
+
+# Query the local DB directly (the container is lower-case `hisaab`, and psql is not on PATH)
+docker exec supabase_db_hisaab psql -U postgres -d postgres -c "select ..."
+
+# Regenerate the typed schema after ANY migration, or the client will not compile
+npx supabase gen types typescript --local > packages/core/src/db-types.ts
+
 npx supabase db push --db-url "postgresql://postgres:<urlenc-pw>@db.<ref>.supabase.co:5432/postgres?sslmode=require"
 ```
 
@@ -390,6 +431,30 @@ every shell — they are not on the default PATH.
     field is focused, truncating input to one character. Looks exactly like an app bug. Cancel
     it once per emulator.
 
+17. **`supabase db reset` wipes `auth.users` too, so the seed can never attach on a fresh
+    reset.** `seed.sql` ends with a DO block that hangs the fixtures off the signed-in dev
+    profile, and its own notice says "sign in once, then re-run db reset" — which cannot work,
+    because the second reset deletes the account the first one needed. The working sequence is
+    in "Commands that actually work": reset, create the dev user through the auth API, then
+    apply `seed.sql` directly. Symptom if you get it wrong: the app loads, signs in, and shows
+    an entirely empty Home.
+
+18. **A transformed view can outrank a later sibling.** Giving the navigator a `transform` for
+    the ripple's settle-back gave it its own layer, which rose above the ripple overlay that
+    was supposed to cover it — so the veil hid nothing and the navigation swap happened in
+    full view. Any overlay that must stay on top needs an explicit `zIndex`; sibling order is
+    not enough once transforms are involved.
+
+19. **Never animate layout properties.** The ripple used to animate `width`, `height`,
+    `borderRadius`, `left` and `top` on four views at once, forcing a re-measure every frame
+    while the incoming screen was mounting. Lay the view out once at its final size and move
+    it with `transform` and `opacity` only — those are compositor-only and need no layout pass.
+
+20. **An animation shorter than a tool round-trip cannot be observed by screenshot.** At 900ms
+    every screenshot landed after the ripple had finished, which read as "the ripple never
+    runs" and cost two wrong diagnoses. To debug motion: raise `motion.ripple.duration` to
+    20–30s, paint the moving layer a garish colour, THEN capture. Restore both afterwards.
+
 ## Testing without real credentials
 
 `src/features/auth/devSignIn.ts` (guarded by `__DEV__`) signs in with email/password against
@@ -415,10 +480,22 @@ SHA-1 / package / client-id triple is accepted.
 
 ## Outstanding, blocked on the user
 
-- **Rotate all credentials before beta** (open item #11) — deliberately deferred.
-- Apple Developer Program — not buying until both emulators show a working app. Sign in with
-  Apple therefore cannot be demonstrated at all (needs the entitlement).
-- Store display name ("Hisaab" is taken); a domain for deep links.
+In the order it bites, not the order it was raised:
+
+1. **Rotate every credential.** The Supabase secret key, the database password and the Google
+   client secret were all shared in plain text during setup. Deliberately deferred so the test
+   build could proceed — this is a hard gate before anything public, not a nice-to-have. Steps
+   in `docs/setup-services.md` → "Rotating a leaked credential".
+2. **Developer accounts.** Apple enrolment can take days, so it is the longest lead time here
+   and worth starting before it blocks anything. Until it exists, Sign in with Apple cannot be
+   demonstrated at all (it needs the entitlement) and the tip jar cannot complete a purchase.
+3. **A physical Android phone with GPay or PhonePe.** The only way to close Phase 6: whether a
+   real UPI app opens prefilled, whether the picker shows real icons, whether the QR scans.
+   Also settles the Android blur question (open item #7).
+4. **A domain**, for iOS Universal Links / Android App Links. Invite links are built and
+   shareable but open a web page rather than the app until the association files are hosted.
+5. **A hosted Supabase project** for anything off this Mac — the local stack is Docker here.
+6. **The store display name** ("Hisaab" is taken). Only blocks Phase 11.
 
 ### Phase 5 — done, 2026-07-25
 
@@ -710,11 +787,33 @@ it to 30 seconds and paint the veil red. **Do that first next time.**
 
 ### Next: Phase 8 — Offline & realtime
 
-`plan/phase-08-offline-realtime.md`. The outbox, `sync_pull`, the `change_events` subscription
-and the conflict UI. `internal.change_events` and `app.sync_pull` already exist from Phase 3;
-nothing on the client consumes them yet.
+`plan/phase-08-offline-realtime.md`.
 
-Still open from earlier phases: task #43 (empty and error states — the picker uses bare
-one-line text where Home uses `EmptyState`, and error states print raw PostgREST messages at
-users), and **group members / group settings**, which was never designed and is the last hole
-from the original audit — the group detail screen's members row still goes nowhere.
+**What already exists, so none of it needs designing again.** Phase 3 built the entire server
+side of this: `internal.change_events` (one table serving realtime fan-out, the delta-sync
+cursor and the push queue), `app.sync_pull(p_since_event_id, p_limit)` with a `public` wrapper,
+and `internal.mutation_log` with every write RPC already opening with an idempotency check on
+`client_mutation_id`. Every mutation the client makes already passes one. **Nothing on the
+client consumes any of it yet** — that is the whole of Phase 8.
+
+The conflict half is also already built and verified: `expenses.revision`, the `P0409` error
+with the server snapshot in DETAIL, `ConflictError` in `lib/errors.ts`, and `ConflictSheet`.
+What is missing is the outbox replaying into it.
+
+**The pieces to build:** `expo-sqlite` + Drizzle for the read cache, a strictly-FIFO write
+outbox, the reconnect order (drain outbox → pull deltas → resubscribe), and one Realtime
+subscription filtered to the caller's own profile.
+
+**The rule that must not be relaxed:** no auto-merge on money. A conflict returns the server
+snapshot and the user chooses. Deletes beat edits. Comments and new expenses are inserts with
+client-generated ids, so they never conflict in the first place.
+
+### Also still open, from earlier phases
+
+- **Task #43 — empty and error states.** The picker uses bare one-line text where Home uses
+  `EmptyState`, and error states print raw PostgREST messages at users. Formally Phase 10, but
+  the user raised it during Phase 5 and it has been waiting since.
+- **Group members / group settings.** Never designed — the last hole from the original audit.
+  The group detail screen's members row still goes nowhere. Needs a design decision before it
+  can be built.
+- **Screen titles scroll away** — see "Known, not yet fixed" above.
