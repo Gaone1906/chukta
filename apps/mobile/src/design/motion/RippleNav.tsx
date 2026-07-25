@@ -8,10 +8,9 @@ import {
 import Animated, {
   Easing,
   runOnJS,
-  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
-  withSequence,
+  withDelay,
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
@@ -59,12 +58,14 @@ import {
  * not worth that, so the settle-back moved onto the veil itself — see `veilDrift`, which buys
  * the same depth cue from one solid layer that was already animating.
  *
- * **3. The curve had spent itself in the first sixth of the phase.** See `waveEase`.
+ * **3. The curve had spent itself in the first sixth of the phase.** Twice — the replacement
+ * bezier had the same fault as the curve it replaced, just less of it. See the note on the
+ * three shared values below, which is the actual fix.
  *
  * **4. Two chained `withTiming`s with a `runOnJS` between them.** The second animation was
  * started from the first one's completion callback, so there was a handoff on the JS thread in
- * the middle of the transition. It is one `withSequence` now, which runs start to finish on
- * the UI thread, and the navigation fires from a `useAnimatedReaction` instead.
+ * the middle of the transition. Nothing starts another animation now: all three run
+ * independently from the same tap, and no phase waits on JS to begin.
  *
  * Reduced motion navigates immediately with no veil at all.
  */
@@ -84,38 +85,46 @@ interface RippleNavState {
 
 const RippleNavContext = createContext<RippleNavState | null>(null);
 
-/*
- * The timeline, as fractions of `progress`.
- *
- *   0      → COVER      the wavefront travels; the veil reaches full coverage at COVER
- *   COVER  → HOLD_END   fully opaque. The navigation fires the instant COVER is crossed, and
- *                       this is all the time the incoming screen gets to mount before it can
- *                       be seen. The rings are still travelling through here — deliberately,
- *                       so the most expensive frames of the transition happen while there is
- *                       something moving to look at.
- *   HOLD_END → 1        the veil drifts outward and dissolves onto the screen now underneath.
- *
- * `progress` is driven by a `withSequence` whose segments carry their own easing, so the value
- * is already eased when a worklet reads it and the phases below are plain linear remaps.
- */
-const COVER = 0.62;
-const HOLD_END = 0.78;
-
 /**
  * How the total is spent. The old split gave the expand half the budget and put the hard part
  * of the curve at the very start, so the only visible motion was over in about a tenth of a
  * second; most of the duration was an invisible veil holding and fading.
  */
-const { expand: EXPAND_MS, hold: HOLD_MS, dissolve: DISSOLVE_MS } = motion.ripple;
+const { cover: COVER_MS, hold: HOLD_MS, dissolve: DISSOLVE_MS } = motion.ripple;
 
-/** The wavefront's shape. Gentler than the prototype's — see `waveEase` in rippleMath. */
-const WAVE_EASING = Easing.bezier(0.16, 0.6, 0.22, 1);
+/** The rings travel across the cover AND the hold, arriving exactly as the dissolve starts. */
+const TRAVEL_MS = COVER_MS + HOLD_MS;
 
 export function RippleNavProvider({ children }: { children: ReactNode }) {
   const { width, height } = useWindowDimensions();
   const reduceMotion = useReduceMotion();
 
-  const progress = useSharedValue(0);
+  /*
+   * ---------------------------------------------------------------- three values, not one
+   *
+   * The veil and the rings want OPPOSITE curves, and driving both from a single `progress` is
+   * what made this stall. A filled disc covers area ∝ r², so the veil must ease out or its
+   * coverage appears to accelerate into the corners. A thin ring is a travelling wavefront, so
+   * it wants constant radial speed — linear. One value cannot be both, and the compromise
+   * curve that was there served neither.
+   *
+   * The old value was also a `withSequence`, which meant a segment boundary sat in the middle
+   * of the thing the eye was tracking. `Easing.bezier(0.16, 0.6, 0.22, 1)` has terminal slope
+   * exactly zero (its second control point sits at y=1), so it arrived at the boundary stopped
+   * dead — and the next segment was `Easing.linear`, which restarted at full speed. That step
+   * was measured at ~74× across a single frame. It is the stall, and it is unfixable while the
+   * two share a value.
+   *
+   * So: three values, ONE continuous segment each, no `withSequence` anywhere. Nothing the eye
+   * follows crosses a boundary.
+   */
+
+  /** Veil coverage, 0→1 over `cover`. Eased out, because it is a filled disc. */
+  const veil = useSharedValue(0);
+  /** Ring travel, 0→1 over `cover + hold`. **Linear**, because they are wavefronts. */
+  const wave = useSharedValue(0);
+  /** The fade-out, 0→1 over `dissolve`, delayed until the rings have arrived. */
+  const dissolve = useSharedValue(0);
   /** 0 when idle, so the compositor can skip four full-screen layers entirely. */
   const active = useSharedValue(0);
   const originX = useSharedValue(0);
@@ -164,12 +173,37 @@ export function RippleNavProvider({ children }: { children: ReactNode }) {
       active.set(1);
       // Tells the ambient background to stop drifting for the duration — see transitionState.
       isTransitioning.set(true);
-      progress.set(0);
 
-      progress.set(
-        withSequence(
-          withTiming(COVER, { duration: EXPAND_MS, easing: WAVE_EASING }),
-          withTiming(HOLD_END, { duration: HOLD_MS, easing: Easing.linear }),
+      veil.set(0);
+      wave.set(0);
+      dissolve.set(0);
+
+      /*
+       * The veil closes over the screen, and navigates the instant it is opaque.
+       *
+       * The push fires from this completion callback rather than the old `useAnimatedReaction`
+       * watching a progress threshold. That reaction ran a comparison on EVERY frame of the
+       * transition to detect one crossing; a callback fires once, at exactly the right moment,
+       * and cannot miss the frame the threshold fell between.
+       *
+       * This is not the chained-animation trap the header warns about. Nothing is *started*
+       * here — all three animations are already running. The only thing crossing to JS is the
+       * navigation itself, which has to happen on JS regardless.
+       */
+      veil.set(
+        withTiming(1, { duration: COVER_MS, easing: Easing.out(Easing.quad) }, (done) => {
+          if (done) runOnJS(fireNavigation)();
+        }),
+      );
+
+      // Linear, and one segment across cover+hold: the rings keep moving at a constant rate
+      // straight through the moment the veil goes opaque, so there is no point at which the
+      // only thing on screen is a motionless rectangle.
+      wave.set(withTiming(1, { duration: TRAVEL_MS, easing: Easing.linear }));
+
+      dissolve.set(
+        withDelay(
+          TRAVEL_MS,
           withTiming(1, { duration: DISSOLVE_MS, easing: Easing.out(Easing.quad) }, (done) => {
             // A UI-thread callback, not `runOnJS`: putting the overlay away is just shared
             // values, and there is no React state left to clear.
@@ -181,7 +215,7 @@ export function RippleNavProvider({ children }: { children: ReactNode }) {
         ),
       );
     },
-    [active, height, originX, originY, progress, reach, reduceMotion, width],
+    [active, dissolve, fireNavigation, height, originX, originY, reach, reduceMotion, veil, wave, width],
   );
 
   const rippleFrom = useCallback(
@@ -192,37 +226,17 @@ export function RippleNavProvider({ children }: { children: ReactNode }) {
     [rippleTo],
   );
 
-  /*
-   * Push the moment the veil finishes covering the screen — not earlier, or the swap shows in
-   * the corners the wavefront has not reached yet.
-   *
-   * A reaction rather than an animation callback. The old code started the dissolve *inside*
-   * the expand's completion callback, which meant a JS hop sat between two animations in the
-   * middle of the transition. Here the animation is one uninterrupted sequence on the UI
-   * thread and this merely observes it going past.
-   */
-  useAnimatedReaction(
-    () => progress.value,
-    (current, previous) => {
-      if (previous !== null && previous < COVER && current >= COVER) {
-        runOnJS(fireNavigation)();
-      }
-    },
-  );
-
   const overlayStyle = useAnimatedStyle(() => ({
     opacity: active.value,
   }));
 
   const veilStyle = useAnimatedStyle(() => {
-    const p = progress.value;
-    const wave = Math.min(1, p / COVER);
-    const dissolve = p <= HOLD_END ? 0 : (p - HOLD_END) / (1 - HOLD_END);
+    const d = dissolve.value;
 
     // `reach / span` is what the wavefront needs for THIS origin; a tap in the middle of the
     // screen has less ground to cover than one in a corner, and the circle is laid out for the
     // worst case.
-    const scale = (wave * reach.value * veilDrift(dissolve)) / span;
+    const scale = (veil.value * reach.value * veilDrift(d)) / span;
 
     return {
       transform: [
@@ -231,7 +245,7 @@ export function RippleNavProvider({ children }: { children: ReactNode }) {
         // A floor, so the very first frame is not a zero-size layer the compositor may skip.
         { scale: Math.max(0.0001, scale) },
       ],
-      opacity: 1 - dissolve,
+      opacity: 1 - d,
     };
   });
 
@@ -260,7 +274,8 @@ export function RippleNavProvider({ children }: { children: ReactNode }) {
           <Ring
             key={i}
             index={i}
-            progress={progress}
+            wave={wave}
+            dissolve={dissolve}
             reach={reach}
             span={span}
             diameter={diameter}
@@ -278,14 +293,18 @@ export function RippleNavProvider({ children }: { children: ReactNode }) {
  *
  * The rings are the only part of the wavefront that can actually be seen — the veil is the
  * exact colour the screens already sit on, which is what hides the seam and also what makes it
- * invisible. So they are given the whole timeline rather than just the expand: they keep
+ * invisible. So they are given the whole timeline rather than just the cover: they keep
  * travelling through the hold, which is the window in which the incoming screen mounts. That
  * is the expensive part of the transition, and it is much better spent watching something move
  * than watching a static opaque rectangle.
+ *
+ * They move at CONSTANT speed, and that is the single most important thing about them. See
+ * `ringRadius` in rippleMath for why a wavefront and a filled disc need opposite curves.
  */
 function Ring({
   index,
-  progress,
+  wave,
+  dissolve,
   reach,
   span,
   diameter,
@@ -293,7 +312,8 @@ function Ring({
   originY,
 }: {
   index: number;
-  progress: SharedValue<number>;
+  wave: SharedValue<number>;
+  dissolve: SharedValue<number>;
   reach: SharedValue<number>;
   span: number;
   diameter: number;
@@ -301,9 +321,9 @@ function Ring({
   originY: SharedValue<number>;
 }) {
   const style = useAnimatedStyle(() => {
-    // Mapped across the expand AND the hold, so the ring arrives as the dissolve begins.
-    const travel = Math.min(1, progress.value / HOLD_END);
-    const lagged = travel - index * RING_LAG;
+    // `wave` is already linear across cover+hold, so this is the raw position — no easing is
+    // applied on top. Each ring trails the leader by a fixed fraction of the total reach.
+    const lagged = wave.value - index * RING_LAG;
     const radius = Math.max(0, lagged) * reach.value;
 
     return {
@@ -312,7 +332,9 @@ function Ring({
         { translateY: originY.value - span },
         { scale: Math.max(0.0001, radius / span) },
       ],
-      opacity: lagged <= 0 ? 0 : ringOpacity(travel, index),
+      // `lagged`, not the leading edge: each ring fades against where IT is. Multiplied by the
+      // dissolve so all three leave with the veil however far along their own travel they got.
+      opacity: lagged <= 0 ? 0 : ringOpacity(lagged, index) * (1 - dissolve.value),
     };
   });
 
@@ -352,7 +374,7 @@ export function useRippleNav(): RippleNavState {
 }
 
 /** Total wall-clock time of one transition. Exported so the kitchen sink can say so. */
-export const RIPPLE_TOTAL_MS = EXPAND_MS + HOLD_MS + DISSOLVE_MS;
+export const RIPPLE_TOTAL_MS = COVER_MS + HOLD_MS + DISSOLVE_MS;
 
 const styles = StyleSheet.create({
   root: { flex: 1 },

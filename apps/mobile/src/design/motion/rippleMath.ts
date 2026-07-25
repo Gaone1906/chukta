@@ -24,15 +24,19 @@ export function rippleEase(t: number): number {
 }
 
 /**
- * The wavefront curve actually used now: quadratic out, 1 - (1-t)^2.
+ * Quadratic out, 1 - (1-t)^2. **Used by `RippleReveal`'s veil, and by nothing else.**
  *
- * Still an ease-out, because it has to be — the area a circle covers grows with the *square*
- * of its radius, so a radius moving at constant speed would appear to accelerate violently
- * near the end. Easing the radius out is what makes the *coverage* feel even.
+ * The comment that used to sit here called this "the wavefront curve actually used now", which
+ * was false: `RippleNav` drove everything from a `Easing.bezier` it declared itself. Believing
+ * that comment is how the curve got mis-tuned twice — someone reads the reasoning here, adjusts
+ * this function, and the transition on screen does not move. A comment naming the wrong curve
+ * is worse than no comment, so: check the call site, not this docstring.
  *
- * But a gentler one. Quarter-way through the expand this is 44% travelled rather than 51%,
- * and half-way 75% rather than 83%, so there is still real movement in the second half of the
- * phase instead of a curve that has spent itself in the first sixth.
+ * It is an ease-out because a FILLED disc covers area ∝ r², so a radius moving at constant
+ * speed appears to accelerate violently near the end. Easing the radius out is what makes the
+ * *coverage* read as even.
+ *
+ * That reasoning applies to a filled veil and NOT to a thin ring — see `ringRadius`.
  */
 export function waveEase(t: number): number {
   'worklet';
@@ -54,20 +58,33 @@ export const RING_LAG = 0.09;
 export const RING_OPACITY = [0.85, 0.5, 0.28] as const;
 export const RING_BLUR = [0.4, 1.2, 2.4] as const;
 
-/** Radius of trailing ring `index` at eased progress `p`. */
+/**
+ * Radius of trailing ring `index` at progress `p`.
+ *
+ * **`p` should be near-LINEAR here, not eased** — the opposite of what the veil wants, which is
+ * why the two stopped sharing a progress value. A ring is a travelling wavefront: what the eye
+ * tracks is the line itself, and a line moving at constant radial speed is what reads as a
+ * sweep. Easing it out makes it decelerate into a stall — the exact "jankily stopping before
+ * reaching the edge" this was reported as. Only the filled veil needs the r² correction.
+ */
 export function ringRadius(p: number, rMax: number, index: number): number {
   'worklet';
   return Math.max(0, p * rMax - index * rMax * RING_LAG);
 }
 
 /**
- * How visible ring `index` is at raw progress `p`.
+ * How visible ring `index` is at its OWN travel `p` — not the leading edge's.
  *
- * The rings are the ONLY part of the wavefront there is to see — the veil is deliberately the
- * colour the screens already sit on, which is what hides the seam. So they hold their
- * brightness across the first two thirds of the journey and only fade at the end, rather than
- * the previous linear `(1 - p)` which had the leading ring down to 42% opacity by the time it
- * was half way across and invisible long before it arrived.
+ * Passing the leader's progress for all three was a real bug: every ring ran the leader's fade
+ * schedule, so they dimmed on a clock that had nothing to do with where they actually were, and
+ * all three hit zero simultaneously while sitting at three different radii. Ring 3 was invisible
+ * from 58% of the way out. Each ring now fades against its own position, which is what makes
+ * three distinct rings visible instead of one bright one and two rumours.
+ *
+ * The hold runs to 0.75 rather than 0.66 because of where the geometry puts them: `maxRadius`
+ * measures to the furthest CORNER, so across the last half of the journey only about an eighth
+ * of a ring's circumference is still on screen. Fading early spends the fade somewhere nobody
+ * can see. The dissolve takes them out at the end regardless — see the global fade in RippleNav.
  */
 export function ringOpacity(p: number, index: number): number {
   'worklet';
@@ -77,8 +94,8 @@ export function ringOpacity(p: number, index: number): number {
   // A short fade in, so a ring appears from the fingertip rather than being switched on.
   const arriving = clamped < 0.08 ? clamped / 0.08 : 1;
 
-  // Nothing fades until two thirds of the way across; then it goes out over the remainder.
-  const leaving = clamped < 0.66 ? 1 : 1 - (clamped - 0.66) / 0.34;
+  // Nothing fades until three quarters of the way across; then it goes out over the remainder.
+  const leaving = clamped < 0.75 ? 1 : 1 - (clamped - 0.75) / 0.25;
 
   return base * arriving * (leaving < 0 ? 0 : leaving);
 }

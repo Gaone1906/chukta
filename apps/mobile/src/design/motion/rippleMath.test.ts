@@ -79,18 +79,33 @@ describe('trailing rings', () => {
    * before it arrived. That is most of why the transition read as a stutter rather than a
    * sweep, so the shape below is load-bearing rather than decorative.
    */
-  it('holds full brightness across the first two thirds of the journey', () => {
+  it('holds full brightness across the first three quarters of the journey', () => {
     expect(ringOpacity(0.3, 0)).toBeCloseTo(0.85);
     expect(ringOpacity(0.5, 0)).toBeCloseTo(0.85);
-    expect(ringOpacity(0.66, 0)).toBeCloseTo(0.85);
+    expect(ringOpacity(0.75, 0)).toBeCloseTo(0.85);
   });
 
-  it('fades over the last third and is fully gone on arrival', () => {
-    expect(ringOpacity(0.83, 0)).toBeLessThan(0.85);
-    expect(ringOpacity(0.83, 0)).toBeGreaterThan(0);
+  it('fades over the last quarter and is fully gone on arrival', () => {
+    expect(ringOpacity(0.88, 0)).toBeLessThan(0.85);
+    expect(ringOpacity(0.88, 0)).toBeGreaterThan(0);
     for (let i = 0; i < RING_COUNT; i++) {
       expect(ringOpacity(1, i)).toBeCloseTo(0);
     }
+  });
+
+  /*
+   * The bug this function had for two rounds of tuning: RippleNav passed the LEADING edge's
+   * progress for all three rings, so they shared the leader's fade schedule regardless of where
+   * they actually were. Each ring is now given its own lagged position, and the argument that
+   * this is the right call is simply that a ring 18% further back is 18% less far along — its
+   * fade should be too. Asserting the shape here is what keeps the call site honest.
+   */
+  it('is a function of one ring OWN travel, so a lagged ring is not dimmed early', () => {
+    // Two rings at the same real position are equally far through their own fade, whatever
+    // their index — the index only sets base brightness, never the schedule.
+    const leaderAtThreeQuarters = ringOpacity(0.75, 0) / 0.85;
+    const thirdRingAtThreeQuarters = ringOpacity(0.75, 2) / 0.28;
+    expect(leaderAtThreeQuarters).toBeCloseTo(thirdRingAtThreeQuarters);
   });
 
   it('appears from the fingertip rather than switching on', () => {
@@ -156,8 +171,19 @@ describe('the motion token', () => {
   // captured into a Reanimated worklet. This is what stops it drifting from its parts.
   it('total duration equals the three beats it is made of', () => {
     expect(motion.ripple.duration).toBe(
-      motion.ripple.expand + motion.ripple.hold + motion.ripple.dissolve,
+      motion.ripple.cover + motion.ripple.hold + motion.ripple.dissolve,
     );
+  });
+
+  /*
+   * The back-slide in `(app)/_layout.tsx` is pinned at 300ms and plays underneath the opaque
+   * veil. If the hold were ever retuned shorter than it, the incoming screen would still be
+   * sliding when the veil began dissolving — which is the exact stutter that made
+   * `animation: 'none'` the original choice. Coupling them here means that trade-off cannot be
+   * broken silently by someone tuning the ripple alone.
+   */
+  it('holds long enough to hide the 300ms native back-slide', () => {
+    expect(motion.ripple.hold).toBeGreaterThanOrEqual(300);
   });
 });
 

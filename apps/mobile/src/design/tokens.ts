@@ -162,18 +162,29 @@ export const motion = {
    *
    * `hold` is the window the incoming screen has to mount before it can be seen. The trailing
    * rings are still travelling through it on purpose.
+   *
+   * ---------------------------------------------------------------- why these numbers moved
+   *
+   * `expand` became `cover`, and shed 120ms to `hold`. The rename is the point: nothing here
+   * "expands" for 440ms — the veil finishes covering the screen at `cover`, and what carries
+   * the remaining time is the rings crossing it. Calling the beat after its own job is what
+   * stops the next person retuning the wrong one, which has now happened twice.
+   *
+   * `hold` doubling to 360 also gives the native back-slide (`animationDuration: 300` in
+   * `(app)/_layout.tsx`) room to finish underneath the opaque veil with 60ms to spare, so the
+   * push never peeks out from beneath the dissolve.
    */
   ripple: {
-    expand: 440,
-    hold: 180,
-    dissolve: 240,
+    cover: 320,
+    hold: 360,
+    dissolve: 220,
     /**
      * The whole transition, for anything that needs one number. Written out rather than
      * derived with a getter: this object is small enough to be captured into a Reanimated
      * worklet, and a getter would not survive the trip into the UI runtime intact.
      * `rippleMath.test.ts` asserts it equals the sum, so it cannot drift.
      */
-    duration: 860,
+    duration: 900,
     easeExponent: 2.6,
   },
   seal: { spinner: 1050, stamp: 760, halo: 900, holdBeforeStamp: 1500 },
