@@ -1133,97 +1133,123 @@ Fixed both bugs next door: `tip.tsx` never branched on `configured`; `purchases.
 
 ---
 
-# NEXT UP — what is left of the six
+# ROUND 2 — claim codes, contacts, and a second security fix (2026-07-26, overnight)
 
-Order: claim codes (migration **0026**, not 0025 — that number is now the security fix) + claim
-UI → contacts. **Phone/OTP is dropped for now** (§2). Phase 10 after.
+Commits `2ca8398` → `4c6d309`, all pushed. Gate green: **143 pgTAP · 45 mobile · 114 core ·
+typecheck 0 · lint 0.** **All six requested features are now done**, plus Phase 10's error
+states and the two verification tasks that were outstanding.
 
-## 1. Claim a person with a passcode — migration `0026_claim_codes.sql` + UI
+## ⚠️ 0027 — the third door 0025 missed. Read this before touching identity code.
 
-Everything in the previous plan still stands. The load-bearing points, unchanged:
+An adversarial review of the claim-code work found a **critical**, and it was not in the new
+code — it was in the 0025 fix from earlier the same day.
 
-- **8 characters, not 6**, from a 32-char Crockford alphabet (exactly 32, so `% 32` on a uniform
-  byte is unbiased). Display `XXXX-XXXX`. A guesser attacks the union of all live codes: 32⁶ is
-  2^30, and even throttled that gives a large app roughly a 1-in-10 chance of a takeover in year
-  one. 8 chars buys 1024× for one extra typed pair.
-- **15-minute expiry**, not the table's 90-day default — that default is right for a 192-bit link
-  and catastrophic for a 40-bit code. It is the single biggest free lever on the live-code count.
-- **HMAC with an out-of-row pepper**, not the current unsalted SHA-256: a 40-bit input inverts on
-  a consumer GPU in minutes, so plain `digest()` is decorative at this length. `extensions.hmac`
-  is available (pgcrypto, `0001:9`).
-- Separate `internal.claim_codes` table — one table cannot carry one `expires_at` default for
-  both a 192-bit secret and a 40-bit one. Cron purge.
-- Supersede **all** live claims for the placeholder, not just the caller's (`0020:62-67` scopes
-  to `created_by_profile_id = v_me`, so a second inviter's code survives a "regenerate").
-- **Throttle in `internal`, three tiers**: 5/hour/actor, 20/hour/IP, and a **global 500 failures
-  / 5 min circuit breaker** — the only tier that caps total entropy regardless of how many
-  accounts or IPs the attacker controls.
-- **Return, don't raise.** PostgREST runs each RPC in one transaction, so inserting the attempt
-  row and then raising **rolls the counter back** and the throttle becomes a no-op that tests
-  green. Return `{ok:false, reason:'invalid'}`, one uniform reason for wrong/expired/used.
-- **Hard limit:** `merge_profiles` refuses a source that already has an account, so a claim is
-  always *placeholder → me*. Two people each holding a placeholder of the other need **two
-  codes**. There is no symmetric handshake without building account-merging, which is takeover.
-- Notify every counterparty on merge; nothing tells anyone today.
+`shares_context_with` is derived from `group_members` **and** `expense_participants`. 0025
+gated the two expense writers and missed `add_group_members`, which writes the other table with
+no validation at all. So the identical takeover still worked with one substitution: make your
+own group, add the victim's placeholder to it, context forged. Reproduced end to end, then
+verified severed — including that **both** claim doors (the new code and the pre-existing
+invite link) refuse once the membership insert is blocked.
 
-Client: `ClaimCodeSheet` to generate, `(app)/claim.tsx` to redeem, a **Claim a person** sidebar
-row. Online-only, like `claim_placeholder` already is (`outbox.ts:27`).
+**That is four writers of those two tables: `create_group` (0016), `create_expense` and
+`update_expense` (0025), `add_group_members` (0027). A fifth would reopen the whole class.**
+The guard is a shared function (`auth_ext.assert_known_profiles`) precisely so it cannot be
+forgotten again — call it in anything new that writes either table.
 
-Also still worth doing before adding any low-entropy path: `internal.profile_merges.row_counts`
-records nothing but the two ids it already has as columns (`0013:307`), and `merge_profiles`
-**sums** colliding split rows (`0013:227`) — a merge is mathematically irreversible, not merely
-un-implemented. Record enough to reverse one.
+## ✅ Claim codes — `0026_claim_codes.sql` + UI
 
-## 2. ~~Phone on the profile~~ — DROPPED for now (decided 2026-07-26)
+8 chars from a 32-char Crockford alphabet, 15-minute expiry, HMAC with an out-of-row pepper,
+three-tier throttle (5/hr/actor, 20/hr/IP, global 500/5min breaker). 24 pgTAP tests.
 
-**The user's call: leave the phone/OTP work out entirely for now.** This resolves the fork that
-was blocking here — no `set_my_phone`, no mandatory phone field on the profile, no OTP, and no
-SMS provider to procure. It also means the enumeration-oracle question does not need answering,
-because there is no lookup-by-phone surface to be an oracle.
+**The two things that would be easy to break:**
 
-Nothing is lost by waiting: `contact_kind` already has `'phone'` and
-`profile_contact_points` already has the partial unique index, so the schema is ready whenever
-this comes back. `packages/core/src/phone.ts` is **built and tested** and is used by contacts
-below, so the normaliser was not wasted work either.
+1. **It RETURNS, it does not RAISE.** PostgREST runs each RPC in one transaction, so inserting
+   the attempt row and then raising rolls the counter back — the throttle becomes a no-op whose
+   test still passes. There is an assertion on the *committed* row count, not on the error.
+2. **`throttled` is deliberately distinguishable from `invalid`,** which departs from the
+   original plan. Re-derived: lockout is a fact about the caller's own attempt history, which
+   they already know, so hiding it buys nothing and strands a real person who typo'd. Uniformity
+   is required only where the distinction is a fact about somebody else — which is why wrong,
+   expired and already-used still collapse into one answer.
 
-When it does come back, the decision waiting is: verify-before-lookup (needs an SMS provider,
-TRAI DLT) versus unverified with a byte-identical response across all three states. `0002:52`
-is the constraint to re-read first — `verified_at` is "set only from a verified auth identity.
-Merging on an unverified contact point would be a straightforward account-takeover vector."
+Verified end to end on the simulator with two accounts: A added Kabir, split ₹3,000 with him,
+generated `WYSX-G2YD`; B (empty ledger) typed it lowercase and hyphenated, got "You are Kabir
+now", and Home showed "dev ₹1,500 YOU OWE". Placeholder tombstoned, split row repointed.
 
-## 3. Contacts — pick one, resolve one
+## ✅ Contacts — picker only
 
-`expo-contacts@~57.0.2`, **system picker only**. Prefills name + phone into `AddPersonSheet`;
-the number goes through the new normaliser then the existing `upsert_contact_profile` dedupe.
+`Contact.presentPicker()` (the legacy `presentContactPickerAsync` is deprecated in SDK 57 and
+**throws at runtime** — the plan predicted this needed checking). iOS's own UI states the
+guarantee: "Hisaab can only access the contacts you select" / "Allow access to 1 contact?".
 
-**Know what dropping phone (§2) costs this feature, before building it.** No real account can
-hold a `kind='phone'` contact point any more, because `set_my_phone` was the only thing that
-would have written one. So picking a contact will **never resolve to a real Hisaab user** — it
-can only match a placeholder somebody created from their own contacts.
+The three promises moved together, as they had to: `legal/privacy.md`, `invite.tsx`'s on-screen
+copy, and the phase-07 acceptance criterion. **Keep them in step** — the app contradicts its own
+privacy policy otherwise.
 
-That is still worth shipping: two friends who each add the same person by phone converge on one
-placeholder instead of two, which is the duplicate-identity problem the normaliser exists for.
-But it is *not* "find your friends who are already on Hisaab", and the copy must not imply that
-— email remains the only identifier that resolves to a real account. The claim code (§1) is the
-route to a real user, and it is the one to point people at.
+Verified: picked a contact, got the name and `+91 98765 43210` → `+919876543210`, and confirmed
+a *different* user adding that same number resolves to the **same** profile with exactly one
+profile holding it. That convergence is the whole point of the normaliser.
 
-**A promise change in three places that must move together:** `legal/privacy.md:47` lists
-contacts *first* in "we do not collect"; `invite.tsx:89` says on screen "Hisaab never reads your
-contacts"; `plan/phase-07-sidebar-surfaces.md:104` has "No Contacts permission is requested
-anywhere" as a signed-off acceptance criterion. Plus `app.config.ts` usage strings +
-`READ_CONTACTS`, and Phase 11 gains an iOS `PrivacyInfo.xcprivacy` (none exists).
+## ✅ Conflict inbox, fed a real P0409 (was task 53)
 
-## Local dev note (cost me time, worth writing down)
+Queued an edit offline at revision 1, had the other account edit the same expense (revision 2),
+reconnected. The stale edit was **refused** — amount unchanged, so no money silently
+overwritten. Banner went amber→red ("1 change needs you"), the inbox showed the server's
+snapshot and both resolutions, and "Apply mine anyway" landed at revision 3 with **two**
+`update_expense` rows in `internal.mutation_log` — the proof the retry rotated its mutation key
+rather than replaying the stored refusal.
 
-`npx supabase db reset` wipes **`auth.users`**, not just app tables, so the app comes back
-holding a valid-looking session for a user the server has never heard of and lands on profile
-setup. Recovery: clear `Documents/mmkv/hisaab-auth*` in the simulator container, relaunch, tap
-**Dev sign-in** on the sign-in screen, then re-run `supabase/seed.sql` (it needs a signed-in
-profile to attach fixtures to). Clear `hisaab-query-cache*` too, or the app restores the empty
-result it cached before the seed ran and Home shows "No groups yet" against a populated database.
+## ✅ Phase 10 error states (was task 43) + one real bug it found
 
-**Simulator taps are in POINTS (402×874), not screenshot pixels (919×2019).** Multiply screenshot
-coordinates by ~0.437. Taps at pixel coordinates silently do nothing.
+The original note ("zero empty/error states exist anywhere") was stale — twelve of sixteen
+screens already handled both. Two of the four gaps were in the core loop and are fixed;
+`tip.tsx` and `settings.tsx` were left alone deliberately (their queries fail harmlessly).
 
-**Fast Refresh does not repropagate `motion.ripple` into `RippleNav`'s module-level constants** —
-they are destructured at module scope. Retiming the ripple needs a full app relaunch, not a save.
+**The bug that audit surfaced:** going offline showed users, verbatim,
+`fetch failed: UnexpectedException: Could not connect to the server. (at
+ExpoModulesCore/Promise.swift:56)`. `translateError`'s no-code branch passed the transport's own
+message straight through. Now a `NetworkError` with human copy, original kept on `cause`.
+**It is deliberately not a `ServerError`** so `isServerRefusal` still returns false and the
+outbox still treats a dropped connection as retryable — inverting that would strand queued
+writes permanently.
+
+## Also fixed along the way
+
+- **A missing native module blanked the ENTIRE app group.** expo-router evaluates every route
+  file to build its tree, so a top-level `import` of an absent native module throws at module
+  scope and no route renders. Observed on a stale dev client. `rate.ts` and `pickContact.ts`
+  both `require()` lazily now. **Any future optional native module must do the same.**
+- The claim screen sat under the status bar: `ScreenHeader` applies no inset, and every other
+  screen puts it INSIDE the ScrollView with `paddingTop: insets.top + 14` on the content
+  container. Follow that convention.
+
+---
+
+# NEXT UP
+
+## Blocked on hardware — I cannot do these
+
+- **Airplane-mode matrix on a physical device** (task 54). Needs a real phone.
+- **UPI picker with real GPay/PhonePe** (Phase 6 close-out). Same.
+
+## Not started
+
+- **Phase 9** — push (queue-and-drain via `pg_cron` → Edge Function → Expo Push), FX poll,
+  recurring expenses, receipts. `pg_cron` is stood up here; **add `internal.purge_claim_codes()`
+  to that same schedule** — it is written and deliberately unscheduled.
+- **Phase 11** — store submission: icons, screenshots, an iOS `PrivacyInfo.xcprivacy` (none
+  exists, and contacts now makes one mandatory), Play data-safety entry, IAP review.
+- **Phase 10 remainder** — a11y pass and the Android blur perf check on a low-end device.
+
+## Open decisions
+
+- **Phone/OTP** stays out (decided 2026-07-26). If it returns: verify-before-lookup needs an SMS
+  provider (TRAI DLT); `0002:52` is the invariant to re-read first.
+- **`merge_profiles` is mathematically irreversible** — it SUMS colliding split rows (`0013:227`)
+  and `row_counts` records nothing useful (`0013:307`). Worth recording enough to reverse one
+  before any further low-entropy path is added.
+
+## ⚠️ Still open item #11, before any public build
+
+Rotate the Supabase secret key, the DB password and the Google client secret. They were pasted
+in plain text and are compromised.
