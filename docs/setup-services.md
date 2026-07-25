@@ -112,7 +112,15 @@ Free. Three OAuth client IDs, because Google treats each platform separately.
    ```
 
    The Android client ID isn't referenced in code — Google matches it by package name and
-   signing certificate.
+   signing certificate — so the downloaded JSON is not needed anywhere.
+
+   The iOS client also needs its **reversed client id** registered as a URL scheme, or the
+   Google sheet opens and has nowhere to return to. That lives in `app.config.ts` under
+   `ios.infoPlist.CFBundleURLTypes` and is already set. It is the `REVERSED_CLIENT_ID` value
+   from the downloaded `.plist`.
+
+   Neither the Android JSON nor the iOS plist contains a secret — only the **Web** client has
+   one, and that belongs in the Supabase dashboard, never in the app.
 
 ---
 

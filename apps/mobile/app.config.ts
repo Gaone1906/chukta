@@ -27,6 +27,16 @@ const config: ExpoConfig = {
     // Populated by the UPI config plugin in Phase 6.
     infoPlist: {
       LSApplicationQueriesSchemes: ['upi', 'gpay', 'tez', 'phonepe', 'paytmmp', 'bhim', 'venmo'],
+
+      // Google's iOS SDK redirects back into the app through the reversed client id. Without
+      // this URL scheme the sheet opens and then has nowhere to return to.
+      CFBundleURLTypes: [
+        {
+          CFBundleURLSchemes: [
+            'com.googleusercontent.apps.36711202265-bp0smtoeibrkofpsvf9gfnv1u1cs9am5',
+          ],
+        },
+      ],
     },
   },
 
