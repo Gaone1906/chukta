@@ -12,8 +12,11 @@ insert into auth.users (id) values ('00000000-0000-0000-0000-0000000000a1');
 delete from public.profiles where user_id = '00000000-0000-0000-0000-0000000000a1';
 insert into public.profiles (id, user_id, display_name) values
   ('aaaaaaaa-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a1', 'Ann');
-insert into public.profiles (id, display_name) values
-  ('bbbbbbbb-0000-0000-0000-000000000001', 'Priya');
+-- created_by_profile_id matters: it is what marks Priya as a placeholder Ann added, which is
+-- what lets Ann name her in an expense at all since 0025. Real placeholders always carry it —
+-- upsert_contact_profile stamps it — so a fixture without it is not a row this app can produce.
+insert into public.profiles (id, display_name, created_by_profile_id) values
+  ('bbbbbbbb-0000-0000-0000-000000000001', 'Priya', 'aaaaaaaa-0000-0000-0000-000000000001');
 
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-0000000000a1","role":"authenticated"}';
 

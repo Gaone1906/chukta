@@ -1,21 +1,28 @@
 -- The write path: one RPC, six tables, one transaction, one idempotency key.
 
 begin;
-select plan(13);
+select plan(15);
 
 -- NOTE: on_auth_user_created auto-creates a profile for every auth.users row. These fixtures
 -- want specific, readable profile ids, so the auto-created rows are swapped out below. The
 -- trigger's own behaviour is covered properly in identity.test.sql.
 
-insert into auth.users (id) values ('00000000-0000-0000-0000-0000000000a1');
+insert into auth.users (id) values
+  ('00000000-0000-0000-0000-0000000000a1'),
+  ('00000000-0000-0000-0000-0000000000d1');   -- Mallory: a real account, no tie to Ann
 
-delete from public.profiles where user_id = '00000000-0000-0000-0000-0000000000a1';
+delete from public.profiles where user_id in (
+  '00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000d1');
 
 insert into public.profiles (id, user_id, display_name) values
-  ('aaaaaaaa-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a1', 'Ann');
-insert into public.profiles (id, display_name) values
-  ('bbbbbbbb-0000-0000-0000-000000000001', 'Priya'),      -- a placeholder, never signed up
-  ('cccccccc-0000-0000-0000-000000000001', 'Arjun');
+  ('aaaaaaaa-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a1', 'Ann'),
+  ('dddddddd-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000d1', 'Mallory');
+-- Placeholders Ann added herself. In production these arrive through upsert_contact_profile,
+-- which stamps created_by_profile_id — the column app.assert_known_profiles reads to decide the
+-- caller is allowed to name them. A fixture that left it null would not resemble any real row.
+insert into public.profiles (id, display_name, created_by_profile_id) values
+  ('bbbbbbbb-0000-0000-0000-000000000001', 'Priya', 'aaaaaaaa-0000-0000-0000-000000000001'),
+  ('cccccccc-0000-0000-0000-000000000001', 'Arjun', 'aaaaaaaa-0000-0000-0000-000000000001');
 
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-0000000000a1","role":"authenticated"}';
 
@@ -168,6 +175,70 @@ select throws_ok(
   '23514',
   null,
   'splits that do not sum to the total are rejected at commit'
+);
+
+-- ---------------------------------------------------------------- the takeover this closes
+--
+-- Ann's placeholder Priya (bbbb…) belongs to Ann. Mallory (dddd…) is a stranger — no shared
+-- group, no shared expense, did not create her. Before 0025, Mallory could name Priya in a
+-- one-off expense with no group_id to gate on, which minted a shared expense_participants row,
+-- which made shares_context_with(Priya) true, which let create_invite_link ->
+-- claim_placeholder -> merge_profiles fold Priya (and Ann's ledger against her) into Mallory.
+-- The whole chain starts here, so this is where it has to be stopped.
+
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-0000000000d1","role":"authenticated"}';
+
+select throws_ok(
+  $$ select app.create_expense(
+       jsonb_build_object(
+         'description', 'manufactured context',
+         'amount_minor', 2,
+         'split_type', 'equal',
+         'payers', jsonb_build_array(
+            jsonb_build_object('profile_id','dddddddd-0000-0000-0000-000000000001','paid_amount_minor',2)),
+         'splits', jsonb_build_array(
+            jsonb_build_object('profile_id','dddddddd-0000-0000-0000-000000000001','share_amount_minor',1),
+            jsonb_build_object('profile_id','bbbbbbbb-0000-0000-0000-000000000001','share_amount_minor',1))
+       ),
+       'a1a1a1a1-0000-0000-0000-000000000001'
+     ) $$,
+  '42501',
+  'cannot include a profile you have no shared context with',
+  'a stranger cannot name a placeholder they do not know in a one-off expense'
+);
+
+-- The same defence on the edit path: Mallory owns a solo expense, then tries to graft Priya
+-- onto its splits. update_expense replaces the split set wholesale, so without the gate this is
+-- a second door to the same manufactured-context row.
+select app.create_expense(
+  jsonb_build_object(
+    'id', 'eeee4444-0000-0000-0000-000000000001',
+    'description', 'just me', 'amount_minor', 100, 'split_type', 'equal',
+    'payers', jsonb_build_array(
+       jsonb_build_object('profile_id','dddddddd-0000-0000-0000-000000000001','paid_amount_minor',100)),
+    'splits', jsonb_build_array(
+       jsonb_build_object('profile_id','dddddddd-0000-0000-0000-000000000001','share_amount_minor',100))
+  ),
+  'a2a2a2a2-0000-0000-0000-000000000001'
+);
+
+select throws_ok(
+  $$ select app.update_expense(
+       'eeee4444-0000-0000-0000-000000000001',
+       jsonb_build_object(
+         'amount_minor', 100,
+         'payers', jsonb_build_array(
+            jsonb_build_object('profile_id','dddddddd-0000-0000-0000-000000000001','paid_amount_minor',100)),
+         'splits', jsonb_build_array(
+            jsonb_build_object('profile_id','dddddddd-0000-0000-0000-000000000001','share_amount_minor',50),
+            jsonb_build_object('profile_id','bbbbbbbb-0000-0000-0000-000000000001','share_amount_minor',50))
+       ),
+       1,
+       'a3a3a3a3-0000-0000-0000-000000000001'
+     ) $$,
+  '42501',
+  'cannot include a profile you have no shared context with',
+  'nor can they graft a stranger onto an expense they can already edit'
 );
 
 select * from finish();
