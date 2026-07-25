@@ -357,6 +357,10 @@ xcodebuild -workspace ios/Hisaab.xcworkspace -scheme Hisaab -configuration Debug
 xcrun simctl install <UDID> ios/build/Build/Products/Debug-iphonesimulator/Hisaab.app
 xcrun simctl launch <UDID> com.hisaab.app
 
+# Watch an animation. It is shorter than a tool round-trip, so raise it FIRST (trap 20) —
+# motion.ripple's beats live in design/tokens.ts. 20x makes each phase observable.
+for i in 1 2 3 4 5 6; do xcrun simctl io <UDID> screenshot /tmp/w$i.png; sleep 1.4; done
+
 # iOS screenshot, when you need to control the timing yourself rather than via a tool call
 xcrun simctl io <UDID> screenshot /tmp/s.png && sips -Z 400 /tmp/s.png --out /tmp/s_small.png
 
@@ -511,6 +515,42 @@ every shell — they are not on the default PATH.
     `Unicode Normalization not appropriate for ASCII-8BIT` unless `LANG=en_US.UTF-8` is set,
     which makes `expo prebuild` fail at its pod step. Run
     `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install` from `apps/mobile/ios` afterwards.
+
+28. **Nothing that runs during an animation may touch React state.** The ripple kept its tap
+    origin in `useState` on a provider that renders the whole navigator, and handed an
+    unmemoized object to its context — so every navigation re-rendered every screen holding
+    `useRippleNav()`, twice, at frame 0 and at the end. Origin, radius and progress are all
+    shared values now and the overlay stays mounted. If a transition needs a value, it is a
+    shared value.
+
+29. **Never transform a view that contains glass.** The design's 1.8% settle-back was applied
+    to the wrapper around every screen. `GlassSurface` resolves to Apple's Liquid Glass on
+    iOS 26 and to a real `UIVisualEffectView` below it, so that asked the system to
+    recomposite every glass material on screen on every frame of the transition. Move the
+    effect onto something cheap that is already animating — the veil, in this case.
+
+30. **A view with `borderWidth` + `borderRadius` and no clip falls off CoreAnimation's border
+    fast path** and rasterises its border into a main-thread CGImage instead. Harmless at
+    button size; the ripple's rings are laid out at the screen's diagonal, so it was a bitmap
+    thousands of pixels square, three times, on the first frame of every transition.
+    `overflow: 'hidden'` puts it back on the fast path.
+
+31. **The ambient background is behind every blur surface, so while it moves nothing can be
+    cached.** Four SVG blobs on infinite loops meant the blur backdrop was dirty every frame,
+    app-wide, at rest as well as during transitions. It now pauses while the ripple plays.
+    Anything else added behind the glass needs the same treatment.
+
+32. **An ease-out can be too aggressive to read as motion.** `1-(1-t)^2.6` is 83% travelled at
+    the halfway mark, so over a 440ms expand the wave crossed most of the screen in about a
+    tenth of a second and then crawled — which looks like a flinch and a stall, not a sweep.
+    A circular reveal does need an ease-out (area grows with the square of the radius), but a
+    quadratic one. And the visible part of a transition should get most of the budget: the old
+    900ms spent over half of itself on an invisible veil holding and fading.
+
+33. **A sheet that builds its body when closed costs you the frame you were hiding.**
+    `DateSheet` laid out a 42-cell month grid on every render of the expense form, mounted or
+    not, including the screen's first render under the veil. Gate on `visible` and split the
+    body out, the way `PayerSheet` does.
 
 ## Testing without real credentials
 
