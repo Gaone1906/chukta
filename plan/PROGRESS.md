@@ -24,7 +24,7 @@ Use `Phase 0:` for repo-level chores that belong to no feature phase.
 | 3 | Supabase backend | [phase-03-backend.md](phase-03-backend.md) | ✅ done (18 migrations, 77 pgTAP) | 2 wk |
 | 4 | Auth & onboarding | [phase-04-auth-onboarding.md](phase-04-auth-onboarding.md) | ✅ done (Google verified to the account picker; Apple needs a paid team) | 1 wk |
 | 5 | Core loop | [phase-05-core-loop.md](phase-05-core-loop.md) | ✅ done (5A–5J; whole loop verified on Android) | 3 wk |
-| 6 | Settle up & UPI | [phase-06-settle-upi.md](phase-06-settle-upi.md) | ⬜ not started | 1 wk |
+| 6 | Settle up & UPI | [phase-06-settle-upi.md](phase-06-settle-upi.md) | ✅ built (6A–6C); needs a physical device to close | 1 wk |
 | 7 | Sidebar surfaces | [phase-07-sidebar-surfaces.md](phase-07-sidebar-surfaces.md) | ⬜ not started | 1.5 wk |
 | 8 | Offline & realtime | [phase-08-offline-realtime.md](phase-08-offline-realtime.md) | ⬜ not started | 1.5 wk |
 | 9 | Push, FX, recurring, receipts | [phase-09-push-fx-recurring.md](phase-09-push-fx-recurring.md) | ⬜ not started | 1.5 wk |
@@ -358,7 +358,14 @@ every shell — they are not on the default PATH.
 10. **pgTAP tests must not assume an empty database.** The dev seed now populates the same
     database the tests run against; two tests were asserting global counts and a globally
     unique email, and broke the moment 5B landed. Scope every assertion to its own fixtures.
-11. **The emulator's "Try out your stylus" tutorial steals keystrokes** the first time a text
+11. **Adding a native module needs a full rebuild**, not a Metro restart. `expo-clipboard`
+    and `modules/upi` both hit this. The failure is misleading: the screen reports
+    "Route ... is missing the required default export", and the real cause is a
+    `Cannot find native module` a few lines earlier in logcat. Use
+    `requireOptionalNativeModule` for anything with a fallback path.
+12. **Android 11+ package visibility.** `queryIntentActivities` returns an empty list — not an
+    error — without a matching `<queries>` block. Every UPI app looks uninstalled.
+13. **The emulator's "Try out your stylus" tutorial steals keystrokes** the first time a text
     field is focused, truncating input to one character. Looks exactly like an app bug. Cancel
     it once per emulator.
 
@@ -459,7 +466,21 @@ handling the empty cases well."* Deliberately deferred, not forgotten.
 
 Phase 10 owns states and polish, but the picker/Home inconsistency is worth pulling forward.
 
-### Next: Phase 6 — Settle up & UPI
+### Phase 6 — built, 2026-07-25
 
-`plan/phase-06-settle-upi.md`. `record_settlement` already exists and is tested; the screen,
-the UPI native module and the QR fallback do not.
+Settle up, the UPI handoff, the QR fallback and the native picker all exist. `record_settlement`
+was already tested; the screen, `packages/core/src/upi.ts` (property-tested), `modules/upi/`
+and `plugins/withUpiQueries.js` are new.
+
+Verified on the emulator: ₹1,350 marked settled flips the pair to All square, the QR renders
+with correct finder patterns, and the "they owe you" direction correctly offers no UPI button
+— you cannot reach into someone's phone and take money.
+
+**Blocked on hardware, not on code:** whether a real UPI app opens prefilled, whether the
+picker shows real icons, and whether the QR actually scans. All three need a physical Android
+device with GPay/PhonePe installed.
+
+### Next: Phase 7 — Sidebar surfaces
+
+`plan/phase-07-sidebar-surfaces.md`. Settings, Add friend (share sheet), Tip jar, Help, About.
+The Home profile button and the group members row are both still stubs pointing here.

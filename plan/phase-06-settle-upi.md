@@ -1,16 +1,24 @@
 # Phase 6 — Settle up & the UPI handoff
 
-**Status:** 🟡 6A + 6B done, 2026-07-25 · **Estimate:** 1 week · **Depends on:** Phase 5
+**Status:** ✅ built, 2026-07-25 · device verification outstanding · **Estimate:** 1 week · **Depends on:** Phase 5
 
 **Done:** the UPI URI builder in `packages/core/src/upi.ts` (property-tested), the Settle up
 screen at `(app)/settle.tsx`, the QR fallback, iOS per-scheme detection, the Android system
 chooser, and `record_settlement` wired from both Person and Group detail. Verified on the
 emulator: ₹1,350 marked settled flips the pair to All square.
 
-**Left:** 6C, the local Expo native module for the Android per-app picker with real icons, and
-the `<queries>` config plugin. Until then Android uses its own UPI chooser, which the plan
-below already names as the ship-first option. Nothing about the QR scanning or a real UPI app
-opening prefilled has been tested — that needs physical devices.
+**6C also done:** `modules/upi/` (Kotlin + Swift) and `plugins/withUpiQueries.js`. Verified on
+the emulator that the `<queries>` block reaches the built manifest, the module registers
+(`hasNativeUpi === true`) and `listUpiApps()` runs and returns zero — correct there, since the
+emulator has no UPI apps.
+
+**Left — needs a physical Android device with GPay/PhonePe installed:**
+- the picker lists them with their real labels and icons
+- launching lands on a payment screen with amount, VPA and note prefilled
+- the QR scans from a second phone
+
+Nothing in this phase can close those; the emulator cannot install a UPI app and the iOS
+Simulator cannot answer `canOpenURL` for apps it does not have.
 
 ## Goal
 
