@@ -81,7 +81,7 @@ export default function GroupDetail() {
           }
         />
 
-        {error ? (
+        {error && !data ? (
           <EmptyState
             title="Couldn't load this group"
             body={(error as Error).message}

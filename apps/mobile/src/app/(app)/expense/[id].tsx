@@ -173,7 +173,7 @@ export default function ExpenseDetailScreen() {
           }
         />
 
-        {error ? (
+        {error && !data ? (
           <EmptyState
             title="Couldn't load this expense"
             body={(error as Error).message}

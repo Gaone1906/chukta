@@ -126,7 +126,7 @@ export default function Invite() {
 
         {homeQuery.isLoading ? (
           <RowSkeleton count={2} />
-        ) : homeQuery.error ? (
+        ) : homeQuery.error && !homeQuery.data ? (
           <EmptyState
             title="Couldn't load your people"
             body={(homeQuery.error as Error).message}

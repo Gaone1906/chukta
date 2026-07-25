@@ -135,7 +135,21 @@ export default function Home() {
         </View>
 
         <View style={styles.list}>
-          {error ? (
+          {/*
+            * `&& !data` is the whole of "works offline" on the read side, and it was missing.
+            *
+            * The persisted cache restores every screen's last server response, so with no
+            * network there IS something to show — but the query still tries, still fails, and
+            * still lands in `error`. Rendering `error` in preference to `data` meant a
+            * perfectly good cached ledger was thrown away the moment a refetch failed, and the
+            * user got a fetch stack trace where their groups had been. Found by pulling the
+            * server out from under a running app; no test would have caught it, because both
+            * halves were individually correct.
+            *
+            * An error state is for having nothing to show. A failed refresh of something we
+            * already have is not that.
+            */}
+          {error && !data ? (
             <EmptyState
               title="Couldn't load your ledger"
               body={(error as Error).message}

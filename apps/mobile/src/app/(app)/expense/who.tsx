@@ -131,7 +131,7 @@ export default function WhoPicker() {
           />
         </View>
 
-        {error ? (
+        {error && !data ? (
           <EmptyState
             title="Couldn't load your people"
             body={(error as Error).message}

@@ -25,7 +25,14 @@ import { drainOutbox, retryDelayMs } from './drain';
 import type { PendingEffect } from './effects';
 import { clearQueryCache } from './persister';
 import { applyChangeEvent, subscribeToChanges, type ChangeSubscription } from './realtime';
-import { counts, listUnresolved, pendingByOp, pendingEffects, type OutboxRow } from './outbox';
+import {
+  counts,
+  listUnresolved,
+  nextPending,
+  pendingByOp,
+  pendingEffects,
+  type OutboxRow,
+} from './outbox';
 import { advanceCursor, getCursor, getOwner, resetCursor, setOwner } from './syncState';
 
 /**
@@ -75,7 +82,7 @@ const OfflineContext = createContext<OfflineState | null>(null);
 
 export function OfflineProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  const { session, profile } = useSession();
+  const { session, profile, loading } = useSession();
 
   const [connectivity, setConnectivity] = useState<Connectivity>(getConnectivity);
   const [version, setVersion] = useState(0);
@@ -119,8 +126,16 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     if (outcome.blockedBy === 'offline') {
       // No network. Pulling would fail the same way, so schedule and stop — a reconnect or a
       // foreground will also come back through here.
-      const stuck = counts().pending;
-      retryTimer.current = setTimeout(() => void runSyncRef.current?.(), retryDelayMs(stuck));
+      //
+      // The delay comes from how many times THIS row has been tried, not from how many rows
+      // are waiting. Passing the queue length was a real bug: with one stuck write it is
+      // always 1, so the backoff never grew and the app retried every two seconds
+      // indefinitely. Caught by watching `attempts` reach 23 inside ninety seconds.
+      const head = nextPending();
+      retryTimer.current = setTimeout(
+        () => void runSyncRef.current?.(),
+        retryDelayMs(head?.attempts ?? 1),
+      );
       return;
     }
 
@@ -174,20 +189,38 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
   // ------------------------------------------------------------ lifecycle
 
   useEffect(() => {
-    if (!session || !profile) {
-      // Signed out. Drop the channel, and the local state with it — see the note above about
-      // the queue belonging to a person.
+    /*
+     * **Wait for the session to be read before concluding anything.**
+     *
+     * `session` is null for the first render of every cold start, while the persisted session
+     * is still being pulled out of storage. Without this guard that read as "signed out", and
+     * the branch below wiped the outbox — so every single launch destroyed whatever writes
+     * were queued, silently, before the user saw a frame. An expense entered on a plane would
+     * simply not exist the next time the app opened.
+     *
+     * The root navigator already waits on exactly this flag, with a comment about bouncing to
+     * login and back. Same trap, much worse consequence: that one costs a flicker, this one
+     * costs somebody's money. It cannot be found by reading the code — the wipe is correct in
+     * isolation, and so is the loading state.
+     */
+    if (loading) return;
+
+    if (!session) {
+      // Genuinely signed out. Drop the channel, and the local state with it — see the note at
+      // the top about the queue belonging to a person.
       channelRef.current?.unsubscribe();
       channelRef.current = null;
-      if (!session) {
-        clearLocalDatabase();
-        clearQueryCache();
-        // Deferred out of the effect body: the counts are read from SQLite on each bump, and
-        // bumping synchronously here would re-render mid-effect for a one-shot cleanup.
-        queueMicrotask(refresh);
-      }
+      clearLocalDatabase();
+      clearQueryCache();
+      // Deferred out of the effect body: the counts are read from SQLite on each bump, and
+      // bumping synchronously here would re-render mid-effect for a one-shot cleanup.
+      queueMicrotask(refresh);
       return;
     }
+
+    // Signed in but the profile has not resolved yet — mid-onboarding, or a launch where the
+    // profile request has not come back. Nothing to do, and emphatically nothing to delete.
+    if (!profile) return;
 
     const owner = getOwner();
     if (owner && owner !== profile.id) {
@@ -204,7 +237,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
       channelRef.current?.unsubscribe();
       channelRef.current = null;
     };
-  }, [session, profile, queryClient, refresh, kickSync]);
+  }, [loading, session, profile, queryClient, refresh, kickSync]);
 
   // Reconnecting is the single most likely moment for the queue to have work to do.
   useEffect(() => {

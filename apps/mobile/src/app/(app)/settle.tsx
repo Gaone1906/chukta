@@ -193,7 +193,7 @@ export default function SettleUp() {
           }
         />
 
-        {error ? (
+        {error && !data ? (
           <EmptyState
             title="Couldn't load this balance"
             body={(error as Error).message}

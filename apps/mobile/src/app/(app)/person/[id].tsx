@@ -88,7 +88,7 @@ export default function PersonDetail() {
           ) : null}
         </View>
 
-        {error ? (
+        {error && !data ? (
           <EmptyState
             title="Couldn't load this person"
             body={(error as Error).message}
