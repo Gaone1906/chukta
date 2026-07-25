@@ -1,7 +1,15 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import {
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+  type GestureResponderEvent,
+} from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   interpolate,
@@ -14,7 +22,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { GlassSurface, color, font, radius, useReduceMotion } from '@/design';
+import { GlassSurface, color, font, radius, useReduceMotion, useRippleNav } from '@/design';
 import { useSession } from '@/features/auth/session';
 import { Avatar } from '@/features/people/Avatar';
 
@@ -89,6 +97,7 @@ function SidebarContent({
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { profile, signOut } = useSession();
+  const { rippleFrom } = useRippleNav();
 
   const scrimStyle = useAnimatedStyle(() => ({ opacity: progress.get() }));
   const drawerStyle = useAnimatedStyle(() => ({
@@ -113,11 +122,20 @@ function SidebarContent({
       }
     });
 
-  // Every destination closes the drawer first. Navigating out from under an open drawer leaves
-  // it hanging over the new screen for as long as the animation takes, which reads as a bug.
-  const go = (path: string) => {
+  /*
+   * Close the drawer, then ripple from the row that was tapped.
+   *
+   * The order is forced by the drawer being a Modal: on iOS a modal is a separate window above
+   * everything, including the ripple overlay, so a veil started while it is still up would be
+   * hidden behind it. Closing first is not a compromise — the prototype's own ripple demo uses
+   * the sidebar's Settings row as its origin, so a wavefront starting where the drawer was is
+   * the designed behaviour rather than a workaround.
+   *
+   * Both state updates land in the same commit, so the drawer never disappears a frame early.
+   */
+  const go = (event: GestureResponderEvent, path: string) => {
     onCloseImmediately();
-    router.push(path as never);
+    rippleFrom(event, () => router.push(path as never));
   };
 
   const version = Constants.expoConfig?.version ?? '0.0.0';
@@ -156,7 +174,7 @@ function SidebarContent({
                 <Text style={styles.name} numberOfLines={1}>
                   {profile?.display_name ?? 'You'}
                 </Text>
-                <Pressable accessibilityRole="button" onPress={() => go('/settings')}>
+                <Pressable accessibilityRole="button" onPress={(e) => go(e, '/settings')}>
                   <Text style={styles.editLink}>Edit profile</Text>
                 </Pressable>
               </View>
@@ -169,7 +187,7 @@ function SidebarContent({
                 either dishonest or useless. */}
             <Pressable
               accessibilityRole="button"
-              onPress={() => go('/tip')}
+              onPress={(e) => go(e, '/tip')}
               style={({ pressed }) => [styles.tipRow, pressed ? styles.tipRowPressed : null]}
             >
               <Svg width={19} height={18} viewBox="0 0 19 18" fill="none">
@@ -185,14 +203,14 @@ function SidebarContent({
             </Pressable>
 
             <View>
-              <SidebarRow label="Settings" icon={<SettingsIcon />} onPress={() => go('/settings')} />
-              <SidebarRow label="Invite friends" icon={<InviteIcon />} onPress={() => go('/invite')} />
+              <SidebarRow label="Settings" icon={<SettingsIcon />} onPress={(e) => go(e, '/settings')} />
+              <SidebarRow label="Invite friends" icon={<InviteIcon />} onPress={(e) => go(e, '/invite')} />
               <SidebarRow
                 label="Help and feedback"
                 icon={<HelpIcon />}
-                onPress={() => go('/help')}
+                onPress={(e) => go(e, '/help')}
               />
-              <SidebarRow label="About Hisaab" icon={<AboutIcon />} onPress={() => go('/about')} />
+              <SidebarRow label="About Hisaab" icon={<AboutIcon />} onPress={(e) => go(e, '/about')} />
             </View>
 
             <View style={styles.spacer} />
@@ -236,7 +254,7 @@ function SidebarRow({
 }: {
   label: string;
   icon: React.ReactNode;
-  onPress: () => void;
+  onPress: (event: GestureResponderEvent) => void;
 }) {
   return (
     <Pressable

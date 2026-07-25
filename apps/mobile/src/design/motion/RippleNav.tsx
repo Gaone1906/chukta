@@ -16,7 +16,15 @@ import Animated, {
 
 import { color, motion } from '../tokens';
 import { useReduceMotion } from '../useReduceMotion';
-import { RING_BLUR, RING_COUNT, maxRadius, ringOpacity, ringRadius, rippleEase } from './rippleMath';
+import {
+  RING_BLUR,
+  RING_COUNT,
+  maxRadius,
+  outgoingScale,
+  ringOpacity,
+  ringRadius,
+  rippleEase,
+} from './rippleMath';
 
 /**
  * The ripple, as a navigation transition.
@@ -162,6 +170,25 @@ export function RippleNavProvider({ children }: { children: ReactNode }) {
     };
   });
 
+  /*
+   * The screen settles back under the wavefront, and forward again as it clears.
+   *
+   * Without this the transition is nearly invisible, and that is not a matter of taste — the
+   * veil is deliberately the exact colour the screens already sit on (that is what hides the
+   * seam), so a veil sweeping over a dark screen looks like nothing happening. The design spec
+   * has always called for the outgoing layer to settle to `scale: .982`; applying it to the
+   * navigator means the same 1.8% is spent going out AND coming back, so you see the old screen
+   * recede and the new one arrive rather than a cut between two dark rectangles.
+   *
+   * One transform on one view, entirely on the compositor. It is exactly 1 when idle:
+   * progress 0 → no ease, progress 1 → fully dissolved.
+   */
+  const contentStyle = useAnimatedStyle(() => {
+    const expand = Math.min(1, progress.value / EXPAND_FRACTION);
+    const dissolve = Math.max(0, (progress.value - HOLD_FRACTION) / (1 - HOLD_FRACTION));
+    return { transform: [{ scale: outgoingScale(rippleEase(expand) * (1 - dissolve)) }] };
+  });
+
   const circle = { width: rMax * 2, height: rMax * 2, borderRadius: rMax };
   const at = origin
     ? { left: (origin.x ?? 0) - rMax, top: (origin.y ?? 0) - rMax }
@@ -169,7 +196,7 @@ export function RippleNavProvider({ children }: { children: ReactNode }) {
 
   return (
     <RippleNavContext.Provider value={{ rippleTo, rippleFrom }}>
-      <View style={styles.root}>{children}</View>
+      <Animated.View style={[styles.root, contentStyle]}>{children}</Animated.View>
 
       {origin ? (
         <View pointerEvents="none" style={styles.overlay}>
@@ -212,7 +239,17 @@ function Ring({
       style={[
         styles.ring,
         {
-          borderWidth: 1 + RING_BLUR[index]! * 0.25,
+          /*
+           * The prototype draws a 1px stroke and blurs it by RING_BLUR px. React Native cannot
+           * blur a view cheaply, so the blur is traded for width: a 1px line blurred by `b`
+           * covers roughly `1 + 2b` px, just with soft edges instead of hard ones.
+           *
+           * The previous `1 + b * 0.25` made them 1.1–1.6px — hairlines at 3x density, which is
+           * most of why the transition looked like nothing was happening. The veil is the exact
+           * colour the screens already sit on (that is what hides the seam), so these rings are
+           * the only part of the wavefront there is to see.
+           */
+          borderWidth: 1 + RING_BLUR[index]! * 2,
           width: rMax * 2,
           height: rMax * 2,
           borderRadius: rMax,
@@ -240,7 +277,11 @@ export function useRippleNav(): RippleNavState {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  // zIndex is load-bearing, not defensive. The content view below carries a transform during
+  // the ripple, and a transformed view gets its own layer that can rise above a later sibling —
+  // which put the veil BEHIND the screen it is supposed to be covering, so the navigation swap
+  // happened in full view. Stating the order explicitly is the only thing that survives that.
+  overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10, elevation: 10 },
   veil: { position: 'absolute', backgroundColor: color.bgBase },
   ring: { position: 'absolute', borderColor: 'rgba(184,150,60,0.55)' },
 });

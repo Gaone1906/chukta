@@ -14,7 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
-import { GlassButton, GlassSurface, Toast, color, font, radius } from '@/design';
+import { GlassButton, GlassSurface, Toast, color, font, radius, useRippleNav } from '@/design';
 import { FOOTER_CLEARANCE, FooterBar } from '@/features/expenses/FooterBar';
 import { PersonPickRow } from '@/features/expenses/PickRow';
 import { SearchField } from '@/features/expenses/SearchField';
@@ -38,6 +38,7 @@ export default function NewGroup() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { rippleTo } = useRippleNav();
 
   const [name, setName] = useState('');
   const [search, setSearch] = useState('');
@@ -66,12 +67,18 @@ export default function NewGroup() {
   // returns the original result.
   const mutationId = useRef(newMutationId());
 
+  // Where the Create button was when it was pressed, so the ripple starts from the finger even
+  // though it only plays once the server has answered.
+  const createdFrom = useRef({ x: 0, y: 0 });
+
   const create = useMutation({
     mutationFn: () =>
       createGroup({ name: name.trim(), memberProfileIds: members }, mutationId.current),
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.home() });
-      router.replace(`/group/${result.group_id}`);
+      // No press event here — the navigation happens when the write lands, not when the button
+      // was tapped, so the origin is the button's own position on screen.
+      rippleTo(createdFrom.current, () => router.replace(`/group/${result.group_id}`));
     },
     onError: (e: Error) => setToast(e.message),
   });
@@ -171,7 +178,10 @@ export default function NewGroup() {
           label={create.isPending ? 'Creating…' : 'Create group'}
           variant="primary"
           disabled={!ready}
-          onPress={() => create.mutate()}
+          onPress={(e) => {
+            createdFrom.current = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY };
+            create.mutate();
+          }}
         />
         <Text style={[styles.picked, !name.trim() ? styles.pickedPrompt : null]} numberOfLines={1}>
           {!name.trim()
