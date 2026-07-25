@@ -5,7 +5,7 @@
 -- no second line of defence. These tests inspect the catalogue rather than trusting review.
 
 begin;
-select plan(6);
+select plan(7);
 
 -- Every SECURITY DEFINER function in `app` must pin its search_path. Without it, an
 -- unqualified reference inside the body can be resolved against a schema the caller controls.
@@ -91,6 +91,21 @@ select is(
    where n.nspname = 'auth_ext' and p.proname = 'my_group_ids'),
   true,
   'auth_ext.my_group_ids is SECURITY DEFINER, or group_members RLS recurses'
+);
+
+-- Nothing in `public` may be callable by an unauthenticated client. Supabase sets default
+-- privileges granting EXECUTE to `anon`, so `revoke ... from public` is NOT enough — it
+-- removes the PUBLIC pseudo-role grant and leaves anon's explicit one in place. This caught a
+-- real hole: anon could call every wrapper in 0018 and only failed a step later, at the
+-- boundary of schema `app`.
+select is(
+  (select coalesce(string_agg(p.proname, ', ' order by p.proname), '')
+   from pg_proc p
+   join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public'
+     and has_function_privilege('anon', p.oid, 'execute')),
+  '',
+  'anon can execute nothing in public — the client API is authenticated-only'
 );
 
 select * from finish();
