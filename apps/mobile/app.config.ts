@@ -53,6 +53,9 @@ const config: ExpoConfig = {
     './plugins/withDebugKeystore',
     // Android 11+ package visibility. Without it, UPI app discovery silently finds nothing.
     './plugins/withUpiQueries',
+    // Google Sign-In's Swift deps cannot link statically without module maps; pod install
+    // fails outright without this.
+    './plugins/withModularHeaders',
   ],
 
   experiments: {
