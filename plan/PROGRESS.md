@@ -1136,7 +1136,7 @@ Fixed both bugs next door: `tip.tsx` never branched on `configured`; `purchases.
 # NEXT UP — what is left of the six
 
 Order: claim codes (migration **0026**, not 0025 — that number is now the security fix) + claim
-UI → phone on profile (**needs a decision, see below**) → contacts. Phase 10 after.
+UI → contacts. **Phone/OTP is dropped for now** (§2). Phase 10 after.
 
 ## 1. Claim a person with a passcode — migration `0026_claim_codes.sql` + UI
 
@@ -1174,32 +1174,38 @@ records nothing but the two ids it already has as columns (`0013:307`), and `mer
 **sums** colliding split rows (`0013:227`) — a merge is mathematically irreversible, not merely
 un-implemented. Record enough to reverse one.
 
-## 2. ⚠️ Phone on the profile — STILL NEEDS YOUR DECISION
+## 2. ~~Phone on the profile~~ — DROPPED for now (decided 2026-07-26)
 
-`packages/core/src/phone.ts` is **done**, so the normaliser is no longer a blocker. What is
-blocked is the server behaviour, and it is a genuine fork:
+**The user's call: leave the phone/OTP work out entirely for now.** This resolves the fork that
+was blocking here — no `set_my_phone`, no mandatory phone field on the profile, no OTP, and no
+SMS provider to procure. It also means the enumeration-oracle question does not need answering,
+because there is no lookup-by-phone surface to be an oracle.
 
-- **What you approved:** error only against real accounts; a placeholder collision offers the
-  claim flow.
-- **Why I flagged it:** that is an enumeration oracle. The attacker supplies a number they do
-  not own and learns which of three states it is in — unknown, known-to-someone, or a real
-  account. "Is this person on a money app" is a real disclosure, and it reintroduces exactly
-  what `invite.tsx:22-38` deleted the contacts surface to avoid.
-- **The alternative:** verify before you look up, so the pre-verification response is identical
-  in all three cases. `(auth)/phone.tsx` and `otp.tsx` are already built and flag-gated, but
-  GoTrue phone OTP needs an SMS provider (TRAI DLT) — so this likely lands **after** the rest.
-- `0002:52` states the invariant this would break: `verified_at` is "set only from a verified
-  auth identity. Merging on an unverified contact point would be a straightforward
-  account-takeover vector."
-- If it ships unverified anyway: never reveal the placeholder's display name or creator, and
-  keep the response **byte-identical** across all three states.
-- A *verified* collision with an unclaimed placeholder should merge via `merge_profiles(...,
-  'verified_link')` with no code at all — that enum value exists and is unused (`0002:88`).
+Nothing is lost by waiting: `contact_kind` already has `'phone'` and
+`profile_contact_points` already has the partial unique index, so the schema is ready whenever
+this comes back. `packages/core/src/phone.ts` is **built and tested** and is used by contacts
+below, so the normaliser was not wasted work either.
+
+When it does come back, the decision waiting is: verify-before-lookup (needs an SMS provider,
+TRAI DLT) versus unverified with a byte-identical response across all three states. `0002:52`
+is the constraint to re-read first — `verified_at` is "set only from a verified auth identity.
+Merging on an unverified contact point would be a straightforward account-takeover vector."
 
 ## 3. Contacts — pick one, resolve one
 
 `expo-contacts@~57.0.2`, **system picker only**. Prefills name + phone into `AddPersonSheet`;
 the number goes through the new normaliser then the existing `upsert_contact_profile` dedupe.
+
+**Know what dropping phone (§2) costs this feature, before building it.** No real account can
+hold a `kind='phone'` contact point any more, because `set_my_phone` was the only thing that
+would have written one. So picking a contact will **never resolve to a real Hisaab user** — it
+can only match a placeholder somebody created from their own contacts.
+
+That is still worth shipping: two friends who each add the same person by phone converge on one
+placeholder instead of two, which is the duplicate-identity problem the normaliser exists for.
+But it is *not* "find your friends who are already on Hisaab", and the copy must not imply that
+— email remains the only identifier that resolves to a real account. The claim code (§1) is the
+route to a real user, and it is the one to point people at.
 
 **A promise change in three places that must move together:** `legal/privacy.md:47` lists
 contacts *first* in "we do not collect"; `invite.tsx:89` says on screen "Hisaab never reads your

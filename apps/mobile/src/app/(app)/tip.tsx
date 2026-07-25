@@ -180,26 +180,54 @@ export default function TipJar() {
           style={styles.send}
         />
 
-        {/* Rate, then Share. Both are in the design (Hisaab Tip Jar.dc.html) and the rating one
-            was dropped in the port. It sits above Share and is styled warmer — gold border and
-            a gold star against Share's plain white — because for someone who opened the tip jar
-            and decided against paying, a rating is the more valuable of the two. */}
-        <Pressable
-          onPress={() => void rate()}
-          accessibilityRole="button"
-          accessibilityLabel="Rate Hisaab"
-          style={({ pressed }) => [styles.ratePill, pressed ? styles.ratePressed : null]}
-        >
-          <Text style={styles.rateStar}>★</Text>
-          <Text style={styles.rateLabel}>Rate Hisaab</Text>
-        </Pressable>
-
         {/* The margin goes on `style`, not `contentStyle` — contentStyle lands on the inner
             view inside the surface, so a margin there pads the content and leaves the panel
             itself butted against the button above it. */}
         <GlassSurface radius={radius.cardCompact} style={styles.altSpacing} contentStyle={styles.alt}>
           <Text style={styles.altTitle}>Or, just as useful</Text>
-          <GlassButton label="Share Hisaab instead" variant="secondary" onPress={() => void share()} />
+
+          {/*
+            * Rate and Share as a pair, which is what the heading above has always claimed they
+            * were — it says "just as useful" and then used to present exactly one option.
+            *
+            * Both are the design's 44pt pill (Hisaab Tip Jar.dc.html), differing only in colour:
+            * Rate keeps the gold border and star, Share the plain white. Hand-rolled rather than
+            * two GlassButtons because GlassButton picks its border from `variant`, so there is
+            * no way to get one gold and one white without adding a variant that exists for this
+            * one row.
+            *
+            * `flex: 1` on both, so they split the width evenly however long the labels get.
+            * "instead" is dropped from Share's label — it was doing the work the heading does,
+            * and at half width it no longer fits on one line.
+            */}
+          <View style={styles.altRow}>
+            <Pressable
+              onPress={() => void rate()}
+              accessibilityRole="button"
+              accessibilityLabel="Rate Hisaab"
+              style={({ pressed }) => [
+                styles.pill,
+                styles.ratePill,
+                pressed ? styles.ratePressed : null,
+              ]}
+            >
+              <Text style={styles.rateStar}>★</Text>
+              <Text style={styles.pillLabel}>Rate</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => void share()}
+              accessibilityRole="button"
+              accessibilityLabel="Share Hisaab"
+              style={({ pressed }) => [
+                styles.pill,
+                styles.sharePill,
+                pressed ? styles.sharePressed : null,
+              ]}
+            >
+              <Text style={styles.pillLabel}>Share</Text>
+            </Pressable>
+          </View>
         </GlassSurface>
 
         <Text style={styles.footnote}>One-time only, no subscription</Text>
@@ -282,39 +310,51 @@ const styles = StyleSheet.create({
   customInput: { flex: 1, fontFamily: font.medium, fontSize: 16, color: color.cream },
   send: { marginTop: 18 },
 
+  altRow: { flexDirection: 'row', gap: 10 },
+
   /*
-   * Gold, where Share is white. Straight from the design: `rgba(184,150,60,.4)` border over a
-   * `.1` fill, 44pt tall, fully rounded. Deliberately quieter than the Send button above it
-   * (which is `.6` over `.2`) and warmer than Share below — a three-step ladder of emphasis
-   * rather than two buttons competing.
+   * The shape both alternatives share — the design's 44pt fully-rounded pill. Only the border
+   * and fill differ between them, which is the whole point: they are the same offer, and one is
+   * merely warmer.
    */
-  ratePill: {
-    marginTop: 20,
-    alignSelf: 'center',
+  pill: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 9,
     height: 44,
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: 'rgba(184,150,60,0.4)',
-    backgroundColor: 'rgba(184,150,60,0.1)',
   },
-  // `scale(.97)` in the design. Kept as a plain Pressable style rather than a Reanimated press
-  // — this is a once-a-year button and does not need a worklet.
+  pillLabel: {
+    fontFamily: font.medium,
+    fontSize: 14.5,
+    color: 'rgba(246,233,203,0.9)',
+    letterSpacing: 0.1,
+  },
+
+  /*
+   * Gold, where Share is white. Straight from the design: `rgba(184,150,60,.4)` border over a
+   * `.1` fill. Deliberately quieter than the Send button above (which is `.6` over `.2`) — a
+   * ladder of emphasis rather than three buttons competing.
+   */
+  ratePill: { borderColor: 'rgba(184,150,60,0.4)', backgroundColor: 'rgba(184,150,60,0.1)' },
+  // `scale(.97)` in the design. A plain Pressable style rather than a Reanimated press — these
+  // are once-in-a-while buttons and do not need a worklet.
   ratePressed: {
     transform: [{ scale: 0.97 }],
     borderColor: 'rgba(184,150,60,0.7)',
     backgroundColor: 'rgba(184,150,60,0.26)',
   },
   rateStar: { color: color.goldBright, fontSize: 15, lineHeight: 18 },
-  rateLabel: {
-    fontFamily: font.medium,
-    fontSize: 14.5,
-    color: 'rgba(246,233,203,0.9)',
-    letterSpacing: 0.1,
+
+  sharePill: { borderColor: 'rgba(255,255,255,0.14)', backgroundColor: 'rgba(255,255,255,0.05)' },
+  sharePressed: {
+    transform: [{ scale: 0.97 }],
+    borderColor: 'rgba(184,150,60,0.45)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
 
   altSpacing: { marginTop: 26 },
