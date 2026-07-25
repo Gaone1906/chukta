@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, type ReactNode } from 'react';
 import {
   StyleSheet,
   View,
@@ -8,8 +8,10 @@ import {
 import Animated, {
   Easing,
   runOnJS,
+  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
+  withSequence,
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
@@ -19,25 +21,49 @@ import { useReduceMotion } from '../useReduceMotion';
 import {
   RING_BLUR,
   RING_COUNT,
+  RING_LAG,
   maxRadius,
-  outgoingScale,
   ringOpacity,
-  ringRadius,
-  rippleEase,
+  veilDrift,
 } from './rippleMath';
 
 /**
  * The ripple, as a navigation transition.
  *
- * `RippleReveal` masks one screen over another, which needs both as React nodes. A router
- * does not hand you that — expo-router owns mounting, and the incoming screen does not exist
- * until the push happens. So the transition is inverted: a veil in the app's own ground colour
+ * `RippleReveal` masks one screen over another, which needs both as React nodes. A router does
+ * not hand you that — expo-router owns mounting, and the incoming screen does not exist until
+ * the push happens. So the transition is inverted: a veil in the app's own ground colour
  * expands from the tap point over the CURRENT screen, the navigation happens behind it at the
  * moment the veil is opaque, and the veil dissolves onto whatever is now there.
  *
- * Same easing, same three trailing gold rings, same origin-from-the-fingertip. What changes is
- * which side of the wavefront the new screen is on — and since the veil is the colour the
- * screens already sit on, the seam is not visible.
+ * ---------------------------------------------------------------- why this was rewritten
+ *
+ * The first version was correct and looked terrible, for four reasons that had nothing to do
+ * with the maths. Worth listing, because each is a trap that would be walked into again.
+ *
+ * **1. It re-rendered the entire app twice per navigation.** The tap origin lived in React
+ * state, and this provider renders `{children}` — which is the whole expo-router Stack. So
+ * `setOrigin(...)` at the start and `setOrigin(null)` at the end each reconciled every mounted
+ * screen. Worse, the context value was a fresh object literal on every render, so every
+ * component calling `useRippleNav()` re-rendered too. The dropped frame landed exactly when
+ * the user was looking at it. **Nothing here touches React state during a transition now** —
+ * the origin, the radius and the progress are all shared values, and the overlay stays
+ * mounted.
+ *
+ * **2. It transformed the whole navigator.** A `scale` on the view wrapping every screen, to
+ * get the design's 1.8% settle-back. On this app that subtree is full of glass: `GlassSurface`
+ * resolves to Apple's Liquid Glass on iOS 26, and Home alone stacks a segmented control, five
+ * or more rows and a FAB. Transforming their common ancestor asks the system to recomposite
+ * every one of those materials on every frame of the transition. 1.8% of visual interest is
+ * not worth that, so the settle-back moved onto the veil itself — see `veilDrift`, which buys
+ * the same depth cue from one solid layer that was already animating.
+ *
+ * **3. The curve had spent itself in the first sixth of the phase.** See `waveEase`.
+ *
+ * **4. Two chained `withTiming`s with a `runOnJS` between them.** The second animation was
+ * started from the first one's completion callback, so there was a handoff on the JS thread in
+ * the middle of the transition. It is one `withSequence` now, which runs start to finish on
+ * the UI thread, and the navigation fires from a `useAnimatedReaction` instead.
  *
  * Reduced motion navigates immediately with no veil at all.
  */
@@ -57,39 +83,67 @@ interface RippleNavState {
 
 const RippleNavContext = createContext<RippleNavState | null>(null);
 
-/**
- * Three phases, as fractions of the total duration.
+/*
+ * The timeline, as fractions of `progress`.
  *
- *   0        → EXPAND   the veil grows from the tap point until it covers the screen
- *   EXPAND   → HOLD     fully opaque; the navigation happens in here
- *   HOLD     → 1        the veil dissolves onto the screen that is now underneath
+ *   0      → COVER      the wavefront travels; the veil reaches full coverage at COVER
+ *   COVER  → HOLD_END   fully opaque. The navigation fires the instant COVER is crossed, and
+ *                       this is all the time the incoming screen gets to mount before it can
+ *                       be seen. The rings are still travelling through here — deliberately,
+ *                       so the most expensive frames of the transition happen while there is
+ *                       something moving to look at.
+ *   HOLD_END → 1        the veil drifts outward and dissolves onto the screen now underneath.
  *
- * The hold is the important one. Pushing a route and immediately fading the veil means the
- * veil goes translucent while the new screen is still mounting, and what shows through the
- * gap is the OLD screen — which reads as the transition stuttering.
+ * `progress` is driven by a `withSequence` whose segments carry their own easing, so the value
+ * is already eased when a worklet reads it and the phases below are plain linear remaps.
  */
-const EXPAND_FRACTION = 0.5;
-const HOLD_FRACTION = 0.68;
+const COVER = 0.62;
+const HOLD_END = 0.78;
+
+/**
+ * How the total is spent. The old split gave the expand half the budget and put the hard part
+ * of the curve at the very start, so the only visible motion was over in about a tenth of a
+ * second; most of the duration was an invisible veil holding and fading.
+ */
+const { expand: EXPAND_MS, hold: HOLD_MS, dissolve: DISSOLVE_MS } = motion.ripple;
+
+/** The wavefront's shape. Gentler than the prototype's — see `waveEase` in rippleMath. */
+const WAVE_EASING = Easing.bezier(0.16, 0.6, 0.22, 1);
 
 export function RippleNavProvider({ children }: { children: ReactNode }) {
   const { width, height } = useWindowDimensions();
   const reduceMotion = useReduceMotion();
 
-  const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
   const progress = useSharedValue(0);
+  /** 0 when idle, so the compositor can skip four full-screen layers entirely. */
+  const active = useSharedValue(0);
+  const originX = useSharedValue(0);
+  const originY = useSharedValue(0);
+  /** How far the wavefront has to travel for THIS tap. */
+  const reach = useSharedValue(0);
+
   const navigateRef = useRef<(() => void) | null>(null);
   const firedRef = useRef(false);
 
   const fireNavigation = useCallback(() => {
     if (firedRef.current) return;
     firedRef.current = true;
-    navigateRef.current?.();
+    const navigate = navigateRef.current;
+    navigateRef.current = null;
+    navigate?.();
   }, []);
 
-  const clear = useCallback(() => {
-    setOrigin(null);
-    navigateRef.current = null;
-  }, []);
+  /*
+   * The circles are laid out ONCE, at the largest radius any tap could ever need — the screen's
+   * own diagonal, which is the distance from one corner to the opposite one. Everything after
+   * that is `translate` and `scale`.
+   *
+   * This is what lets the origin be a shared value. Size and position are layout properties and
+   * cannot be driven from the UI thread, so a per-tap circle would mean a React render per tap;
+   * a fixed circle that is merely moved and scaled needs none.
+   */
+  const span = Math.sqrt(width * width + height * height);
+  const diameter = span * 2;
 
   const rippleTo = useCallback(
     (from: { x: number; y: number }, navigate: () => void) => {
@@ -100,38 +154,28 @@ export function RippleNavProvider({ children }: { children: ReactNode }) {
 
       navigateRef.current = navigate;
       firedRef.current = false;
-      setOrigin(from);
 
-      // `.set()` rather than `.value =`: a bare assignment to a shared value reads as a
-      // mutation on the render path, and this runs from an onPress handler.
+      // `.set()` rather than `.value =`: a bare assignment reads as a mutation on the render
+      // path, and this runs from an onPress handler.
+      originX.set(from.x);
+      originY.set(from.y);
+      reach.set(maxRadius(width, height, from.x, from.y));
+      active.set(1);
       progress.set(0);
 
-      // The push fires the moment the veil finishes covering the screen — not earlier, or the
-      // swap shows in the corners the wavefront has not reached yet.
       progress.set(
-        withTiming(
-          EXPAND_FRACTION,
-          { duration: motion.ripple.duration * EXPAND_FRACTION, easing: Easing.linear },
-          (done) => {
-            if (!done) return;
-            runOnJS(fireNavigation)();
-            progress.set(
-              withTiming(
-                1,
-                {
-                  duration: motion.ripple.duration * (1 - EXPAND_FRACTION),
-                  easing: Easing.out(Easing.quad),
-                },
-                (finished) => {
-                  if (finished) runOnJS(clear)();
-                },
-              ),
-            );
-          },
+        withSequence(
+          withTiming(COVER, { duration: EXPAND_MS, easing: WAVE_EASING }),
+          withTiming(HOLD_END, { duration: HOLD_MS, easing: Easing.linear }),
+          withTiming(1, { duration: DISSOLVE_MS, easing: Easing.out(Easing.quad) }, (done) => {
+            // A UI-thread callback, not `runOnJS`: putting the overlay away is just two shared
+            // values, and there is no React state left to clear.
+            if (done) active.set(0);
+          }),
         ),
       );
     },
-    [clear, fireNavigation, progress, reduceMotion],
+    [active, height, originX, originY, progress, reach, reduceMotion, width],
   );
 
   const rippleFrom = useCallback(
@@ -142,94 +186,127 @@ export function RippleNavProvider({ children }: { children: ReactNode }) {
     [rippleTo],
   );
 
-  const rMax = origin ? maxRadius(width, height, origin.x, origin.y) : 0;
-
   /*
-   * Scale, not size.
+   * Push the moment the veil finishes covering the screen — not earlier, or the swap shows in
+   * the corners the wavefront has not reached yet.
    *
-   * This used to animate `width`, `height`, `borderRadius`, `left` and `top`. All five are
-   * LAYOUT properties, so every frame of the ripple forced React Native to re-measure and
-   * re-position the veil and all three rings — 60 layout passes a second, on top of whatever
-   * the incoming screen is doing as it mounts. That is what the stutter was.
-   *
-   * The circle is now laid out ONCE at its final size, centred on the origin, and only its
-   * `transform` and `opacity` move. Both are handled entirely on the UI thread by the
-   * compositor with no layout at all, which is why this is smooth even while a screen mounts
-   * behind it. The maths is unchanged — `rippleEase(expand)` is the same 1-(1-t)^2.6 curve,
-   * just expressed as a scale factor rather than a radius.
+   * A reaction rather than an animation callback. The old code started the dissolve *inside*
+   * the expand's completion callback, which meant a JS hop sat between two animations in the
+   * middle of the transition. Here the animation is one uninterrupted sequence on the UI
+   * thread and this merely observes it going past.
    */
+  useAnimatedReaction(
+    () => progress.value,
+    (current, previous) => {
+      if (previous !== null && previous < COVER && current >= COVER) {
+        runOnJS(fireNavigation)();
+      }
+    },
+  );
+
+  const overlayStyle = useAnimatedStyle(() => ({
+    opacity: active.value,
+  }));
+
   const veilStyle = useAnimatedStyle(() => {
-    const expand = Math.min(1, progress.value / EXPAND_FRACTION);
-    // Opacity holds at 1 through the hold phase and only falls once the new screen has had a
-    // beat to mount — otherwise the old screen shows through the gap.
-    const dissolve = Math.max(0, (progress.value - HOLD_FRACTION) / (1 - HOLD_FRACTION));
+    const p = progress.value;
+    const wave = Math.min(1, p / COVER);
+    const dissolve = p <= HOLD_END ? 0 : (p - HOLD_END) / (1 - HOLD_END);
+
+    // `reach / span` is what the wavefront needs for THIS origin; a tap in the middle of the
+    // screen has less ground to cover than one in a corner, and the circle is laid out for the
+    // worst case.
+    const scale = (wave * reach.value * veilDrift(dissolve)) / span;
+
     return {
-      // A floor, so the very first frame is not a zero-size view the compositor may skip.
-      transform: [{ scale: Math.max(0.001, rippleEase(expand)) }],
+      transform: [
+        { translateX: originX.value - span },
+        { translateY: originY.value - span },
+        // A floor, so the very first frame is not a zero-size layer the compositor may skip.
+        { scale: Math.max(0.0001, scale) },
+      ],
       opacity: 1 - dissolve,
     };
   });
 
-  /*
-   * The screen settles back under the wavefront, and forward again as it clears.
-   *
-   * Without this the transition is nearly invisible, and that is not a matter of taste — the
-   * veil is deliberately the exact colour the screens already sit on (that is what hides the
-   * seam), so a veil sweeping over a dark screen looks like nothing happening. The design spec
-   * has always called for the outgoing layer to settle to `scale: .982`; applying it to the
-   * navigator means the same 1.8% is spent going out AND coming back, so you see the old screen
-   * recede and the new one arrive rather than a cut between two dark rectangles.
-   *
-   * One transform on one view, entirely on the compositor. It is exactly 1 when idle:
-   * progress 0 → no ease, progress 1 → fully dissolved.
-   */
-  const contentStyle = useAnimatedStyle(() => {
-    const expand = Math.min(1, progress.value / EXPAND_FRACTION);
-    const dissolve = Math.max(0, (progress.value - HOLD_FRACTION) / (1 - HOLD_FRACTION));
-    return { transform: [{ scale: outgoingScale(rippleEase(expand) * (1 - dissolve)) }] };
-  });
-
-  const circle = { width: rMax * 2, height: rMax * 2, borderRadius: rMax };
-  const at = origin
-    ? { left: (origin.x ?? 0) - rMax, top: (origin.y ?? 0) - rMax }
-    : { left: 0, top: 0 };
-
   return (
-    <RippleNavContext.Provider value={{ rippleTo, rippleFrom }}>
-      <Animated.View style={[styles.root, contentStyle]}>{children}</Animated.View>
+    <RippleNavContext.Provider value={useMemo(() => ({ rippleTo, rippleFrom }), [rippleTo, rippleFrom])}>
+      {/*
+        * A plain View. It used to be an `Animated.View` carrying the settle-back transform,
+        * which is what made every glass surface in the app recomposite on every frame.
+        */}
+      <View style={styles.root}>{children}</View>
 
-      {origin ? (
-        <View pointerEvents="none" style={styles.overlay}>
-          <Animated.View style={[styles.veil, circle, at, veilStyle]} />
-          {Array.from({ length: RING_COUNT }, (_, i) => (
-            <Ring key={i} index={i} progress={progress} rMax={rMax} origin={origin} />
-          ))}
-        </View>
-      ) : null}
+      {/*
+        * Always mounted, and invisible until it is needed. Mounting it per transition was a
+        * React render of the whole tree at exactly the wrong moment; at `opacity: 0` these four
+        * layers cost nothing to skip.
+        *
+        * zIndex is load-bearing rather than defensive: sibling order alone stopped being enough
+        * once anything in the tree carried a transform, and this has to stay above the screen
+        * it is covering.
+        */}
+      <Animated.View pointerEvents="none" style={[styles.overlay, overlayStyle]}>
+        <Animated.View
+          style={[styles.veil, { width: diameter, height: diameter, borderRadius: span }, veilStyle]}
+        />
+        {Array.from({ length: RING_COUNT }, (_, i) => (
+          <Ring
+            key={i}
+            index={i}
+            progress={progress}
+            reach={reach}
+            span={span}
+            diameter={diameter}
+            originX={originX}
+            originY={originY}
+          />
+        ))}
+      </Animated.View>
     </RippleNavContext.Provider>
   );
 }
 
+/**
+ * One trailing ring.
+ *
+ * The rings are the only part of the wavefront that can actually be seen — the veil is the
+ * exact colour the screens already sit on, which is what hides the seam and also what makes it
+ * invisible. So they are given the whole timeline rather than just the expand: they keep
+ * travelling through the hold, which is the window in which the incoming screen mounts. That
+ * is the expensive part of the transition, and it is much better spent watching something move
+ * than watching a static opaque rectangle.
+ */
 function Ring({
   index,
   progress,
-  rMax,
-  origin,
+  reach,
+  span,
+  diameter,
+  originX,
+  originY,
 }: {
   index: number;
   progress: SharedValue<number>;
-  rMax: number;
-  origin: { x: number; y: number };
+  reach: SharedValue<number>;
+  span: number;
+  diameter: number;
+  originX: SharedValue<number>;
+  originY: SharedValue<number>;
 }) {
-  // Same trick as the veil: laid out once at full size, moved only by transform. `ringRadius`
-  // is divided back out to a scale factor so the trailing-by-9%-of-rMax maths is untouched.
   const style = useAnimatedStyle(() => {
-    const expand = Math.min(1, progress.value / EXPAND_FRACTION);
-    const scale = rMax > 0 ? ringRadius(rippleEase(expand), rMax, index) / rMax : 0;
-    const dissolve = Math.max(0, (progress.value - HOLD_FRACTION) / (1 - HOLD_FRACTION));
+    // Mapped across the expand AND the hold, so the ring arrives as the dissolve begins.
+    const travel = Math.min(1, progress.value / HOLD_END);
+    const lagged = travel - index * RING_LAG;
+    const radius = Math.max(0, lagged) * reach.value;
+
     return {
-      transform: [{ scale: Math.max(0.001, scale) }],
-      opacity: ringOpacity(expand, index) * (1 - dissolve),
+      transform: [
+        { translateX: originX.value - span },
+        { translateY: originY.value - span },
+        { scale: Math.max(0.0001, radius / span) },
+      ],
+      opacity: lagged <= 0 ? 0 : ringOpacity(travel, index),
     };
   });
 
@@ -243,18 +320,11 @@ function Ring({
            * The prototype draws a 1px stroke and blurs it by RING_BLUR px. React Native cannot
            * blur a view cheaply, so the blur is traded for width: a 1px line blurred by `b`
            * covers roughly `1 + 2b` px, just with soft edges instead of hard ones.
-           *
-           * The previous `1 + b * 0.25` made them 1.1–1.6px — hairlines at 3x density, which is
-           * most of why the transition looked like nothing was happening. The veil is the exact
-           * colour the screens already sit on (that is what hides the seam), so these rings are
-           * the only part of the wavefront there is to see.
            */
           borderWidth: 1 + RING_BLUR[index]! * 2,
-          width: rMax * 2,
-          height: rMax * 2,
-          borderRadius: rMax,
-          left: origin.x - rMax,
-          top: origin.y - rMax,
+          width: diameter,
+          height: diameter,
+          borderRadius: span,
         },
         style,
       ]}
@@ -275,13 +345,13 @@ export function useRippleNav(): RippleNavState {
   );
 }
 
+/** Total wall-clock time of one transition. Exported so the kitchen sink can say so. */
+export const RIPPLE_TOTAL_MS = EXPAND_MS + HOLD_MS + DISSOLVE_MS;
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  // zIndex is load-bearing, not defensive. The content view below carries a transform during
-  // the ripple, and a transformed view gets its own layer that can rise above a later sibling —
-  // which put the veil BEHIND the screen it is supposed to be covering, so the navigation swap
-  // happened in full view. Stating the order explicitly is the only thing that survives that.
   overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10, elevation: 10 },
-  veil: { position: 'absolute', backgroundColor: color.bgBase },
-  ring: { position: 'absolute', borderColor: 'rgba(184,150,60,0.55)' },
+  // `color.veil` is almost, but deliberately not exactly, `bgBase` — see the token.
+  veil: { position: 'absolute', backgroundColor: color.veil },
+  ring: { position: 'absolute', borderColor: color.rippleRing },
 });

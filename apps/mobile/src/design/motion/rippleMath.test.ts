@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { motion } from '../tokens';
 import {
   RING_COUNT,
   maxRadius,
@@ -8,6 +9,8 @@ import {
   ringOpacity,
   ringRadius,
   rippleEase,
+  veilDrift,
+  waveEase,
 } from './rippleMath';
 
 describe('rippleEase', () => {
@@ -69,17 +72,92 @@ describe('trailing rings', () => {
     }
   });
 
-  it('fades rings out linearly in raw progress, fully gone at the end', () => {
-    expect(ringOpacity(0, 0)).toBeCloseTo(0.85);
-    expect(ringOpacity(0.5, 0)).toBeCloseTo(0.425);
+  /*
+   * These rings are the ONLY visible part of the wavefront — the veil is near enough the
+   * colour the screens sit on to be imperceptible. The old curve was `(1 - p) * base`, which
+   * had the leading ring down to 42% opacity by the halfway mark and effectively gone well
+   * before it arrived. That is most of why the transition read as a stutter rather than a
+   * sweep, so the shape below is load-bearing rather than decorative.
+   */
+  it('holds full brightness across the first two thirds of the journey', () => {
+    expect(ringOpacity(0.3, 0)).toBeCloseTo(0.85);
+    expect(ringOpacity(0.5, 0)).toBeCloseTo(0.85);
+    expect(ringOpacity(0.66, 0)).toBeCloseTo(0.85);
+  });
+
+  it('fades over the last third and is fully gone on arrival', () => {
+    expect(ringOpacity(0.83, 0)).toBeLessThan(0.85);
+    expect(ringOpacity(0.83, 0)).toBeGreaterThan(0);
     for (let i = 0; i < RING_COUNT; i++) {
-      expect(ringOpacity(1, i)).toBe(0);
+      expect(ringOpacity(1, i)).toBeCloseTo(0);
     }
   });
 
+  it('appears from the fingertip rather than switching on', () => {
+    expect(ringOpacity(0, 0)).toBe(0);
+    expect(ringOpacity(0.04, 0)).toBeCloseTo(0.425);
+    expect(ringOpacity(0.08, 0)).toBeCloseTo(0.85);
+  });
+
   it('orders rings front-to-back', () => {
-    expect(ringOpacity(0, 0)).toBeGreaterThan(ringOpacity(0, 1));
-    expect(ringOpacity(0, 1)).toBeGreaterThan(ringOpacity(0, 2));
+    expect(ringOpacity(0.3, 0)).toBeGreaterThan(ringOpacity(0.3, 1));
+    expect(ringOpacity(0.3, 1)).toBeGreaterThan(ringOpacity(0.3, 2));
+  });
+});
+
+describe('waveEase', () => {
+  it('is pinned at both ends and clamps outside [0,1]', () => {
+    expect(waveEase(0)).toBe(0);
+    expect(waveEase(1)).toBe(1);
+    expect(waveEase(-5)).toBe(0);
+    expect(waveEase(5)).toBe(1);
+  });
+
+  it('still eases out, because coverage grows with the square of the radius', () => {
+    expect(waveEase(0.5)).toBeGreaterThan(0.5);
+  });
+
+  /*
+   * The whole point of replacing the prototype's curve. Its 1-(1-t)^2.6 was 51% travelled a
+   * quarter of the way through and 83% at the halfway mark, so over a 440ms expand the visible
+   * wave crossed most of the screen in about a tenth of a second and then crawled. This is the
+   * difference between "a sweep" and "a flinch followed by a stall".
+   */
+  it('leaves real travel in the second half, unlike the prototype curve', () => {
+    expect(waveEase(0.25)).toBeLessThan(rippleEase(0.25));
+    expect(waveEase(0.5)).toBeLessThan(rippleEase(0.5));
+    expect(waveEase(0.5)).toBeLessThan(0.8);
+  });
+
+  it('increases monotonically', () => {
+    let previous = -1;
+    for (let i = 0; i <= 100; i++) {
+      const value = waveEase(i / 100);
+      expect(value).toBeGreaterThanOrEqual(previous);
+      previous = value;
+    }
+  });
+});
+
+describe('veilDrift', () => {
+  it('does nothing until the dissolve starts', () => {
+    expect(veilDrift(0)).toBe(1);
+  });
+
+  it('drifts outward as it fades, which is the depth cue the content scale used to give', () => {
+    expect(veilDrift(1)).toBeCloseTo(1.07);
+    expect(veilDrift(0.5)).toBeGreaterThan(1);
+    expect(veilDrift(0.5)).toBeLessThan(veilDrift(1));
+  });
+});
+
+describe('the motion token', () => {
+  // `duration` is written out rather than derived, because a getter would not survive being
+  // captured into a Reanimated worklet. This is what stops it drifting from its parts.
+  it('total duration equals the three beats it is made of', () => {
+    expect(motion.ripple.duration).toBe(
+      motion.ripple.expand + motion.ripple.hold + motion.ripple.dissolve,
+    );
   });
 });
 

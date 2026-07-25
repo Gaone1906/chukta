@@ -91,8 +91,9 @@ async function run(onChange?: () => void): Promise<DrainOutcome> {
     const row = nextPending();
     if (!row) return { sent, blockedBy: null };
 
+    // No progress report here. It only moves `attempts`, which nothing displays, and each
+    // report costs a full re-render of every screen holding `useOffline()`.
     markSending(row.id);
-    onChange?.();
 
     try {
       await send(row);

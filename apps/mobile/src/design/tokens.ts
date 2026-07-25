@@ -49,6 +49,18 @@ export const color = {
   glassFallback: 'rgba(38,20,24,0.92)',
   glassFallbackRaised: 'rgba(52,28,33,0.94)',
 
+  /*
+   * The ripple's veil, and the gold of its trailing rings.
+   *
+   * The veil is deliberately ALMOST `bgBase` and not exactly it. Being the ground colour is
+   * what hides the seam when it dissolves onto the incoming screen — but it also made the
+   * sweep invisible, and an invisible sweep is indistinguishable from a stutter. A couple of
+   * points of lift reads as a surface passing over the screen and still shows no edge as it
+   * goes.
+   */
+  veil: '#100709',
+  rippleRing: 'rgba(201,166,74,0.6)',
+
   oweFill: 'rgba(122,40,51,0.45)',
   oweBorder: 'rgba(122,40,51,0.85)',
   owedFill: 'rgba(184,150,60,0.20)',
@@ -140,7 +152,30 @@ export const type = {
 
 /** Timings taken from the prototype keyframes so motion matches the design exactly. */
 export const motion = {
-  ripple: { duration: 900, easeExponent: 2.6 },
+  /*
+   * The ripple, split into its three beats rather than one number.
+   *
+   * The old single `duration: 900` hid the real problem: half of it went to the expand, and
+   * the curve applied inside it had spent 83% of the travel by the halfway mark — so the only
+   * visible motion was over in about a tenth of a second and the rest was an opaque veil
+   * holding and fading. Naming the beats is what makes that reviewable.
+   *
+   * `hold` is the window the incoming screen has to mount before it can be seen. The trailing
+   * rings are still travelling through it on purpose.
+   */
+  ripple: {
+    expand: 440,
+    hold: 180,
+    dissolve: 240,
+    /**
+     * The whole transition, for anything that needs one number. Written out rather than
+     * derived with a getter: this object is small enough to be captured into a Reanimated
+     * worklet, and a getter would not survive the trip into the UI runtime intact.
+     * `rippleMath.test.ts` asserts it equals the sum, so it cannot drift.
+     */
+    duration: 860,
+    easeExponent: 2.6,
+  },
   seal: { spinner: 1050, stamp: 760, halo: 900, holdBeforeStamp: 1500 },
   segmented: { duration: 340 },
   press: { duration: 160 },

@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { AppState } from 'react-native';
 
+import { motion } from '@/design/tokens';
 import { syncPull } from '@/lib/api';
 import { useSession } from '@/features/auth/session';
 
@@ -80,6 +81,13 @@ interface OfflineState {
 
 const OfflineContext = createContext<OfflineState | null>(null);
 
+/**
+ * How long a screen-initiated sync waits before it starts work.
+ *
+ * The ripple's own length, so a drain never competes with the transition the same tap began.
+ */
+const SYNC_AFTER_TRANSITION_MS = motion.ripple.duration;
+
 export function OfflineProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const { session, profile, loading } = useSession();
@@ -96,7 +104,33 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
    */
   const runSyncRef = useRef<(() => Promise<void>) | null>(null);
 
-  const refresh = useCallback(() => setVersion((n) => n + 1), []);
+  /*
+   * Coalesced, because the alternative lands on the ripple's first frame.
+   *
+   * `refresh` re-runs FOUR synchronous SQLite reads — counts(), pendingEffects(),
+   * pendingByOp() and listUnresolved() — and re-renders every screen holding `useOffline()`.
+   * That is the heaviest JS frame in the app.
+   *
+   * And it used to fire in bursts. Saving an expense calls `refresh()` then `sync()` in the
+   * same handler as the navigation, and the drainer then reports progress again after marking
+   * a row sending, after completing it, and once per terminal branch — each in its own
+   * post-await task, so React could not batch any of them. N queued writes produced 2N of
+   * these renders, landing squarely inside the transition the same tap had just started.
+   *
+   * One bump per 16ms collapses the whole burst into a single render. A timeout rather than
+   * requestAnimationFrame on purpose: rAF does not fire while the app is backgrounded, and a
+   * bump scheduled just before backgrounding would leave the flag set and the counts frozen.
+   */
+  const bumpScheduled = useRef(false);
+
+  const refresh = useCallback(() => {
+    if (bumpScheduled.current) return;
+    bumpScheduled.current = true;
+    setTimeout(() => {
+      bumpScheduled.current = false;
+      setVersion((n) => n + 1);
+    }, 16);
+  }, []);
 
   // ------------------------------------------------------------ connectivity
 
@@ -181,8 +215,8 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
    * timeout is the whole fix, and it also makes cancellation trivial: the cleanup drops a
    * pending kick when the profile changes underneath it.
    */
-  const kickSync = useCallback(() => {
-    const timer = setTimeout(() => void runSyncRef.current?.(), 0);
+  const kickSync = useCallback((delayMs = 0) => {
+    const timer = setTimeout(() => void runSyncRef.current?.(), delayMs);
     return () => clearTimeout(timer);
   }, []);
 
@@ -271,9 +305,21 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
       }),
       unresolved: listUnresolved(),
       refresh,
-      sync: () => void runSyncRef.current?.(),
+      /*
+       * Deferred past the transition.
+       *
+       * Screens call this from the same handler that navigates, so running it immediately puts
+       * a drain — SQLite writes, a network request, and the re-renders its progress reports
+       * cause — directly on top of the ripple's opening frames. Nothing is waiting on it: the
+       * write is already durable in the outbox by the time this is called, and flushing it a
+       * third of a second later is invisible.
+       *
+       * The lifecycle triggers (sign-in, reconnect, foreground) still kick immediately; only
+       * the ones a person's tap can cause are held back.
+       */
+      sync: () => kickSync(SYNC_AFTER_TRANSITION_MS),
     };
-  }, [connectivity, version, refresh]);
+  }, [connectivity, version, refresh, kickSync]);
 
   return <OfflineContext.Provider value={value}>{children}</OfflineContext.Provider>;
 }
