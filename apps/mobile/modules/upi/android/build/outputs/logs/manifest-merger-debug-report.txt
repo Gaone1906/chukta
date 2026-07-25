@@ -1,0 +1,16 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /Users/pranav.yarasi/Desktop/workspace/personal/Hisaab/apps/mobile/modules/upi/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest4214544938137556674.xml:2:13-83
+INJECTED from /Users/pranav.yarasi/Desktop/workspace/personal/Hisaab/apps/mobile/modules/upi/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest4214544938137556674.xml:2:13-83
+	package
+		INJECTED from /Users/pranav.yarasi/Desktop/workspace/personal/Hisaab/apps/mobile/modules/upi/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest4214544938137556674.xml
+	xmlns:android
+		ADDED from /Users/pranav.yarasi/Desktop/workspace/personal/Hisaab/apps/mobile/modules/upi/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest4214544938137556674.xml:2:23-81
+uses-sdk
+INJECTED from /Users/pranav.yarasi/Desktop/workspace/personal/Hisaab/apps/mobile/modules/upi/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest4214544938137556674.xml reason: use-sdk injection requested
+INJECTED from /Users/pranav.yarasi/Desktop/workspace/personal/Hisaab/apps/mobile/modules/upi/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest4214544938137556674.xml
+INJECTED from /Users/pranav.yarasi/Desktop/workspace/personal/Hisaab/apps/mobile/modules/upi/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest4214544938137556674.xml
+	android:targetSdkVersion
+		INJECTED from /Users/pranav.yarasi/Desktop/workspace/personal/Hisaab/apps/mobile/modules/upi/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest4214544938137556674.xml
+	android:minSdkVersion
+		INJECTED from /Users/pranav.yarasi/Desktop/workspace/personal/Hisaab/apps/mobile/modules/upi/android/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest4214544938137556674.xml

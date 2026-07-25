@@ -1,44 +1,64 @@
 import { Linking, Platform } from 'react-native';
 
+// Relative rather than through the `@/` alias: the module lives outside src/, and a path
+// that resolves in tsc but not in Metro is a bundling failure this project has hit before.
+import { hasNativeUpi, listUpiApps as listNative, payViaUpi } from '../../../modules/upi';
+
 /**
- * Which UPI apps we can hand a payment to, without native code.
+ * Which UPI apps we can hand a payment to.
  *
- * The honest platform split, from the NPCI spec:
+ * Two paths, and which one is available depends on the build:
  *
- * **Android** — `upi://pay` is a real system-level intent that every UPI app registers for, so
- * `Linking.openURL` opens Android's own UPI chooser. Targeting one specific app instead needs
- * `queryIntentActivities` and per-package `startActivity`, which is the local native module in
- * `modules/upi/` — this file is the path that works with none of that.
+ * 1. **The native module** (`modules/upi/`) enumerates the installed apps with their real
+ *    names and icons and targets one specific package. Present only in a build that includes
+ *    it — adding a native module needs a full rebuild, not a Metro restart.
  *
- * **iOS** — there is no `upi://` handler at all; the spec is Android-only. Each app registers
- * its own scheme and their support for prefilled parameters is undocumented and historically
- * flaky. `canOpenURL` at least tells us which are installed, and every one of them is offered
- * alongside the QR fallback rather than instead of it.
+ * 2. **`Linking`**, which always works. On Android `upi://pay` is a real system-level intent,
+ *    so `openURL` opens the OS's own UPI chooser — genuinely good, just not our design. On iOS
+ *    there is no `upi://` handler at all (the NPCI spec is Android-only), so each app's own
+ *    scheme is probed with `canOpenURL`.
  *
- * Every scheme here must also appear in `LSApplicationQueriesSchemes` in app.config.ts, or
+ * Both degrade to the QR code, which is the only thing that works everywhere — including when
+ * a bank app ignores the intent, and when someone else is doing the paying.
+ *
+ * Every iOS scheme here must also be in `LSApplicationQueriesSchemes` in app.config.ts, or
  * iOS answers "not installed" for all of them without saying why.
  */
 
 export interface UpiApp {
   id: string;
   label: string;
-  /** The scheme to try on iOS. Android goes through the system chooser instead. */
-  iosScheme: string;
+  /** `data:image/png;base64,…` from the native module. Android only. */
+  iconBase64?: string | null;
+  /** Set only on the Linking path; the native module targets by id instead. */
+  iosScheme?: string;
 }
 
-export const IOS_UPI_APPS: UpiApp[] = [
+const IOS_FALLBACK_APPS: UpiApp[] = [
   { id: 'gpay', label: 'Google Pay', iosScheme: 'gpay' },
   { id: 'phonepe', label: 'PhonePe', iosScheme: 'phonepe' },
   { id: 'paytm', label: 'Paytm', iosScheme: 'paytmmp' },
   { id: 'bhim', label: 'BHIM', iosScheme: 'bhim' },
 ];
 
-/** Which of the known apps are actually installed. Android returns [] — it uses the chooser. */
-export async function installedUpiApps(): Promise<UpiApp[]> {
-  if (Platform.OS !== 'ios') return [];
+export interface UpiCapability {
+  apps: UpiApp[];
+  /** True when the list came from the native module, so ids can be targeted directly. */
+  native: boolean;
+}
+
+export async function discoverUpiApps(): Promise<UpiCapability> {
+  if (hasNativeUpi) {
+    const apps = await listNative();
+    if (apps.length > 0) return { apps, native: true };
+    // An empty list is ambiguous — no UPI apps, or a manifest missing its <queries> block —
+    // so fall through to the path that does not need discovery to work at all.
+  }
+
+  if (Platform.OS !== 'ios') return { apps: [], native: false };
 
   const checks = await Promise.all(
-    IOS_UPI_APPS.map(async (app) => {
+    IOS_FALLBACK_APPS.map(async (app) => {
       try {
         return (await Linking.canOpenURL(`${app.iosScheme}://`)) ? app : null;
       } catch {
@@ -48,18 +68,28 @@ export async function installedUpiApps(): Promise<UpiApp[]> {
       }
     }),
   );
-  return checks.filter((a): a is UpiApp => a !== null);
+
+  return { apps: checks.filter((a): a is UpiApp => a !== null), native: false };
 }
 
 /**
  * Hand the payment off.
  *
- * Returns false rather than throwing when nothing can open the URI, because "no UPI app
- * responded" is an ordinary outcome the screen has a fallback for — the QR code — not an
- * error worth a red toast.
+ * Returns false rather than throwing when nothing opens: "no UPI app answered" is an ordinary
+ * outcome this screen has a fallback for, not an error worth a red toast.
  */
-export async function openUpiPayment(uri: string, app?: UpiApp): Promise<boolean> {
-  const target = Platform.OS === 'ios' && app ? uri.replace('upi://', `${app.iosScheme}://`) : uri;
+export async function openUpiPayment(
+  uri: string,
+  options: { app?: UpiApp; native?: boolean } = {},
+): Promise<boolean> {
+  const { app, native } = options;
+
+  if (native && app) return payViaUpi(app.id, uri);
+
+  // No app named on Android means the system chooser, which is the right default there.
+  const target = Platform.OS === 'ios' && app?.iosScheme
+    ? uri.replace('upi://', `${app.iosScheme}://`)
+    : uri;
 
   try {
     if (!(await Linking.canOpenURL(target))) return false;

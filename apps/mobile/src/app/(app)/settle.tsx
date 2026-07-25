@@ -9,6 +9,7 @@ import {
 } from '@hisaab/core';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -32,7 +33,7 @@ import { EmptyState } from '@/features/home/EmptyState';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
 import { Avatar } from '@/features/people/Avatar';
 import { QrCode } from '@/features/settle/QrCode';
-import { installedUpiApps, openUpiPayment, type UpiApp } from '@/features/settle/upiApps';
+import { discoverUpiApps, openUpiPayment, type UpiApp } from '@/features/settle/upiApps';
 import { getPersonDetail, newMutationId, recordSettlement } from '@/lib/api';
 import { afterExpenseChange, queryKeys } from '@/lib/queryKeys';
 
@@ -65,6 +66,7 @@ export default function SettleUp() {
   // part of what they owe, every time the balance refetched.
   const [typedAmount, setTypedAmount] = useState<string | null>(null);
   const [apps, setApps] = useState<UpiApp[]>([]);
+  const [nativePicker, setNativePicker] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   // One idempotency key per visit to this screen: if the response is lost and the user taps
@@ -79,7 +81,10 @@ export default function SettleUp() {
   });
 
   useEffect(() => {
-    void installedUpiApps().then(setApps);
+    void discoverUpiApps().then(({ apps: found, native }) => {
+      setApps(found);
+      setNativePicker(native);
+    });
   }, []);
 
   // Scoped to the group when we came from one, otherwise the whole pair balance.
@@ -164,8 +169,10 @@ export default function SettleUp() {
         showsVerticalScrollIndicator={false}
       >
         <ScreenHeader
-          title={person ? `Settle up with ${firstName}` : 'Settle up'}
-          subtitle={groupName ?? (data ? 'Across everything between you' : undefined)}
+          title="Settle up"
+          subtitle={
+            person ? `${person.display_name}${groupName ? ` · ${groupName}` : ''}` : undefined
+          }
           action={
             person ? <Avatar name={person.display_name} url={person.avatar_url} size={44} /> : undefined
           }
@@ -233,7 +240,7 @@ export default function SettleUp() {
                       {/* Android has a real system-level upi:// intent, so its own chooser is
                           both correct and better than anything we would draw. iOS has no such
                           handler, so each app is offered individually. */}
-                      {Platform.OS === 'android' || apps.length === 0 ? (
+                      {apps.length === 0 ? (
                         <GlassButton
                           label="Open a UPI app"
                           variant="primary"
@@ -252,13 +259,24 @@ export default function SettleUp() {
                             accessibilityRole="button"
                             accessibilityLabel={`Pay with ${app.label}`}
                             onPress={async () => {
-                              if (!(await openUpiPayment(upiUri, app))) {
+                              if (!(await openUpiPayment(upiUri, { app, native: nativePicker }))) {
                                 setShowQr(true);
                                 setToast(`${app.label} didn't open — scan the code instead.`);
                               }
                             }}
                           >
                             <GlassSurface radius={radius.cardCompact} contentStyle={styles.appTile}>
+                              {/* The app's OWN icon, queried from the device. Bundling
+                                  GPay/PhonePe/Paytm marks as assets is exactly what querying
+                                  avoids — and iOS gives no such API, hence the label-only
+                                  fallback. */}
+                              {app.iconBase64 ? (
+                                <Image
+                                  source={{ uri: app.iconBase64 }}
+                                  style={styles.appIcon}
+                                  contentFit="contain"
+                                />
+                              ) : null}
                               <Text style={styles.appLabel}>{app.label}</Text>
                             </GlassSurface>
                           </Pressable>
@@ -395,7 +413,14 @@ const styles = StyleSheet.create({
   quiet: { fontFamily: font.light, fontSize: 14, lineHeight: 21, color: color.textMuted },
   payRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   payButton: { flex: 1, minWidth: '100%' },
-  appTile: { paddingHorizontal: 18, paddingVertical: 13 },
+  appTile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  appIcon: { width: 26, height: 26, borderRadius: 6 },
   appLabel: { fontFamily: font.medium, fontSize: 14.5, color: color.creamWarm },
   help: { fontFamily: font.light, fontSize: 12.5, lineHeight: 19, color: color.textFaint },
   link: { fontFamily: font.medium, fontSize: 14, color: color.creamWarm },
