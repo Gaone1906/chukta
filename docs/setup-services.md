@@ -32,12 +32,28 @@ alpha needs a hosted project. Free tier is plenty.
 > The **`service_role`** key is the opposite: it bypasses RLS entirely. Never put it in the
 > app, never commit it, never paste it anywhere. It belongs only in Edge Function secrets.
 
-6. Push the schema to it (asks for the database password from step 3):
+6. Push the schema to it. `supabase link` needs a **personal access token** (an account-level
+   credential, separate from the project keys) from
+   https://supabase.com/dashboard/account/tokens:
 
    ```bash
+   export SUPABASE_ACCESS_TOKEN=<your token>
    npx supabase link --project-ref <project-ref>
    npx supabase db push
    ```
+
+   Without a token you can push straight over the database connection instead. **`?sslmode=require`
+   is not optional** — without it the CLI looks for a project CA certificate that only `link`
+   downloads, and fails:
+
+   ```bash
+   npx supabase db push --db-url \
+     "postgresql://postgres:<url-encoded-password>@db.<project-ref>.supabase.co:5432/postgres?sslmode=require"
+   ```
+
+   URL-encode the password (`@` becomes `%40`). Note the direct endpoint is **IPv6-only** —
+   the Supabase CLI copes, but `psql` from a Docker container will not reach it. Use the
+   session pooler if you need a plain IPv4 connection.
 
 ---
 
@@ -57,11 +73,26 @@ Free. Three OAuth client IDs, because Google treats each platform separately.
    | **Android** | Package name `com.hisaab.app`, plus the SHA-1 below |
    | **iOS** | Bundle ID `com.hisaab.app` |
 
-   Get the Android debug SHA-1 with:
+   **Your Android debug SHA-1** (already worked out):
+
+   ```
+   5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25
+   ```
+
+   Two gotchas if you ever need to regenerate it. `keytool` is not on the PATH — it ships
+   inside the JDK bundled with Android Studio. And Expo's prebuild ships its own debug
+   keystore in the project rather than using `~/.android/debug.keystore`, which does not
+   exist here:
 
    ```bash
-   keytool -list -v -alias androiddebugkey -keystore ~/.android/debug.keystore -storepass android -keypass android | grep SHA1
+   "/Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/keytool" \
+     -list -v -alias androiddebugkey \
+     -keystore apps/mobile/android/app/debug.keystore \
+     -storepass android -keypass android | grep SHA1
    ```
+
+   This is a *debug* certificate. The release SHA-1 is different and comes from the upload
+   key EAS generates at first production build.
 
 4. In the **Supabase dashboard → Authentication → Providers → Google**: enable it, and paste
    the **Web** client ID and secret.
@@ -120,6 +151,19 @@ Then `xcodebuild -version` should print 26.6. You can also delete the leftover
 `/Applications/Xcode.appdownload`.
 
 ---
+
+## Rotating a leaked credential
+
+If a secret is ever pasted somewhere it shouldn't be — chat, a screenshot, a commit — rotate
+it. Exposure is not undone by deleting the message.
+
+- **Supabase secret key** (`sb_secret_…`): Dashboard → Project Settings → API keys → revoke
+  and create a new one. Nothing in this repo uses it, so nothing breaks.
+- **Database password**: Dashboard → Project Settings → Database → Reset password. Then
+  re-run any `db push` with the new one.
+- **Google client secret** (`GOCSPX-…`): Cloud Console → Credentials → your Web client →
+  reset secret, then paste the new value into Supabase → Authentication → Providers → Google.
+- **Supabase publishable key** and the **OAuth client IDs** are public by design. No action.
 
 ## Still undecided
 
