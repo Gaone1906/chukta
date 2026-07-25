@@ -101,7 +101,13 @@ Privacy, Rate Hisaab, Tip jar. Terms and Privacy point at the GitHub Pages URLs 
 
 - Every sidebar row navigates
 - Invite opens the real OS share sheet; the link opens the app and claims the placeholder
-- **No Contacts permission is requested anywhere in the app**
+- ~~**No Contacts permission is requested anywhere in the app**~~ — **superseded 2026-07-26.**
+  The contact PICKER was added: the OS draws the list, the app receives only the one contact
+  the user selects, and `getAll()` is never called. The criterion that replaces it is narrower
+  and still worth enforcing: **the address book is never enumerated, and contacts are never
+  uploaded or checked against the server.** See `features/people/pickContact.ts`, and note
+  that `legal/privacy.md` and `invite.tsx`'s on-screen copy moved in the same commit — those
+  three have to stay in step or the app contradicts its own privacy policy.
 - A sandbox tip completes on both stores and is verified server-side
 - Delete account anonymizes and leaves counterparty balances intact
 - Feedback lands in the `feedback` table

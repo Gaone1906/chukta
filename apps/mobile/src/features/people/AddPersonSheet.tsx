@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
+import { normalisePhone } from '@hisaab/core';
+
 import { GlassButton, Sheet, color, font } from '@/design';
 import { inviteMessage, personalInviteUrl } from '@/features/invite/inviteLink';
 import { createInviteLink } from '@/lib/api';
@@ -12,6 +14,7 @@ import { queueContactProfile } from '@/lib/offline/writes';
 import { queryKeys } from '@/lib/queryKeys';
 import { Avatar } from './Avatar';
 import { ClaimCodeSheet } from './ClaimCodeSheet';
+import { contactPickerAvailable, pickContact } from './pickContact';
 
 /**
  * Add a person who is not on Hisaab — and, if you want, send them the link.
@@ -56,6 +59,7 @@ function AddPersonBody({
   const [email, setEmail] = useState('');
   const [added, setAdded] = useState<{ id: string; name: string } | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [phone, setPhone] = useState('');
   const [showCode, setShowCode] = useState(false);
 
   /*
@@ -74,13 +78,28 @@ function AddPersonBody({
    */
   const create = () => {
     try {
-      const trimmed = email.trim().toLowerCase();
+      const trimmedEmail = email.trim().toLowerCase();
+      const normalisedPhone = normalisePhone(phone);
+
+      /*
+       * Email wins when both are given.
+       *
+       * `upsert_contact_profile` takes ONE contact point, and email is the stronger identifier
+       * here: it is the only one that can resolve to a real account, because nothing writes a
+       * phone contact point for a signed-up user. Sending the phone instead would silently
+       * downgrade the dedupe from "finds them" to "finds another placeholder".
+       */
       const id = queueContactProfile(
         name.trim(),
-        // Normalised here because the RPC dedupes on `value_norm` exactly — an address
-        // differing only in case would otherwise create a second identity for one person,
-        // which is what the unique index on live contact points exists to prevent.
-        trimmed ? { kind: 'email', value: trimmed } : undefined,
+        // Both normalised here because the RPC dedupes on `value_norm` exactly — an address
+        // differing only in case, or a number written with different spacing, would otherwise
+        // create a second identity for one person, which is what the unique index on live
+        // contact points exists to prevent.
+        trimmedEmail
+          ? { kind: 'email', value: trimmedEmail }
+          : normalisedPhone
+            ? { kind: 'phone', value: normalisedPhone }
+            : undefined,
       );
       const person = { id, name: name.trim() };
       setAdded(person);
@@ -90,6 +109,30 @@ function AddPersonBody({
       offline.refresh();
       offline.sync();
       void queryClient.invalidateQueries({ queryKey: queryKeys.home() });
+    } catch (e) {
+      setNote((e as Error).message);
+    }
+  };
+
+  /*
+   * Open the OS picker and prefill from the one contact chosen.
+   *
+   * Only fills what is empty, so a picker tap cannot silently wipe something already typed —
+   * the user may have entered a name and be reaching for the number.
+   */
+  const chooseContact = async () => {
+    try {
+      const picked = await pickContact();
+      if (picked === null) return;
+
+      if (picked.name !== '' && name.trim() === '') setName(picked.name);
+      if (picked.phone !== null && phone.trim() === '') setPhone(picked.phone);
+
+      // Said out loud rather than swallowed: a contact whose number we could not parse would
+      // otherwise look like the picker had half-worked for no visible reason.
+      if (picked.phoneRejected) {
+        setNote("Couldn't read that contact's number — type it in if you want it.");
+      }
     } catch (e) {
       setNote((e as Error).message);
     }
@@ -233,6 +276,31 @@ function AddPersonBody({
         />
       }
     >
+      {/*
+        * The picker fills the two fields below; it does not replace them. Everything is still
+        * editable afterwards, and typing it all by hand remains a first-class path — the
+        * picker is a shortcut past the typos, not a new requirement.
+        */}
+      {contactPickerAvailable() ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Choose from contacts"
+          onPress={() => void chooseContact()}
+          style={({ pressed }) => [styles.pickRow, pressed ? styles.pickPressed : null]}
+        >
+          <Svg width={16} height={16} viewBox="0 0 16 16" fill="none">
+            <Circle cx={8} cy={5.6} r={2.8} stroke={color.goldBright} strokeWidth={1.3} />
+            <Path
+              d="M2.8 13.6c0-2.4 2.3-4 5.2-4s5.2 1.6 5.2 4"
+              stroke={color.goldBright}
+              strokeWidth={1.3}
+              strokeLinecap="round"
+            />
+          </Svg>
+          <Text style={styles.pickLabel}>Choose from contacts</Text>
+        </Pressable>
+      ) : null}
+
       <TextInput
         value={name}
         onChangeText={setName}
@@ -270,6 +338,33 @@ function AddPersonBody({
         creating two of the same person.
       </Text>
 
+      <View style={styles.labelRow}>
+        <Text style={styles.label}>Their phone</Text>
+        <Text style={styles.optional}>Optional</Text>
+      </View>
+      <TextInput
+        value={phone}
+        onChangeText={setPhone}
+        placeholder="98765 43210"
+        placeholderTextColor={color.textGhost}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="phone-pad"
+        maxLength={20}
+        accessibilityLabel="Their phone, optional"
+        style={styles.input}
+      />
+      {/*
+        * Deliberately NOT "find friends already on Hisaab". Nothing writes a phone contact
+        * point for a signed-up account — `set_my_phone` was the only thing that would have,
+        * and phone was cut from v1 — so a number can only ever match a placeholder somebody
+        * else made. That is still worth having, and it is all this claims.
+        */}
+      <Text style={styles.hint}>
+        Same idea as the email: two of you adding them by the same number get one person, not
+        two.
+      </Text>
+
       {note ? <Text style={styles.note}>{note}</Text> : null}
     </Sheet>
   );
@@ -278,6 +373,22 @@ function AddPersonBody({
 const first = (full: string): string => full.trim().split(/\s+/)[0] ?? full;
 
 const styles = StyleSheet.create({
+  /*
+   * A quiet row, not a button. The picker is a shortcut past typing, and giving it a filled
+   * gold button would make it look like the primary way to add somebody — which it must not,
+   * because typing a name is the path that needs no permission at all.
+   */
+  pickRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    marginBottom: 4,
+  },
+  pickPressed: { opacity: 0.6 },
+  pickLabel: { fontFamily: font.medium, fontSize: 14, color: color.goldBright },
+
   input: {
     height: 52,
     paddingHorizontal: 16,

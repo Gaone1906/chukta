@@ -44,9 +44,16 @@ address. We never see your real one.
 - Platform, app version and timezone, to deliver notifications at sensible hours
 - Crash reports and error diagnostics via Sentry
 
-**We do not collect:** your contacts or address book (invitations use your device's own share
-sheet, so we never see who you invited or how), your location, your advertising identifier,
-your browsing activity, or your bank or card details.
+**Contacts — read only what you pick.** If you choose "Choose from contacts" when adding
+someone, your phone shows you its own contact picker and hands us the **one** contact you
+select, so we can fill in their name and number. We never read, scan, upload or store your
+address book, and we never check your contacts against our records to tell you who else uses
+Hisaab. You can add anyone by typing their name instead, which needs no permission at all.
+
+**We do not collect:** your address book (see above — only the single contact you pick, and
+only when you pick one), your location, your advertising identifier, your browsing activity,
+or your bank or card details. Invitations still go through your device's own share sheet, so
+we never see who you invited or how.
 
 ## 3. What we never touch
 

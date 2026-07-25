@@ -86,9 +86,15 @@ export default function Invite() {
           style={styles.heroSpacing}
           contentStyle={styles.hero}
         >
+          {/*
+            * This line used to end "and Hisaab never reads your contacts", which stopped being
+            * true when the contact picker landed. The replacement keeps the promise that
+            * actually matters and is still kept: we never read the BOOK. See
+            * features/people/pickContact.ts.
+            */}
           <Text style={styles.heroBody}>
             Send anyone a link. It opens Hisaab if they have it, and the store if they
-            don&rsquo;t — no phone numbers, and Hisaab never reads your contacts.
+            don&rsquo;t — and Hisaab never reads your address book.
           </Text>
 
           <GlassButton label="Share a link" variant="primary" onPress={() => void shareGeneral()} />

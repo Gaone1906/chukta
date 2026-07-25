@@ -37,12 +37,29 @@ const config: ExpoConfig = {
           ],
         },
       ],
+
+      /*
+       * Shown when adding someone from the contact picker.
+       *
+       * Worded to say what actually happens, because it is unusually narrow and the default
+       * assumption about a contacts prompt is the opposite: we read the ONE contact you pick,
+       * in a picker the OS draws, and the address book is never enumerated or uploaded. On
+       * iOS 18+ the picker is out-of-process and this is never even shown.
+       */
+      NSContactsUsageDescription:
+        'Hisaab only reads the single contact you choose, to fill in their name and number. Your address book is never uploaded.',
     },
   },
 
   android: {
     package: BUNDLE_ID,
     predictiveBackGestureEnabled: false,
+    /*
+     * Android has no out-of-process picker equivalent, so the permission is required for the
+     * system picker to return anything. It is the only contacts permission requested, and
+     * READ_CONTACTS is the read-only one — no WRITE_CONTACTS anywhere.
+     */
+    permissions: ['android.permission.READ_CONTACTS'],
   },
 
   // withDebugKeystore replaces Expo's shared debug keystore with ours, so the Android
