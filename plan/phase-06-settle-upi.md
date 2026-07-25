@@ -1,6 +1,16 @@
 # Phase 6 — Settle up & the UPI handoff
 
-**Status:** ⬜ not started · **Estimate:** 1 week · **Depends on:** Phase 5
+**Status:** 🟡 6A + 6B done, 2026-07-25 · **Estimate:** 1 week · **Depends on:** Phase 5
+
+**Done:** the UPI URI builder in `packages/core/src/upi.ts` (property-tested), the Settle up
+screen at `(app)/settle.tsx`, the QR fallback, iOS per-scheme detection, the Android system
+chooser, and `record_settlement` wired from both Person and Group detail. Verified on the
+emulator: ₹1,350 marked settled flips the pair to All square.
+
+**Left:** 6C, the local Expo native module for the Android per-app picker with real icons, and
+the `<queries>` config plugin. Until then Android uses its own UPI chooser, which the plan
+below already names as the ship-first option. Nothing about the QR scanning or a real UPI app
+opening prefilled has been tested — that needs physical devices.
 
 ## Goal
 
