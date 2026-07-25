@@ -102,8 +102,33 @@ Free. Three OAuth client IDs, because Google treats each platform separately.
    This is a *debug* certificate. The release SHA-1 is different and comes from the upload
    key EAS generates at first production build.
 
-4. In the **Supabase dashboard → Authentication → Providers → Google**: enable it, and paste
-   the **Web** client ID and secret.
+4. In the Supabase dashboard, go to **Authentication → Sign In / Providers** (under
+   CONFIGURATION in the sidebar).
+
+   > Not **OAuth Apps** — that page is for making your project an identity provider *for other
+   > applications*, which is the opposite direction and easy to land on by mistake.
+
+   Expand **Google**, toggle it on, and fill in three fields:
+
+   | Field | Value |
+   |---|---|
+   | Client ID | the **Web** client id |
+   | Client Secret | the Web client secret |
+   | **Authorized Client IDs** | the **iOS and Android** client ids, comma-separated |
+
+   **That third field is not optional.** The app uses Google's native sign-in sheet, so the
+   ID token it returns carries the iOS or Android client id as its audience — never the web
+   one. Supabase rejects a token whose audience it does not recognise, so leaving this empty
+   fails every sign-in with `Unacceptable audience in id_token` while everything else looks
+   correctly set up.
+
+   Also add the Supabase callback to the **Web** client's Authorized redirect URIs in Cloud
+   Console — unused by the native flow, but it removes a confusing failure if a web or
+   email-link path is ever added:
+
+   ```
+   https://<project-ref>.supabase.co/auth/v1/callback
+   ```
 5. Put the client IDs in `apps/mobile/.env`:
 
    ```
