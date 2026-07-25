@@ -1,4 +1,4 @@
-import { Stack, usePathname, useRouter } from 'expo-router';
+import { DarkTheme, Stack, ThemeProvider, usePathname, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
@@ -53,11 +53,27 @@ export default function RootLayout() {
           {/* Mounted once, above the navigator: the glass has nothing to refract without it,
               and per-screen mounting would restart the drift on every navigation. */}
           <AmbientBackground />
-          <QueryClientProvider client={queryClient}>
-            <SessionProvider>
-              <RootNavigator />
-            </SessionProvider>
-          </QueryClientProvider>
+          {/*
+           * Transparent navigation theme, or the whole app is invisible on iOS.
+           *
+           * `contentStyle: 'transparent'` on the Stack is not enough: React Navigation also
+           * paints its container with `theme.colors.background`, and the default theme's is
+           * rgb(242,242,242). On iOS that light grey sits ON TOP of the ambient background —
+           * cream text on near-white, the entire design gone. Android happened to escape it,
+           * which is why this survived until the first iOS run.
+           */}
+          <ThemeProvider
+            value={{
+              ...DarkTheme,
+              colors: { ...DarkTheme.colors, background: 'transparent', card: 'transparent' },
+            }}
+          >
+            <QueryClientProvider client={queryClient}>
+              <SessionProvider>
+                <RootNavigator />
+              </SessionProvider>
+            </QueryClientProvider>
+          </ThemeProvider>
         </BlurTargetProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

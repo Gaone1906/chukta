@@ -19,7 +19,7 @@ Use `Phase 0:` for repo-level chores that belong to no feature phase.
 | # | Phase | File | Status | Est. |
 |---|---|---|---|---|
 | 0 | Repo & scaffold | [phase-00-repo-scaffold.md](phase-00-repo-scaffold.md) | ✅ done | 2–3 d |
-| 1 | Design system & motion | [phase-01-design-system.md](phase-01-design-system.md) | ✅ done (Android verified; iOS pending toolchain) | 1 wk |
+| 1 | Design system & motion | [phase-01-design-system.md](phase-01-design-system.md) | ✅ done (verified on Android **and** iOS) | 1 wk |
 | 2 | `packages/core` money engine | [phase-02-core-money.md](phase-02-core-money.md) | ✅ done | 0.5 wk |
 | 3 | Supabase backend | [phase-03-backend.md](phase-03-backend.md) | ✅ done (18 migrations, 77 pgTAP) | 2 wk |
 | 4 | Auth & onboarding | [phase-04-auth-onboarding.md](phase-04-auth-onboarding.md) | ✅ done (Google verified to the account picker; Apple needs a paid team) | 1 wk |
@@ -67,7 +67,7 @@ Everything from 4 onward is sequential.
 | 10 | ~~Google OAuth client IDs~~ | — | **done — provider enabled, verified** |
 | 4 | Sentry for crash reporting — assumed yes | Phase 10 | assumed |
 | 7 | **Android blur** defaults to the opaque fallback — a `BlurView` sampling a `BlurTargetView` SIGSEGVs the emulator's software GPU. Needs a physical device to confirm and flip. | Phase 10 | open |
-| 8 | Whole iOS side is unrun — no Xcode on this machine yet. The Liquid Glass branch is written from the API contract, not tested. | Phase 4 | open |
+| 8 | ~~Whole iOS side unrun~~ | — | **resolved: builds and runs on the iOS 26.5 simulator; the design renders correctly** |
 | 5 | Apple Developer Program + Google Play enrolment | Phase 4 / 11 | user will do — see docs/setup-services.md |
 | 6 | Legal review of `legal/terms.md` + `legal/privacy.md` before submission | Phase 11 | drafted, unreviewed |
 | 11 | **ROTATE ALL CREDENTIALS BEFORE BETA.** The Supabase secret key, database password and Google client secret were shared in plain text during setup. Deliberately deferred by the user so the test build could proceed — this is a hard gate before any public build, not a nice-to-have. Steps: `docs/setup-services.md` → "Rotating a leaked credential". | **beta / any public build** | **MUST DO** |
@@ -310,7 +310,8 @@ result of things going wrong and being fixed.
 | Supabase (local) | `npx supabase start`, Postgres on 54322, API on 54321 |
 | Credentials | `apps/mobile/.env` — **gitignored**, hosted project |
 | Local override | `apps/mobile/.env.local` — **gitignored**, points at local Supabase via `10.0.2.2`. Required for dev sign-in; delete it to go back to hosted |
-| Xcode | 26.6 installed but **`xcode-select` still points at Command Line Tools** — user must run `sudo xcode-select -s /Applications/Xcode.app` |
+| Xcode | 26.6, licence accepted, iOS 26.5 simulator runtime installed. CocoaPods 1.17 via Homebrew (system Ruby 2.6 is too old) |
+| iOS simulator | `iPhone 17 Pro` — `BB49D14F-3053-4A4E-BDB3-A294A8578AFB` |
 
 ## Commands that actually work
 
@@ -365,7 +366,19 @@ every shell — they are not on the default PATH.
     `requireOptionalNativeModule` for anything with a fallback path.
 12. **Android 11+ package visibility.** `queryIntentActivities` returns an empty list — not an
     error — without a matching `<queries>` block. Every UPI app looks uninstalled.
-13. **The emulator's "Try out your stylus" tutorial steals keystrokes** the first time a text
+13. **React Navigation paints its own container background**, and the default theme's is
+    `rgb(242,242,242)`. `contentStyle: 'transparent'` on the Stack is NOT enough — the light
+    grey sits on top of the ambient background and the whole dark design disappears into cream
+    text on near-white. Android escaped it; iOS did not. Fixed with a transparent
+    `ThemeProvider` in the root layout. Import the theme from `expo-router`, not
+    `@react-navigation/native` — SDK 57 vendors navigation as `standard-navigation` and that
+    package is not in the tree.
+14. **`expo run:ios` misidentifies a booted simulator as a physical device** under Xcode 26 and
+    fails with "No code signing certificates are available". Drive `xcodebuild` directly
+    against the simulator destination, then `xcrun simctl install`.
+15. **`10.0.2.2` is Android-emulator-only.** The iOS simulator cannot resolve it. `.env.local`
+    now uses the host's LAN IP, which works from both and from a physical phone.
+16. **The emulator's "Try out your stylus" tutorial steals keystrokes** the first time a text
     field is focused, truncating input to one character. Looks exactly like an app bug. Cancel
     it once per emulator.
 
@@ -397,7 +410,6 @@ SHA-1 / package / client-id triple is accepted.
 - **Rotate all credentials before beta** (open item #11) — deliberately deferred.
 - Apple Developer Program — not buying until both emulators show a working app. Sign in with
   Apple therefore cannot be demonstrated at all (needs the entitlement).
-- `sudo xcode-select -s /Applications/Xcode.app`.
 - Store display name ("Hisaab" is taken); a domain for deep links.
 
 ### Phase 5 — done, 2026-07-25
