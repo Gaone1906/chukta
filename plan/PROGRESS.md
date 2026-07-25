@@ -22,7 +22,7 @@ Use `Phase 0:` for repo-level chores that belong to no feature phase.
 | 1 | Design system & motion | [phase-01-design-system.md](phase-01-design-system.md) | ✅ done (Android verified; iOS pending toolchain) | 1 wk |
 | 2 | `packages/core` money engine | [phase-02-core-money.md](phase-02-core-money.md) | ✅ done | 0.5 wk |
 | 3 | Supabase backend | [phase-03-backend.md](phase-03-backend.md) | ✅ done (15 migrations, 68 pgTAP) | 2 wk |
-| 4 | Auth & onboarding | [phase-04-auth-onboarding.md](phase-04-auth-onboarding.md) | 🟡 built; needs Google credentials to verify | 1 wk |
+| 4 | Auth & onboarding | [phase-04-auth-onboarding.md](phase-04-auth-onboarding.md) | ✅ done (Google verified to the account picker; Apple needs a paid team) | 1 wk |
 | 5 | Core loop | [phase-05-core-loop.md](phase-05-core-loop.md) | ⬜ not started | 3 wk |
 | 6 | Settle up & UPI | [phase-06-settle-upi.md](phase-06-settle-upi.md) | ⬜ not started | 1 wk |
 | 7 | Sidebar surfaces | [phase-07-sidebar-surfaces.md](phase-07-sidebar-surfaces.md) | ⬜ not started | 1.5 wk |
@@ -64,7 +64,7 @@ Everything from 4 onward is sequential.
 | 2 | ~~Currency: Help FAQ vs feature spec~~ | — | **resolved: INR only for v1** |
 | 3 | Domain for Universal Links / App Links (invite deep links) | Phase 7 | open |
 | 9 | **Hosted Supabase project** — the local stack is Docker on this Mac, unreachable from a phone | device alpha | **needed from user** |
-| 10 | **Google OAuth client IDs** (web + iOS + Android) — sign-in cannot be verified without them | Phase 4 | **needed from user** |
+| 10 | ~~Google OAuth client IDs~~ | — | **done — provider enabled, verified** |
 | 4 | Sentry for crash reporting — assumed yes | Phase 10 | assumed |
 | 7 | **Android blur** defaults to the opaque fallback — a `BlurView` sampling a `BlurTargetView` SIGSEGVs the emulator's software GPU. Needs a physical device to confirm and flip. | Phase 10 | open |
 | 8 | Whole iOS side is unrun — no Xcode on this machine yet. The Liquid Glass branch is written from the API contract, not tested. | Phase 4 | open |
@@ -272,3 +272,22 @@ balance and emits at most n−1 transfers; and both currency vectors sum exactly
 
 **Note:** `adb shell input text` lands in the RN TextInput only intermittently on this
 emulator — a tooling quirk, not an app bug. Typed input was confirmed working in one pass.
+
+### Google sign-in — verified as far as is possible without credentials, 2026-07-25
+
+`external.google` is `true` on the project, and all three client ids (web, Android, iOS) are
+registered against the project-owned SHA-1.
+
+On the emulator: the button flips from "not configured" to a real **Continue with Google**,
+and tapping it opens **Google's own sign-in screen** — no `DEVELOPER_ERROR`, which is exactly
+what a wrong SHA-1, package name or client id produces immediately. Google has accepted the
+app's identity. Backing out returns to the entry screen with no crash and no error toast, so
+the `AuthCancelled` path behaves.
+
+**Not completed, deliberately:** the emulator has no Google account (`Accounts: 0`), and
+finishing the flow would mean entering the user's Google password. That last hop is theirs to
+do — add a Google account to the emulator, or run the APK on a real phone.
+
+**Note for Phase 11:** `hisaab-stamp.png` is 407 KB and visibly pops in over Metro in dev.
+Bundled in release so it is not a runtime bug, but it reinforces that the stamp needs an
+optimised variant.
