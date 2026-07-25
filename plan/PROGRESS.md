@@ -666,6 +666,41 @@ instead.**
 pads the content and leaves the card flush against whatever is above. Five Phase 5 screens had
 it. And the Settings switch was writing a Reanimated shared value during render.
 
+### The ripple: why it looked like it was not running
+
+Worth writing down in full, because the diagnosis was wrong twice before it was right and the
+same trap is waiting for anyone who touches this next.
+
+**The symptom:** navigation felt instant everywhere; no ripple visible.
+
+**The false leads.** Reduce Motion (`rippleTo` returns early when the OS asks for it) — off, per
+the simulator's own plist. Then the context fallback: `useRippleNav()` returns a no-op
+`rippleTo` outside a provider, which would navigate instantly and silently. Also fine — proven
+by commenting out `fireNavigation` and watching the screen NOT change, which shows the ripple
+was gating navigation all along.
+
+**Why the measurements lied.** At 900ms the animation is shorter than one tool round-trip, so
+every screenshot landed after it had already finished. The only way to see anything was to slow
+it to 30 seconds and paint the veil red. **Do that first next time.**
+
+**The three actual causes:**
+
+1. **The sidebar destinations never rippled.** Settings, Invite, Help, About and Tip jar called
+   `router.push` directly — so the five newest screens were exactly the five that cut instantly.
+
+2. **The veil was rendering behind the screen.** Giving the content a transform (for the
+   settle-back) gave it its own layer, which rose above its later sibling. The red-veil test
+   showed the rows *through* the veil. An explicit `zIndex` on the overlay fixes it — and this
+   is the general rule: **a transformed view can outrank a later sibling, so any overlay that
+   must stay on top needs to say so explicitly.**
+
+3. **There was almost nothing to see.** The veil is deliberately the exact colour the screens
+   sit on — that is what hides the seam — so on a dark app it looks like nothing is happening.
+   The only visible part is the trailing rings, and they were 1.1–1.6px hairlines: the prototype
+   draws a 1px stroke *blurred* by up to 2.4px, and the port kept the 1px and dropped the blur.
+   A blurred 1px line covers roughly `1 + 2b` px, which is the width they get now. The screen
+   also settles to `scale .982` under the wavefront and back as it clears.
+
 ### Known, not yet fixed
 
 - **Screen titles scroll away.** `ScreenHeader` sits inside the ScrollView on every detail
