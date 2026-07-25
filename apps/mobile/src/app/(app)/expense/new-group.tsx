@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -21,7 +20,8 @@ import { PersonPickRow } from '@/features/expenses/PickRow';
 import { SearchField } from '@/features/expenses/SearchField';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
 import { BackChevron } from '@/features/onboarding/BackChevron';
-import { createGroup, getHomeSummary, newMutationId, upsertContactProfile } from '@/lib/api';
+import { AddPersonSheet } from '@/features/people/AddPersonSheet';
+import { createGroup, getHomeSummary, newMutationId } from '@/lib/api';
 import { queryKeys } from '@/lib/queryKeys';
 
 /**
@@ -42,6 +42,7 @@ export default function NewGroup() {
   const [name, setName] = useState('');
   const [search, setSearch] = useState('');
   const [members, setMembers] = useState<string[]>([]);
+  const [addingPerson, setAddingPerson] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({ queryKey: queryKeys.home(), queryFn: getHomeSummary });
@@ -51,17 +52,13 @@ export default function NewGroup() {
     () => (data?.people ?? []).filter((p) => !term || p.display_name.toLowerCase().includes(term)),
     [data, term],
   );
-  const canInvent = term.length > 1 && !roster.some((p) => p.display_name.toLowerCase() === term);
-
-  const invent = useMutation({
-    mutationFn: () => upsertContactProfile(search.trim()),
-    onSuccess: (profileId) => {
-      setMembers((prev) => (prev.includes(profileId) ? prev : [...prev, profileId]));
-      setSearch('');
-      void queryClient.invalidateQueries({ queryKey: queryKeys.home() });
-    },
-    onError: (e: Error) => setToast(e.message),
-  });
+  // Whoever the sheet creates joins the group straight away — you opened it in order to put
+  // them in, so making you find and tick them afterwards would be a step for nothing.
+  const onPersonAdded = (profileId: string) => {
+    setMembers((prev) => (prev.includes(profileId) ? prev : [...prev, profileId]));
+    setSearch('');
+    void queryClient.invalidateQueries({ queryKey: queryKeys.home() });
+  };
 
   // One idempotency key for this screen, generated once and held across every attempt. The
   // case it exists for: the server commits, the response is lost, the user taps Create again.
@@ -138,37 +135,31 @@ export default function NewGroup() {
               />
             ))}
 
-            {canInvent ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Add ${search.trim()} as someone new`}
-                disabled={invent.isPending}
-                onPress={() => invent.mutate()}
-              >
-                <GlassSurface radius={radius.cardCompact} contentStyle={styles.inventRow}>
-                  {invent.isPending ? (
-                    <ActivityIndicator size="small" color={color.goldBright} />
-                  ) : (
-                    <Svg width={13} height={13} viewBox="0 0 12 12" fill="none">
-                      <Path
-                        d="M6 1.6v8.8M1.6 6h8.8"
-                        stroke={color.creamWarm}
-                        strokeWidth={1.6}
-                        strokeLinecap="round"
-                      />
-                    </Svg>
-                  )}
-                  <Text style={styles.inventLabel} numberOfLines={1}>
-                    Add &ldquo;{search.trim()}&rdquo; as someone new
-                  </Text>
-                </GlassSurface>
-              </Pressable>
-            ) : null}
+            {/* Always the last row. Previously this only appeared once you had typed a name
+                matching nobody, so there was no visible way to add a person at all. */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add someone who is not on Hisaab"
+              onPress={() => setAddingPerson(true)}
+            >
+              <GlassSurface radius={radius.cardCompact} contentStyle={styles.inventRow}>
+                <Svg width={13} height={13} viewBox="0 0 12 12" fill="none">
+                  <Path
+                    d="M6 1.6v8.8M1.6 6h8.8"
+                    stroke={color.creamWarm}
+                    strokeWidth={1.6}
+                    strokeLinecap="round"
+                  />
+                </Svg>
+                <Text style={styles.inventLabel} numberOfLines={1}>
+                  {term ? `Add “${search.trim()}” as someone new` : 'Add someone new'}
+                </Text>
+              </GlassSurface>
+            </Pressable>
 
-            {roster.length === 0 && !canInvent ? (
+            {roster.length === 0 ? (
               <Text style={styles.none}>
-                Nobody to add yet. Type a name above — a group of one is fine too, you can add
-                people later.
+                Nobody to add yet — a group of one is fine, you can add people later.
               </Text>
             ) : null}
           </View>
@@ -182,12 +173,20 @@ export default function NewGroup() {
           disabled={!ready}
           onPress={() => create.mutate()}
         />
-        <Text style={styles.picked} numberOfLines={1}>
-          {members.length === 0
-            ? 'Just you for now'
-            : `You and ${members.length} ${members.length === 1 ? 'other' : 'others'}`}
+        <Text style={[styles.picked, !name.trim() ? styles.pickedPrompt : null]} numberOfLines={1}>
+          {!name.trim()
+            ? 'Give the group a name to continue'
+            : members.length === 0
+              ? 'Just you for now'
+              : `You and ${members.length} ${members.length === 1 ? 'other' : 'others'}`}
         </Text>
       </FooterBar>
+
+      <AddPersonSheet
+        visible={addingPerson}
+        onClose={() => setAddingPerson(false)}
+        onAdded={onPersonAdded}
+      />
 
       <Toast message={toast} />
     </KeyboardAvoidingView>
@@ -233,4 +232,7 @@ const styles = StyleSheet.create({
   },
   inventLabel: { flex: 1, fontFamily: font.medium, fontSize: 14.5, color: color.creamWarm },
   picked: { textAlign: 'center', fontFamily: font.light, fontSize: 12.5, color: color.textFaint },
+  // Gold, because it is the reason the button above it is dead — it has to be read, not
+  // skimmed past as a caption.
+  pickedPrompt: { fontFamily: font.regular, color: color.textHighlight },
 });

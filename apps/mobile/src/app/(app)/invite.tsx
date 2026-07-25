@@ -14,6 +14,7 @@ import {
   personalInviteUrl,
   plainInviteUrl,
 } from '@/features/invite/inviteLink';
+import { AddPersonSheet } from '@/features/people/AddPersonSheet';
 import { Avatar } from '@/features/people/Avatar';
 import { createInviteLink, getHomeSummary, type HomePerson } from '@/lib/api';
 import { queryKeys } from '@/lib/queryKeys';
@@ -38,6 +39,7 @@ import { queryKeys } from '@/lib/queryKeys';
 export default function Invite() {
   const insets = useSafeAreaInsets();
   const [toast, setToast] = useState<string | null>(null);
+  const [addingPerson, setAddingPerson] = useState(false);
 
   const ping = (message: string) => {
     setToast(message);
@@ -90,6 +92,14 @@ export default function Invite() {
           </Text>
 
           <GlassButton label="Share a link" variant="primary" onPress={() => void shareGeneral()} />
+
+          {/* Naming someone is the more useful of the two, because it does not depend on them
+              acting: they become a participant now, and the link can follow whenever. */}
+          <GlassButton
+            label="Add someone by name"
+            variant="secondary"
+            onPress={() => setAddingPerson(true)}
+          />
 
           <Pressable
             accessibilityRole="button"
@@ -162,6 +172,12 @@ export default function Invite() {
           </View>
         )}
       </ScrollView>
+
+      <AddPersonSheet
+        visible={addingPerson}
+        onClose={() => setAddingPerson(false)}
+        onAdded={() => void homeQuery.refetch()}
+      />
 
       <Toast message={toast} />
     </View>

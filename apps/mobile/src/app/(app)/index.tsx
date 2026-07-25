@@ -28,7 +28,7 @@ const WORDMARK = require('../../../assets/brand/hisaab-mark.png');
 export default function Home() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { rippleTo } = useRippleNav();
+  const { rippleTo, rippleFrom } = useRippleNav();
   const [tab, setTab] = useState<'groups' | 'people'>('groups');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -106,7 +106,7 @@ export default function Home() {
                 title="No groups yet"
                 body="A group is just a name and the people in it — a trip, a flat, a standing football booking. Add an expense and name it, and the group makes itself."
                 actionLabel="Add an expense"
-                onAction={() => router.push('/expense/who')}
+                onAction={(e) => rippleFrom(e, () => router.push('/expense/who'))}
               />
             ) : (
               groups.map((g) => (
@@ -124,7 +124,7 @@ export default function Home() {
               title="Nobody here yet"
               body="People show up once you share an expense with them. You don't have to add anyone first."
               actionLabel="Add an expense"
-              onAction={() => router.push('/expense/who')}
+              onAction={(e) => rippleFrom(e, () => router.push('/expense/who'))}
             />
           ) : (
             people.map((p) => (

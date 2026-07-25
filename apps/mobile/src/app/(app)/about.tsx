@@ -2,11 +2,18 @@ import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type GestureResponderEvent,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
-import { GlassSurface, Seal, Toast, color, font, radius } from '@/design';
+import { GlassSurface, Seal, Toast, color, font, radius, useRippleNav } from '@/design';
 import { ScreenHeader } from '@/features/expenses/ScreenHeader';
 
 /**
@@ -25,6 +32,7 @@ const LEGAL_BASE = 'https://gaone1906.github.io/hisaab';
 export default function About() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { rippleFrom } = useRippleNav();
   const [toast, setToast] = useState<string | null>(null);
 
   const version = Constants.expoConfig?.version ?? '0.0.0';
@@ -80,7 +88,11 @@ export default function About() {
           <Rule />
           <LinkRow label="Rate Hisaab" onPress={rate} />
           <Rule />
-          <LinkRow label="Tip jar" gold onPress={() => router.push('/tip')} />
+          <LinkRow
+            label="Tip jar"
+            gold
+            onPress={(e) => rippleFrom(e, () => router.push('/tip'))}
+          />
         </GlassSurface>
 
         <Text style={styles.colophon}>
@@ -101,7 +113,7 @@ function LinkRow({
 }: {
   label: string;
   gold?: boolean;
-  onPress: () => void;
+  onPress: (event: GestureResponderEvent) => void;
 }) {
   return (
     <Pressable

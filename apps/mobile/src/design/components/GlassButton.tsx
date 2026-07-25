@@ -1,5 +1,13 @@
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type GestureResponderEvent,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { color, font, motion, radius } from '../tokens';
@@ -7,7 +15,11 @@ import { GlassSurface } from './GlassSurface';
 
 export interface GlassButtonProps {
   label: string;
-  onPress?: () => void;
+  /**
+   * Receives the press event, so a caller can start the ripple from where the finger was
+   * without measuring anything. Existing `() => void` handlers keep working unchanged.
+   */
+  onPress?: (event: GestureResponderEvent) => void;
   /**
    * 'primary' is the gold-filled CTA, 'secondary' outlined glass, 'danger' the oxblood fill
    * for irreversible actions, and 'ghost' a quiet text-only button — which exists so that the

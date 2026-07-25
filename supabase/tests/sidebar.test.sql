@@ -11,7 +11,7 @@
 -- that could read it would be testing a database configured differently from the real one.
 
 begin;
-select plan(18);
+select plan(20);
 
 -- ---------------------------------------------------------------- fixtures
 
@@ -197,6 +197,34 @@ select is(
    where profile_id = 'aaaaaaaa-0000-0000-0000-0000000000a7' and retired_at is null),
   0::bigint,
   'contact points are retired, so a deleted account does not hold that email hostage forever'
+);
+
+-- ---------------------------------------------------------------- a freshly added person
+
+-- The rule from 0022: someone you have named but not yet split anything with still has to be
+-- visible, or naming them is a dead end — the picker forgets them and the expense form cannot
+-- resolve their name.
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-0000000000b7","role":"authenticated"}';
+
+select is(
+  (select count(*)
+   from jsonb_array_elements(app.get_home_summary()->'people') p
+   where p->>'display_name' = 'Vik'),
+  1::bigint,
+  'a placeholder you created shows up before you have shared a single expense with them'
+);
+
+-- And the boundary: it is scoped to placeholders YOU made, not every profile in the database.
+set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-0000000000c7","role":"authenticated"}';
+
+select is(
+  (select count(*)
+   from jsonb_array_elements(app.get_home_summary()->'people') p
+   where p->>'display_name' = 'Vik'),
+  0::bigint,
+  'somebody else''s placeholder stays invisible — this is not a directory'
 );
 
 select * from finish();

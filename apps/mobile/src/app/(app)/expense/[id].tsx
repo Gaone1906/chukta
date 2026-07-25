@@ -16,7 +16,16 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
-import { GlassButton, GlassSurface, Sheet, Toast, color, font, radius } from '@/design';
+import {
+  GlassButton,
+  GlassSurface,
+  Sheet,
+  Toast,
+  color,
+  font,
+  radius,
+  useRippleNav,
+} from '@/design';
 import { useSession } from '@/features/auth/session';
 import { ConflictSheet } from '@/features/expenses/ConflictSheet';
 import { describeDate } from '@/features/expenses/DateSheet';
@@ -56,6 +65,7 @@ const SPLIT_LABEL: Record<ExpenseDetail['expense']['split_type'], string> = {
 export default function ExpenseDetailScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { rippleFrom } = useRippleNav();
   const queryClient = useQueryClient();
   const { profile } = useSession();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -134,7 +144,11 @@ export default function ExpenseDetailScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Edit this expense"
                 hitSlop={10}
-                onPress={() => router.push({ pathname: '/expense/edit', params: { id: id! } })}
+                onPress={(ev) =>
+                  rippleFrom(ev, () =>
+                    router.push({ pathname: '/expense/edit', params: { id: id! } }),
+                  )
+                }
                 style={styles.editButton}
               >
                 <Text style={styles.editLabel}>Edit</Text>

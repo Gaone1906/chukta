@@ -1,18 +1,26 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type GestureResponderEvent,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
-import { GlassButton, GlassSurface, Toast, color, font, radius } from '@/design';
+import { GlassButton, GlassSurface, color, font, radius, useRippleNav } from '@/design';
 import { EmptyState } from '@/features/home/EmptyState';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
 import { FOOTER_CLEARANCE, FooterBar } from '@/features/expenses/FooterBar';
 import { GroupPickRow, PersonPickRow } from '@/features/expenses/PickRow';
 import { SearchField } from '@/features/expenses/SearchField';
 import { BackChevron } from '@/features/onboarding/BackChevron';
-import { getHomeSummary, upsertContactProfile } from '@/lib/api';
+import { AddPersonSheet } from '@/features/people/AddPersonSheet';
+import { getHomeSummary } from '@/lib/api';
 import { queryKeys } from '@/lib/queryKeys';
 
 /**
@@ -28,11 +36,12 @@ export default function WhoPicker() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { rippleFrom } = useRippleNav();
 
   const [search, setSearch] = useState('');
+  const [addingPerson, setAddingPerson] = useState(false);
   const [groupId, setGroupId] = useState<string | null>(null);
   const [people, setPeople] = useState<string[]>([]);
-  const [toast, setToast] = useState<string | null>(null);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: queryKeys.home(),
@@ -49,21 +58,14 @@ export default function WhoPicker() {
     [data, term],
   );
 
-  // Someone you have never shared an expense with does not exist yet as a profile. Typing a
-  // name that matches nobody offers to create one, which is the only way a first-time user
-  // gets past this screen at all.
-  const canInvent = term.length > 1 && !folks.some((p) => p.display_name.toLowerCase() === term);
-
-  const invent = useMutation({
-    mutationFn: () => upsertContactProfile(search.trim()),
-    onSuccess: (profileId) => {
-      setGroupId(null);
-      setPeople((prev) => (prev.includes(profileId) ? prev : [...prev, profileId]));
-      setSearch('');
-      void queryClient.invalidateQueries({ queryKey: queryKeys.home() });
-    },
-    onError: (e: Error) => setToast(e.message),
-  });
+  // Whoever the sheet creates is ticked immediately — the tap that added them is also the tap
+  // that picked them, which is what someone adding a friend in order to split with them meant.
+  const onPersonAdded = (profileId: string) => {
+    setGroupId(null);
+    setPeople((prev) => (prev.includes(profileId) ? prev : [...prev, profileId]));
+    setSearch('');
+    void queryClient.invalidateQueries({ queryKey: queryKeys.home() });
+  };
 
   const togglePerson = (id: string) => {
     setGroupId(null);
@@ -83,17 +85,19 @@ export default function WhoPicker() {
       : `${people.length} ${people.length === 1 ? 'person' : 'people'}`;
   const ready = Boolean(groupId) || people.length > 0;
 
-  const advance = () => {
+  const advance = (event: GestureResponderEvent) => {
     if (!ready) return;
     // `fromPicker` tells the form how to unwind after a successful save. The stack here is
     // Home -> picker -> form, so a single back() would drop the user back onto this screen
     // with their old selection still ticked, one step into a flow they just finished.
-    router.push({
-      pathname: '/expense/new',
-      params: groupId
-        ? { groupId, fromPicker: '1' }
-        : { withProfileIds: people.join(','), fromPicker: '1' },
-    });
+    rippleFrom(event, () =>
+      router.push({
+        pathname: '/expense/new',
+        params: groupId
+          ? { groupId, fromPicker: '1' }
+          : { withProfileIds: people.join(','), fromPicker: '1' },
+      }),
+    );
   };
 
   return (
@@ -141,7 +145,7 @@ export default function WhoPicker() {
                   accessibilityRole="button"
                   accessibilityLabel="Create a new group"
                   hitSlop={8}
-                  onPress={() => router.push('/expense/new-group')}
+                  onPress={(e) => rippleFrom(e, () => router.push('/expense/new-group'))}
                   style={styles.newGroup}
                 >
                   <Svg width={11} height={11} viewBox="0 0 12 12" fill="none">
@@ -176,7 +180,26 @@ export default function WhoPicker() {
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Or pick people</Text>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Or pick people</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Add someone who is not on Hisaab"
+                  hitSlop={8}
+                  onPress={() => setAddingPerson(true)}
+                  style={styles.newGroup}
+                >
+                  <Svg width={11} height={11} viewBox="0 0 12 12" fill="none">
+                    <Path
+                      d="M6 1.6v8.8M1.6 6h8.8"
+                      stroke={color.creamWarm}
+                      strokeWidth={1.6}
+                      strokeLinecap="round"
+                    />
+                  </Svg>
+                  <Text style={styles.newGroupLabel}>Add someone</Text>
+                </Pressable>
+              </View>
 
               <View style={styles.list}>
                 {folks.map((p) => (
@@ -190,36 +213,33 @@ export default function WhoPicker() {
                   />
                 ))}
 
-                {canInvent ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Add ${search.trim()} as someone new`}
-                    disabled={invent.isPending}
-                    onPress={() => invent.mutate()}
-                  >
-                    <GlassSurface radius={radius.cardCompact} contentStyle={styles.inventRow}>
-                      {invent.isPending ? (
-                        <ActivityIndicator size="small" color={color.goldBright} />
-                      ) : (
-                        <Svg width={13} height={13} viewBox="0 0 12 12" fill="none">
-                          <Path
-                            d="M6 1.6v8.8M1.6 6h8.8"
-                            stroke={color.creamWarm}
-                            strokeWidth={1.6}
-                            strokeLinecap="round"
-                          />
-                        </Svg>
-                      )}
-                      <Text style={styles.inventLabel} numberOfLines={1}>
-                        Add &ldquo;{search.trim()}&rdquo; as someone new
-                      </Text>
-                    </GlassSurface>
-                  </Pressable>
-                ) : null}
+                {/* Always the last row, never conditional on what has been typed. The old
+                    version only appeared once you had typed a name matching nobody — a real
+                    capability with no visible door, which is exactly how it went unnoticed. */}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Add someone who is not on Hisaab"
+                  onPress={() => setAddingPerson(true)}
+                >
+                  <GlassSurface radius={radius.cardCompact} contentStyle={styles.inventRow}>
+                    <Svg width={13} height={13} viewBox="0 0 12 12" fill="none">
+                      <Path
+                        d="M6 1.6v8.8M1.6 6h8.8"
+                        stroke={color.creamWarm}
+                        strokeWidth={1.6}
+                        strokeLinecap="round"
+                      />
+                    </Svg>
+                    <Text style={styles.inventLabel} numberOfLines={1}>
+                      {term ? `Add “${search.trim()}” as someone new` : 'Add someone new'}
+                    </Text>
+                  </GlassSurface>
+                </Pressable>
 
-                {folks.length === 0 && !canInvent ? (
+                {folks.length === 0 ? (
                   <Text style={styles.none}>
-                    Nobody here yet. Type a name above to add someone.
+                    Nobody here yet — add someone above. They don&rsquo;t need the app for you to
+                    start splitting with them.
                   </Text>
                 ) : null}
               </View>
@@ -237,7 +257,11 @@ export default function WhoPicker() {
         </Text>
       </FooterBar>
 
-      <Toast message={toast} />
+      <AddPersonSheet
+        visible={addingPerson}
+        onClose={() => setAddingPerson(false)}
+        onAdded={onPersonAdded}
+      />
     </View>
   );
 }

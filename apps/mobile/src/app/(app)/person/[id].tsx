@@ -36,7 +36,7 @@ export default function PersonDetail() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { rippleTo } = useRippleNav();
+  const { rippleTo, rippleFrom } = useRippleNav();
 
   const { data, isLoading, isRefetching, refetch, error } = useQuery({
     queryKey: queryKeys.person(id!),
@@ -143,8 +143,10 @@ export default function PersonDetail() {
                   <GlassButton
                     label="Settle up"
                     variant="primary"
-                    onPress={() =>
-                      router.push({ pathname: '/settle', params: { profileId: id! } })
+                    onPress={(e) =>
+                      rippleFrom(e, () =>
+                        router.push({ pathname: '/settle', params: { profileId: id! } }),
+                      )
                     }
                     style={styles.settleButton}
                   />
@@ -184,7 +186,11 @@ export default function PersonDetail() {
                 title="Nothing shared yet"
                 body={`You and ${firstName(name)} have no expenses between you. Add one and it shows up here.`}
                 actionLabel="Add an expense"
-                onAction={() => router.push({ pathname: '/expense/new', params: { withProfileIds: id! } })}
+                onAction={(e) =>
+                  rippleFrom(e, () =>
+                    router.push({ pathname: '/expense/new', params: { withProfileIds: id! } }),
+                  )
+                }
               />
             ) : (
               <View style={styles.list}>

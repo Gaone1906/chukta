@@ -33,7 +33,7 @@ export default function GroupDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { profile } = useSession();
-  const { rippleTo } = useRippleNav();
+  const { rippleTo, rippleFrom } = useRippleNav();
   const [toast, setToast] = useState<string | null>(null);
 
   const { data, isLoading, isRefetching, refetch, error } = useQuery({
@@ -162,7 +162,11 @@ export default function GroupDetail() {
                 title="No expenses yet"
                 body="The group exists, which is the hard part. Add the first thing anyone paid for."
                 actionLabel="Add an expense"
-                onAction={() => router.push({ pathname: '/expense/new', params: { groupId: id! } })}
+                onAction={(e) =>
+                  rippleFrom(e, () =>
+                    router.push({ pathname: '/expense/new', params: { groupId: id! } }),
+                  )
+                }
               />
             ) : (
               <View style={styles.list}>

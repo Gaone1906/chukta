@@ -1,5 +1,10 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  useWindowDimensions,
+  type GestureResponderEvent,
+} from 'react-native';
 import Animated, {
   Easing,
   runOnJS,
@@ -32,6 +37,14 @@ import { RING_BLUR, RING_COUNT, maxRadius, ringOpacity, ringRadius, rippleEase }
 interface RippleNavState {
   /** Navigate with the ripple playing from the tap point. */
   rippleTo: (origin: { x: number; y: number }, navigate: () => void) => void;
+  /**
+   * The same thing, taking the press event straight from an `onPress`.
+   *
+   * Exists so that any ordinary Pressable or GlassButton can ripple without its screen having
+   * to measure anything: `pageX`/`pageY` are already relative to the root view, which is
+   * exactly the coordinate space the veil overlay lives in.
+   */
+  rippleFrom: (event: GestureResponderEvent, navigate: () => void) => void;
 }
 
 const RippleNavContext = createContext<RippleNavState | null>(null);
@@ -113,34 +126,54 @@ export function RippleNavProvider({ children }: { children: ReactNode }) {
     [clear, fireNavigation, progress, reduceMotion],
   );
 
+  const rippleFrom = useCallback(
+    (event: GestureResponderEvent, navigate: () => void) => {
+      const { pageX, pageY } = event.nativeEvent;
+      rippleTo({ x: pageX, y: pageY }, navigate);
+    },
+    [rippleTo],
+  );
+
   const rMax = origin ? maxRadius(width, height, origin.x, origin.y) : 0;
 
+  /*
+   * Scale, not size.
+   *
+   * This used to animate `width`, `height`, `borderRadius`, `left` and `top`. All five are
+   * LAYOUT properties, so every frame of the ripple forced React Native to re-measure and
+   * re-position the veil and all three rings — 60 layout passes a second, on top of whatever
+   * the incoming screen is doing as it mounts. That is what the stutter was.
+   *
+   * The circle is now laid out ONCE at its final size, centred on the origin, and only its
+   * `transform` and `opacity` move. Both are handled entirely on the UI thread by the
+   * compositor with no layout at all, which is why this is smooth even while a screen mounts
+   * behind it. The maths is unchanged — `rippleEase(expand)` is the same 1-(1-t)^2.6 curve,
+   * just expressed as a scale factor rather than a radius.
+   */
   const veilStyle = useAnimatedStyle(() => {
-    // Radius is driven by the expand phase; opacity stays at 1 through the hold and only
-    // starts falling once the new screen has had a beat to mount.
     const expand = Math.min(1, progress.value / EXPAND_FRACTION);
-    const dissolve = Math.max(
-      0,
-      (progress.value - HOLD_FRACTION) / (1 - HOLD_FRACTION),
-    );
-    const r = Math.max(1, rippleEase(expand) * rMax);
+    // Opacity holds at 1 through the hold phase and only falls once the new screen has had a
+    // beat to mount — otherwise the old screen shows through the gap.
+    const dissolve = Math.max(0, (progress.value - HOLD_FRACTION) / (1 - HOLD_FRACTION));
     return {
-      width: r * 2,
-      height: r * 2,
-      borderRadius: r,
-      left: (origin?.x ?? 0) - r,
-      top: (origin?.y ?? 0) - r,
+      // A floor, so the very first frame is not a zero-size view the compositor may skip.
+      transform: [{ scale: Math.max(0.001, rippleEase(expand)) }],
       opacity: 1 - dissolve,
     };
   });
 
+  const circle = { width: rMax * 2, height: rMax * 2, borderRadius: rMax };
+  const at = origin
+    ? { left: (origin.x ?? 0) - rMax, top: (origin.y ?? 0) - rMax }
+    : { left: 0, top: 0 };
+
   return (
-    <RippleNavContext.Provider value={{ rippleTo }}>
+    <RippleNavContext.Provider value={{ rippleTo, rippleFrom }}>
       <View style={styles.root}>{children}</View>
 
       {origin ? (
         <View pointerEvents="none" style={styles.overlay}>
-          <Animated.View style={[styles.veil, veilStyle]} />
+          <Animated.View style={[styles.veil, circle, at, veilStyle]} />
           {Array.from({ length: RING_COUNT }, (_, i) => (
             <Ring key={i} index={i} progress={progress} rMax={rMax} origin={origin} />
           ))}
@@ -161,16 +194,14 @@ function Ring({
   rMax: number;
   origin: { x: number; y: number };
 }) {
+  // Same trick as the veil: laid out once at full size, moved only by transform. `ringRadius`
+  // is divided back out to a scale factor so the trailing-by-9%-of-rMax maths is untouched.
   const style = useAnimatedStyle(() => {
     const expand = Math.min(1, progress.value / EXPAND_FRACTION);
-    const r = ringRadius(rippleEase(expand), rMax, index);
+    const scale = rMax > 0 ? ringRadius(rippleEase(expand), rMax, index) / rMax : 0;
     const dissolve = Math.max(0, (progress.value - HOLD_FRACTION) / (1 - HOLD_FRACTION));
     return {
-      width: r * 2,
-      height: r * 2,
-      borderRadius: r,
-      left: origin.x - r,
-      top: origin.y - r,
+      transform: [{ scale: Math.max(0.001, scale) }],
       opacity: ringOpacity(expand, index) * (1 - dissolve),
     };
   });
@@ -178,7 +209,18 @@ function Ring({
   return (
     <Animated.View
       pointerEvents="none"
-      style={[styles.ring, { borderWidth: 1 + RING_BLUR[index]! * 0.25 }, style]}
+      style={[
+        styles.ring,
+        {
+          borderWidth: 1 + RING_BLUR[index]! * 0.25,
+          width: rMax * 2,
+          height: rMax * 2,
+          borderRadius: rMax,
+          left: origin.x - rMax,
+          top: origin.y - rMax,
+        },
+        style,
+      ]}
     />
   );
 }
@@ -191,6 +233,7 @@ export function useRippleNav(): RippleNavState {
   return (
     useContext(RippleNavContext) ?? {
       rippleTo: (_origin, navigate) => navigate(),
+      rippleFrom: (_event, navigate) => navigate(),
     }
   );
 }

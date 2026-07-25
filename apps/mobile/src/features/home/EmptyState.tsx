@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, type GestureResponderEvent } from 'react-native';
 
 import { GlassButton, color, font } from '@/design';
 
@@ -6,7 +6,8 @@ export interface EmptyStateProps {
   title: string;
   body: string;
   actionLabel?: string;
-  onAction?: () => void;
+  /** Takes the press event so the action can ripple from the button. */
+  onAction?: (event: GestureResponderEvent) => void;
 }
 
 /**
