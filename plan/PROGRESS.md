@@ -3,7 +3,7 @@
 Single place to answer "where are we". Update the status table and the log at the end of
 every phase. Each phase has its own file in this directory with the detailed work list.
 
-**Last updated:** 2026-07-25 (Phase 2)
+**Last updated:** 2026-07-25 (Phase 3)
 
 ## Conventions
 
@@ -21,7 +21,7 @@ Use `Phase 0:` for repo-level chores that belong to no feature phase.
 | 0 | Repo & scaffold | [phase-00-repo-scaffold.md](phase-00-repo-scaffold.md) | ✅ done | 2–3 d |
 | 1 | Design system & motion | [phase-01-design-system.md](phase-01-design-system.md) | ✅ done (Android verified; iOS pending toolchain) | 1 wk |
 | 2 | `packages/core` money engine | [phase-02-core-money.md](phase-02-core-money.md) | ✅ done | 0.5 wk |
-| 3 | Supabase backend | [phase-03-backend.md](phase-03-backend.md) | ⬜ not started | 2 wk |
+| 3 | Supabase backend | [phase-03-backend.md](phase-03-backend.md) | 🟡 core done (schema, RLS, expense RPC, 39 pgTAP) | 2 wk |
 | 4 | Auth & onboarding | [phase-04-auth-onboarding.md](phase-04-auth-onboarding.md) | ⬜ not started | 1 wk |
 | 5 | Core loop | [phase-05-core-loop.md](phase-05-core-loop.md) | ⬜ not started | 3 wk |
 | 6 | Settle up & UPI | [phase-06-settle-upi.md](phase-06-settle-upi.md) | ⬜ not started | 1 wk |
@@ -52,6 +52,7 @@ Everything from 4 onward is sequential.
 | Invites via native share sheet, no Contacts permission | Avoids a review-sensitive permission and a privacy manifest entirely |
 | Tip jar is a **consumable** IAP | Non-consumables can only be bought once — nobody could tip twice |
 | Web share-links for non-members: **out of v1** | Needs a public web surface + unauthenticated reads of expense data |
+| **INR only for v1** | Scoped by the user. Money rows still carry a `currency` column, pinned by CHECK to 'INR' — see below |
 
 ---
 
@@ -60,13 +61,34 @@ Everything from 4 onward is sequential.
 | # | Question | Blocks | Status |
 |---|---|---|---|
 | 1 | Store display name — "Hisaab" is taken. Bundle id settled: `com.hisaab.app` | Phase 11 | name open |
-| 2 | Currency: Help FAQ says one per group, feature spec says per-expense override. Schema implements per-expense. | Phase 3 | open |
+| 2 | ~~Currency: Help FAQ vs feature spec~~ | — | **resolved: INR only for v1** |
 | 3 | Domain for Universal Links / App Links (invite deep links) | Phase 7 | open |
 | 4 | Sentry for crash reporting — assumed yes | Phase 10 | assumed |
 | 7 | **Android blur** defaults to the opaque fallback — a `BlurView` sampling a `BlurTargetView` SIGSEGVs the emulator's software GPU. Needs a physical device to confirm and flip. | Phase 10 | open |
 | 8 | Whole iOS side is unrun — no Xcode on this machine yet. The Liquid Glass branch is written from the API contract, not tested. | Phase 4 | open |
 | 5 | Apple Developer Program + Google Play enrolment | Phase 4 / 11 | user will do |
 | 6 | Legal review of `legal/terms.md` + `legal/privacy.md` before submission | Phase 11 | drafted, unreviewed |
+
+---
+
+## Currency: how INR-only is implemented
+
+v1 supports rupees and nothing else. That is a scope decision, but the *shape* of the schema
+is an engineering one, and the two are worth separating:
+
+- **Kept:** a `currency char(3) NOT NULL DEFAULT 'INR'` column on every money-bearing row,
+  with `CHECK (currency = 'INR')`. One column per table, costs nothing today.
+- **Dropped:** `fx_rate`, `fx_rate_as_of`, `base_currency`, `amount_base_minor`,
+  `currency_exponent`, the `fx_rates` table, and the FX refresh cron. All of it is complexity
+  with no v1 payoff.
+
+Why keep the column at all: retrofitting a currency onto a money schema later is genuinely
+painful — every amount column needs one, every balance aggregation has to group by it, and
+every historical row needs a backfill. Relaxing this later is the opposite: drop one CHECK
+constraint, add the FX columns, done. The expensive half is already paid for.
+
+`packages/core/src/fx.ts` is built and tested but **not wired into v1**. Leave it; it is what
+gets switched on when the CHECK comes off.
 
 ---
 
@@ -165,3 +187,38 @@ balance and emits at most n−1 transfers; and both currency vectors sum exactly
   normalised. The DB check constraint should match that, not silently rescale.
 - Relative imports in this package stay extensionless. Adding `.js` satisfies tsc and Vitest
   but Metro cannot resolve it — verified again with `expo export` after this phase.
+
+### Phase 3 — Supabase backend — 🟡 core landed, 2026-07-25
+
+**Done** — 11 migrations, applying cleanly from scratch, 39 pgTAP tests green.
+- Identity: `profiles.id` is the universal participant id; nothing outside `0002` touches
+  `auth.users`. Placeholders are profiles with `user_id IS NULL`, claimed in place at signup.
+- Expenses with a nullable `group_id` (one-offs), denormalised `group_id` on every child table
+  so RLS policies stay flat, and `expense_debts` / `expense_participants` written in the same
+  transaction.
+- `app.allocate_minor` — **verified byte-identical to `@hisaab/core` against all ten fixtures**,
+  including the reordered-keys tiebreak and the negative-total refund case.
+- `trg_expense_balanced` — deferred constraint trigger asserting payers and splits both sum to
+  the total at commit.
+- `auth_ext` helpers breaking the `group_members` RLS recursion, and read policies on every
+  table. **No write policies anywhere** — clients get SELECT only.
+- `app.create_expense`: six tables, one transaction, one idempotency key, inline group
+  creation. Plus `record_settlement` and `upsert_contact_profile`.
+- Balances as views over a normalised pair ledger (`v_pair_ledger` → `v_group_balances`).
+- CI now runs `supabase db reset` + `supabase test db` on every push.
+
+**Bugs the tests caught**
+- `= any (select fn())` parses as the set form, not the array form → `uuid = uuid[]`. Helper
+  now returns `setof uuid` and policies use `in (select ...)`, which is also the form that
+  actually becomes a once-per-statement InitPlan.
+- `sum()` over `bigint` returns `numeric`, so `allocate_minor(...)` did not resolve. Cast added.
+- A temp table inside a `search_path = ''` SECURITY DEFINER function cannot be resolved
+  unqualified; rewrote `rebuild_expense_debts` to use plain aggregates instead.
+
+**Still to do in this phase**
+- `update_expense` / `delete_expense` / `restore_expense` with `expected_revision` conflict
+  handling, and the revision diff.
+- `merge_profiles` and `claim_placeholder` (the signup auth hook).
+- Read RPCs: `get_home_summary`, `get_group_detail`, `get_person_detail`, `simplify_group_debts`.
+- `sync_pull`, storage buckets and policies, recurring templates.
+- A test asserting every `app.*` write function opens with an authorisation assert.

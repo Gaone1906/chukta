@@ -35,17 +35,23 @@ jobs:
         run: npm run test
 
   database:
-    name: Migrations apply cleanly
+    name: Migrations apply cleanly · pgTAP
     runs-on: ubuntu-latest
-    # Enable once supabase/migrations/ has content (Phase 3).
-    if: false
     steps:
       - uses: actions/checkout@v4
+
       - uses: supabase/setup-cli@v1
         with:
           version: latest
-      - run: supabase db start
+
+      - name: Start Postgres
+        run: supabase db start
+
+      # Proves the migrations apply from nothing, not just that they applied once locally.
       - name: Reset from scratch
         run: supabase db reset
+
+      # Allocator parity with @hisaab/core, the sum invariant, idempotency, and — the one that
+      # actually matters — that a member of one group reads zero rows from another's.
       - name: pgTAP
         run: supabase test db
