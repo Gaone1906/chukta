@@ -73,21 +73,29 @@ Free. Three OAuth client IDs, because Google treats each platform separately.
    | **Android** | Package name `com.hisaab.app`, plus the SHA-1 below |
    | **iOS** | Bundle ID `com.hisaab.app` |
 
-   **Your Android debug SHA-1** (already worked out):
+   **Your Android debug SHA-1:**
 
    ```
-   5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25
+   EB:58:89:84:CB:52:A7:31:7D:C7:A6:0D:4C:FE:F4:45:CB:0D:1B:1B
    ```
 
-   Two gotchas if you ever need to regenerate it. `keytool` is not on the PATH — it ships
-   inside the JDK bundled with Android Studio. And Expo's prebuild ships its own debug
-   keystore in the project rather than using `~/.android/debug.keystore`, which does not
-   exist here:
+   > **Why this changed.** The first fingerprint came from the debug keystore Expo's prebuild
+   > ships — which is the *same file in every Expo project*. Google enforces global uniqueness
+   > on (package name + fingerprint), so registering `com.hisaab.app` against a fingerprint
+   > thousands of projects share fails with **"Ownership verification failed — the Android
+   > package name and fingerprint are already in use."** Somebody else registered it first.
+   >
+   > `apps/mobile/credentials/debug.keystore` is now a keystore generated for this project
+   > alone, and `plugins/withDebugKeystore.js` copies it in on every prebuild (otherwise
+   > prebuild would overwrite it, since `android/` is regenerated).
+
+   To read the fingerprint yourself — `keytool` is not on the PATH, it lives inside the JDK
+   bundled with Android Studio:
 
    ```bash
    "/Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/keytool" \
      -list -v -alias androiddebugkey \
-     -keystore apps/mobile/android/app/debug.keystore \
+     -keystore apps/mobile/credentials/debug.keystore \
      -storepass android -keypass android | grep SHA1
    ```
 

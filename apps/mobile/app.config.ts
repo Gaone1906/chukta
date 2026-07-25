@@ -35,7 +35,9 @@ const config: ExpoConfig = {
     predictiveBackGestureEnabled: false,
   },
 
-  plugins: ['expo-router', 'expo-font'],
+  // withDebugKeystore replaces Expo's shared debug keystore with ours, so the Android
+  // SHA-1 is unique to this project and can be registered with Google OAuth.
+  plugins: ['expo-router', 'expo-font', './plugins/withDebugKeystore'],
 
   experiments: {
     typedRoutes: true,

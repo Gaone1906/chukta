@@ -35,6 +35,13 @@ web-build/
 *.keystore
 *.jks
 
+# ...with one deliberate exception. This is a DEBUG keystore whose password is the
+# well-known 'android'. It is committed so the Android SHA-1 stays identical across machines
+# and CI — Google OAuth registers a specific (package, fingerprint) pair, so a per-machine
+# keystore would mean sign-in only worked on one laptop. It cannot sign a release: the upload
+# key is generated and held by EAS and never lives here.
+!apps/mobile/credentials/debug.keystore
+
 # ---------- Secrets / service config ----------
 .env
 .env.*

@@ -70,6 +70,7 @@ Everything from 4 onward is sequential.
 | 8 | Whole iOS side is unrun — no Xcode on this machine yet. The Liquid Glass branch is written from the API contract, not tested. | Phase 4 | open |
 | 5 | Apple Developer Program + Google Play enrolment | Phase 4 / 11 | user will do — see docs/setup-services.md |
 | 6 | Legal review of `legal/terms.md` + `legal/privacy.md` before submission | Phase 11 | drafted, unreviewed |
+| 11 | **ROTATE ALL CREDENTIALS BEFORE BETA.** The Supabase secret key, database password and Google client secret were shared in plain text during setup. Deliberately deferred by the user so the test build could proceed — this is a hard gate before any public build, not a nice-to-have. Steps: `docs/setup-services.md` → "Rotating a leaked credential". | **beta / any public build** | **MUST DO** |
 
 ---
 
