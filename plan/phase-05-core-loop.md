@@ -1,103 +1,141 @@
 # Phase 5 — The core loop
 
-**Status:** ⬜ not started · **Estimate:** 3 weeks · **Depends on:** Phases 1, 2, 3, 4
+**Status:** 🟡 in progress · **Estimate:** 3 weeks · **Depends on:** Phases 1–4 (all done)
 
-## Goal
+The actual product: see your balances, add an expense, watch the balance move. Largest phase,
+and it contains the one screen that must be **designed** before it can be built.
 
-The actual product: see your balances, add an expense, see the balance change. This is the
-largest phase and it contains the one screen that has to be **designed** before it can be
-built.
+Built in full — not a thin slice. Confirmed with the user.
 
-## Screens
+---
 
-| Screen | Reference | State |
-|---|---|---|
-| Home | `Hisaab Home.dc.html` | Designed. Tab switch + row taps already real in the prototype. |
-| Group detail | `Hisaab Group.dc.html` | Designed, fully static |
-| Person detail | `Hisaab Person.dc.html` | Designed, fully static. Full screen, not an inline expansion — confirmed in the design doc. |
-| "Who's this with?" picker | `Hisaab Add Expense.dc.html` frame 1 | Designed, real multi-select |
-| New group (empty) | Same file, `view === 'create'` | Designed but only as a sub-state — needs extracting into its own route |
-| Expense form | `Hisaab Expense Form.dc.html` | Designed, most interactive screen in the set |
-| **Expense detail** | **does not exist** | **Must be designed first** |
-| **Edit expense** | **does not exist** | **Must be designed first** |
+## Chunks
 
-### The expense detail screen
+Each is independently committable and independently verifiable on the emulator. Work them in
+order; later ones assume earlier ones.
 
-Every expense row in Group and Person detail currently toasts "Expense detail — demo only."
-There is no screen. The design doc never mentions one, but the feature spec promises comments,
-receipt attachments, and a full edit/delete audit trail — all of which need somewhere to live.
+### 5A — Data layer
 
-Needs: description/amount/date/currency header · who paid (multi-payer aware) · the split
-breakdown per person · receipt thumbnail → full viewer · comments thread · edit and delete ·
-revision history ("Priya changed the amount from ₹4,320 to ₹4,500, 2 days ago").
+**Goal:** every screen reads through one typed, cached path. No screen touches `supabase`
+directly.
 
-Design it against the existing system before building — it's roughly a Group-detail summary
-card plus a comment list, so it should compose from Phase 1 primitives.
+- `@tanstack/react-query` + a `QueryClientProvider` in the root layout.
+- `src/lib/api.ts` — thin typed wrappers over the RPCs built in Phase 3:
+  `getHomeSummary`, `getGroupDetail`, `getPersonDetail`, `simplifyGroupDebts`,
+  `createExpense`, `updateExpense`, `deleteExpense`, `recordSettlement`,
+  `upsertContactProfile`.
+- `src/lib/queryKeys.ts` — one place, so invalidation after a mutation is not guesswork.
+- Every mutation generates a `client_mutation_id` (uuid) up front. The RPCs are idempotent on
+  it; this is what makes a retry safe and is the seam Phase 8's outbox plugs into.
+- A shared error shape. `P0409` is the conflict code and must be distinguishable from a
+  generic failure — Phase 8 depends on that.
 
-## Work
+**Done when:** Home renders from `get_home_summary` against local Supabase with seeded data.
 
-### Home
+### 5B — Seed data
 
-Segmented switcher Groups ⇄ People over a list of glass rows. Data comes from a single
-`app.get_home_summary()` call — one round trip returns both tabs plus balances. Profile button
-top-left opens the Sidebar (Phase 7); FAB bottom-right opens the picker.
+**Goal:** something to look at, and a repeatable fixture for every later chunk.
 
-Row right-hand side: pending balance in oxblood, or a gold checkmark badge if settled. Amounts
-use `@hisaab/core`'s `formatAmount` with `en-IN` grouping.
+- `supabase/seed.sql` — a handful of profiles, two groups, one-off expenses, a settled
+  balance and an unsettled one, mirroring the names in the prototypes (Goa finally, Flat 302,
+  Priya, Arjun, Meher). Applied automatically by `supabase db reset`.
+- Must produce at least one **settled** row and one **placeholder** participant, so those
+  states are visible without hand-crafting them each time.
 
-### Group and Person detail
+### 5C — Home
 
-Group: title, member avatar stack, glass summary card (net balance + per-person breakdown +
-inline "Settle up"), then the chronological expense list. Note `onMembers` exists in the
-prototype but is bound to no element — the members list/settings screen needs designing too.
+Reference: `design-reference/screens/Hisaab Home.dc.html`
 
-Person: combined net balance across every shared group, inline "Settle up", then the shared
-expenses that make up the balance, each tagged with which group it came from — or untagged if
-it's a one-off. That tag is why `expenses.group_id` is nullable.
+- Segmented switcher Groups ⇄ People (component exists from Phase 1).
+- Rows from `get_home_summary`, amounts via `@hisaab/core` `formatAmount`.
+- Profile button → Sidebar (Phase 7 stub for now). FAB → picker.
+- **Empty states** — none exist in the design set. A brand-new account currently has no
+  designed experience at all; write one for both tabs.
+- Pull to refresh; skeleton rows while loading.
 
-### The add-expense flow — one form, three entry points
+### 5D — Group detail
 
-The single most important interaction in the app.
+Reference: `Hisaab Group.dc.html`
 
-- **From Home's FAB** → picker first (search + mixed list of groups and people, multi-select
-  for people) → form. **Group creation is folded into the form**: an optional "name this
-  group" field. Naming it promotes the participant set into a persistent group; leaving it
-  blank keeps the expense a one-off. There is deliberately no separate "Create group" screen
-  on this path.
-- **From a Group FAB** → straight to the form, pre-filled with that group's name and members
-- **From a Person FAB** → straight to the form, pre-filled to the two of you
+- Header, member avatar stack, glass summary card with the per-person breakdown, inline
+  Settle up (screen itself is Phase 6).
+- Chronological expense list, paginated via `get_group_detail(p_before)`.
+- FAB → expense form pre-filled with this group.
+- `onMembers` exists in the prototype but is bound to nothing — the members/settings screen
+  needs designing. Stub it visibly rather than silently.
 
-All three open and close with the ripple transition.
+### 5E — Person detail
 
-The form: amount, description, date, who paid, split-type tabs
-(Equal/Exact/Percentage/Shares/Itemized), live split preview, Save.
+Reference: `Hisaab Person.dc.html`
 
-> ⚠️ The prototype's split preview uses **fabricated demo weight distributions** (Shares 2:1,
-> Percentage 40/rest, Exact 1.4:1, Itemized alternating 1.25/0.75) and rounds each share
-> independently, which loses money. Replace entirely with `@hisaab/core`'s allocator, and
-> build the real per-person input UI for Exact/Percentage/Shares/Itemized — the prototype has
-> no editable per-person fields at all. That UI is unbuilt and undesigned.
+- Combined balance across every shared group, plus the per-group breakdown from
+  `get_person_detail`.
+- Shared expense list, each row tagged with its group — or untagged when it is a one-off.
+  That tag is exactly why `expenses.group_id` is nullable.
+- FAB → expense form pre-filled to the two of you.
 
-Date row and "who paid" row are both toast stubs in the prototype and need real pickers.
+### 5F — Add-expense: the picker
 
-### Search
+Reference: `Hisaab Add Expense.dc.html` (frame 1, plus the `view === 'create'` sub-state)
 
-Three search inputs exist across the picker and Add friend; **none has an `onChange` handler**.
-They're decorative. Wire them against `pg_trgm` on `profiles.display_name` and `groups.name`,
-debounced, with a designed empty result state.
+- Search + mixed list of groups and loose people, multi-select for people, mutually exclusive
+  with picking a group.
+- "+ New group" — the empty-group escape hatch. Exists only as a sub-state inside that
+  prototype file; extract it into its own route.
+- Search must actually work — all three search inputs in the design set are decorative.
+
+### 5G — Add-expense: the form
+
+Reference: `Hisaab Expense Form.dc.html` — the most interactive screen in the set.
+
+- Amount, description, date, who paid, split-type tabs, live preview, Save.
+- **All five split types with real per-person inputs.** The prototype has no editable
+  per-person fields at all and fabricates its distributions; this is new UI, not a port.
+- Preview computed by `@hisaab/core` `computeShares` — the same function the server mirrors.
+- The optional "name this group" field: naming it promotes the participant set into a group,
+  leaving it blank keeps a one-off. `create_expense` takes `new_group` for exactly this.
+- Date picker and payer picker are toast stubs in the prototype — both need building.
+- Three entry points (Home FAB → picker → form; Group FAB; Person FAB), one form.
+
+### 5H — Expense detail, edit, delete
+
+**No design exists. Design it first**, composed from Phase 1 primitives.
+
+Every expense row in Group and Person detail currently leads nowhere — this is the biggest
+hole in the design set.
+
+- Header, who paid (multi-payer aware), per-person split breakdown.
+- Comments (`add_comment`), receipt thumbnail, revision history from `expense_revisions`.
+- Edit → the form, prefilled, calling `update_expense` with `expected_revision`.
+- Delete → confirm, then `delete_expense`.
+- **Conflict UI**: on `P0409`, show a field-level diff against the server snapshot carried in
+  the error DETAIL. Never auto-merge.
+
+### 5I — Ripple navigation
+
+Replace the placeholder Stack in `(app)/_layout.tsx` with the ripple transition. Origin comes
+from the tap point — `FAB` already reports it. Must respect `getGlassBackend()`.
+
+### 5J — Verification pass
+
+On the emulator, with seeded data:
+
+- Add an expense from **each of the three entry points**; confirm the balance moves correctly
+  on Home, Group **and** Person.
+- ₹100 split three ways sums to exactly ₹100 (the prototype's bug).
+- Edit an expense → balance moves, revision recorded.
+- A stale `expected_revision` surfaces the conflict sheet rather than overwriting.
+- Naming the group field creates a real group; leaving it blank creates a one-off that still
+  appears on Person detail, untagged.
+- Screenshot each screen against the prototype.
+
+---
 
 ## Acceptance criteria
 
-- Add an expense from each of the three entry points; balance updates correctly on Home,
-  Group **and** Person
-- All five split types produce shares that sum exactly to the total (spot-check ₹100 ÷ 3)
-- Naming the group field creates a real group; leaving it blank creates a one-off that still
-  appears on Person detail, untagged
-- Multi-payer expense splits and settles correctly
-- Edit an expense → the balance moves and a revision row appears
-- Ripple transition fires on every screen change, both directions
-
-## Verification
-
-Maestro: `add-expense-from-home`, `add-expense-from-group`, `add-expense-from-person`, each
-asserting the post-add balance on all three screens.
+- All five split types produce shares summing exactly to the total.
+- The three entry points share one form and one code path.
+- No screen calls `supabase` directly; everything goes through `src/lib/api.ts`.
+- Every list has a designed empty state.
+- Balances agree between Home, Group detail and Person detail — they are all derived from the
+  same views, so a disagreement means a caching bug.

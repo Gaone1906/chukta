@@ -3,7 +3,7 @@
 Single place to answer "where are we". Update the status table and the log at the end of
 every phase. Each phase has its own file in this directory with the detailed work list.
 
-**Last updated:** 2026-07-25 (Phase 4)
+**Last updated:** 2026-07-25 (Phase 5 in progress)
 
 ## Conventions
 
@@ -23,7 +23,7 @@ Use `Phase 0:` for repo-level chores that belong to no feature phase.
 | 2 | `packages/core` money engine | [phase-02-core-money.md](phase-02-core-money.md) | ✅ done | 0.5 wk |
 | 3 | Supabase backend | [phase-03-backend.md](phase-03-backend.md) | ✅ done (15 migrations, 68 pgTAP) | 2 wk |
 | 4 | Auth & onboarding | [phase-04-auth-onboarding.md](phase-04-auth-onboarding.md) | ✅ done (Google verified to the account picker; Apple needs a paid team) | 1 wk |
-| 5 | Core loop | [phase-05-core-loop.md](phase-05-core-loop.md) | ⬜ not started | 3 wk |
+| 5 | Core loop | [phase-05-core-loop.md](phase-05-core-loop.md) | 🟡 in progress — chunks 5A–5J | 3 wk |
 | 6 | Settle up & UPI | [phase-06-settle-upi.md](phase-06-settle-upi.md) | ⬜ not started | 1 wk |
 | 7 | Sidebar surfaces | [phase-07-sidebar-surfaces.md](phase-07-sidebar-surfaces.md) | ⬜ not started | 1.5 wk |
 | 8 | Offline & realtime | [phase-08-offline-realtime.md](phase-08-offline-realtime.md) | ⬜ not started | 1.5 wk |
@@ -291,3 +291,93 @@ do — add a Google account to the emulator, or run the APK on a real phone.
 **Note for Phase 11:** `hisaab-stamp.png` is 407 KB and visibly pops in over Metro in dev.
 Bundled in release so it is not a runtime bug, but it reinforces that the stamp needs an
 optimised variant.
+
+---
+
+# Context handoff — read this first after a context reset
+
+Everything below is knowledge that is **not recoverable by reading the code**. It is the
+result of things going wrong and being fixed.
+
+## Environment
+
+| Thing | Value |
+|---|---|
+| Repo | `~/Desktop/workspace/personal/Hisaab`, remote `Gaone1906/hisaab` (private) |
+| Android AVD | `Medium_Phone_API_36.1` (data partition raised to 16G — 6G could not fit an 85 MB APK) |
+| App id | `com.hisaab.app` |
+| Supabase (hosted) | `https://khzjdtnagkaecbngjvoa.supabase.co` — schema **is** deployed |
+| Supabase (local) | `npx supabase start`, Postgres on 54322, API on 54321 |
+| Credentials | `apps/mobile/.env` — **gitignored**, already populated and working |
+| Xcode | 26.6 installed but **`xcode-select` still points at Command Line Tools** — user must run `sudo xcode-select -s /Applications/Xcode.app` |
+
+## Commands that actually work
+
+```bash
+# Android: boot, build, run
+$ANDROID_HOME/emulator/emulator -avd Medium_Phone_API_36.1 -no-snapshot-save -no-boot-anim &
+cd apps/mobile && npx expo run:android --no-bundler     # ~3-6 min incremental
+npx expo start --dev-client --clear
+adb reverse tcp:8081 tcp:8081                            # required each boot
+
+# Screenshot (exec-out avoids a temp file on device)
+adb exec-out screencap -p > /tmp/s.png && sips -Z 800 /tmp/s.png --out /tmp/s_small.png
+
+# Database
+npx supabase db reset && npx supabase test db            # local, 68 pgTAP tests
+npx supabase db push --db-url "postgresql://postgres:<urlenc-pw>@db.<ref>.supabase.co:5432/postgres?sslmode=require"
+```
+
+`ANDROID_HOME=~/Library/Android/sdk` and `$ANDROID_HOME/platform-tools` must be exported in
+every shell — they are not on the default PATH.
+
+## Traps already hit — do not rediscover these
+
+1. **Metro cannot resolve `./foo.js` → `./foo.ts`.** `packages/core` uses extensionless
+   relative imports. tsc and Vitest accept `.js`; the bundler does not. Broke the app twice.
+2. **`.expo/types/` is gitignored**, so CI has no generated route types. Never index
+   `useSegments()` positionally — it is a tuple sized from those types and fails on a clean
+   checkout. Use `usePathname()`.
+3. **A route group needs its own `_layout.tsx`** or its screens render a blank black screen
+   with no error anywhere.
+4. **Android blur is off by default.** `BlurView` sampling a `BlurTargetView` SIGSEGVs the
+   emulator's software GPU. `getGlassBackend()` returns `'fallback'` on Android; anything that
+   renders a `BlurView` must check it (`RippleReveal` originally did not, and crashed on the
+   first FAB tap).
+5. **`adb shell input text` lands in RN TextInputs only intermittently.** Tooling flake, not an
+   app bug. Tap, wait 3s, type, wait, then dismiss the keyboard.
+6. **`sum()` over `bigint` returns `numeric` in Postgres** — cast when calling
+   `app.allocate_minor`.
+7. **A temp table cannot be resolved unqualified inside a `search_path = ''` function.**
+8. **Do not put a `GROUP BY` directly inside a scalar subquery** — wrap it.
+
+## Testing without real credentials
+
+`src/features/auth/devSignIn.ts` (guarded by `__DEV__`) signs in with email/password against
+**local** Supabase. Two links on the entry screen: *Dev sign-in* (fixed account) and *New
+account* (random address, for first-run testing). Does not work against the hosted project,
+which requires email confirmation.
+
+The emulator has **no Google account**, so real Google sign-in cannot be completed here —
+verified only as far as Google's own sign-in screen appearing, which already proves the
+SHA-1 / package / client-id triple is accepted.
+
+## Decisions that must not be re-litigated
+
+- **INR only.** Money rows keep a `currency` column pinned by CHECK to `'INR'`.
+  `packages/core/src/fx.ts` is built and tested but unwired.
+- **UPI ID is optional at signup**, against the design doc's "required".
+- **Balances are derived**, never stored.
+- **All money writes go through `SECURITY DEFINER` RPCs**; clients hold SELECT only.
+- **`profiles.id` is the universal identity**, never `auth.users.id`.
+- Debug keystore is **committed on purpose** (`apps/mobile/credentials/debug.keystore`) so the
+  Android SHA-1 is stable across machines; `plugins/withDebugKeystore.js` reinstalls it on
+  every prebuild because `android/` is regenerated.
+
+## Outstanding, blocked on the user
+
+- **Rotate all credentials before beta** (open item #11) — deliberately deferred.
+- Apple Developer Program — not buying until both emulators show a working app. Sign in with
+  Apple therefore cannot be demonstrated at all (needs the entitlement).
+- `sudo xcode-select -s /Applications/Xcode.app`.
+- Store display name ("Hisaab" is taken); a domain for deep links.
