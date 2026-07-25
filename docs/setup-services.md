@@ -108,19 +108,29 @@ Free. Three OAuth client IDs, because Google treats each platform separately.
    > Not **OAuth Apps** — that page is for making your project an identity provider *for other
    > applications*, which is the opposite direction and easy to land on by mistake.
 
-   Expand **Google**, toggle it on, and fill in three fields:
+   Expand **Google** and toggle **Enable Sign in with Google**.
 
    | Field | Value |
    |---|---|
-   | Client ID | the **Web** client id |
-   | Client Secret | the Web client secret |
-   | **Authorized Client IDs** | the **iOS and Android** client ids, comma-separated |
+   | **Client IDs** | **all three** client ids — web, Android, iOS — comma separated |
+   | Client Secret (for OAuth) | the **Web** client secret |
+   | Skip nonce checks | **off** |
+   | Allow users without an email | **off** |
 
-   **That third field is not optional.** The app uses Google's native sign-in sheet, so the
-   ID token it returns carries the iOS or Android client id as its audience — never the web
-   one. Supabase rejects a token whose audience it does not recognise, so leaving this empty
-   fails every sign-in with `Unacceptable audience in id_token` while everything else looks
-   correctly set up.
+   **Putting all three ids in that one field is not optional.** The app uses Google's native
+   sign-in sheet, so the ID token it returns carries the *Android or iOS* client id as its
+   audience — never the web one. Supabase rejects a token whose audience it does not
+   recognise, so listing only the web id fails every sign-in with `Unacceptable audience in
+   id_token` while the rest of the configuration looks perfect.
+
+   The two toggles are both correct off, and neither is arbitrary:
+
+   - *Skip nonce checks* exists for Sign in with Apple, where you generate the nonce yourself.
+     Google's native library does not attach one, so there is nothing to mismatch. It weakens
+     replay protection — turn it on only if a real nonce error appears.
+   - *Allow users without an email* must stay off. The verified email becomes a contact point,
+     and that is exactly what lets a friend's invite of "Priya" be claimed by the real Priya at
+     signup. An account with no email can never be matched that way.
 
    Also add the Supabase callback to the **Web** client's Authorized redirect URIs in Cloud
    Console — unused by the native flow, but it removes a confusing failure if a web or
