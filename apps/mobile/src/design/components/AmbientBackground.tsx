@@ -3,6 +3,7 @@ import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, {
   Easing,
   cancelAnimation,
+  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -10,6 +11,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Circle, Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 
+import { isTransitioning } from '../motion/transitionState';
 import { color } from '../tokens';
 import { useReduceMotion } from '../useReduceMotion';
 
@@ -54,6 +56,40 @@ function DriftingBlob({ blob, width, height, animate }: { blob: Blob; width: num
     );
     return () => cancelAnimation(t);
   }, [animate, blob.durationMs, t]);
+
+  /*
+   * Hold still while a screen transition is playing.
+   *
+   * These blobs sit BEHIND every glass surface in the app, so as long as they are moving the
+   * blur backdrop is dirty on every frame and every `GlassSurface` on screen has to be
+   * re-evaluated — including the ones on the screen that is mounting under the veil, which is
+   * the most expensive moment in a navigation.
+   *
+   * They are also invisible for most of a transition, since the veil is covering them. So this
+   * costs nothing to look at and gives the incoming screen the frame budget back. Entirely on
+   * the UI thread: a reaction on a shared value, no render on either side.
+   */
+  useAnimatedReaction(
+    () => isTransitioning.value,
+    (paused, wasPaused) => {
+      if (!animate || paused === wasPaused) return;
+
+      if (paused) {
+        cancelAnimation(t);
+        return;
+      }
+
+      // Resumes from wherever it stopped rather than snapping back to the start; `reverse` on
+      // withRepeat means the drift simply carries on in whichever direction it was going.
+      t.set(
+        withRepeat(
+          withTiming(1, { duration: blob.durationMs, easing: Easing.inOut(Easing.ease) }),
+          -1,
+          true,
+        ),
+      );
+    },
+  );
 
   const style = useAnimatedStyle(() => ({
     transform: [

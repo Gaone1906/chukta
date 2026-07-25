@@ -18,6 +18,7 @@ import Animated, {
 
 import { color, motion } from '../tokens';
 import { useReduceMotion } from '../useReduceMotion';
+import { isTransitioning } from './transitionState';
 import {
   RING_BLUR,
   RING_COUNT,
@@ -161,6 +162,8 @@ export function RippleNavProvider({ children }: { children: ReactNode }) {
       originY.set(from.y);
       reach.set(maxRadius(width, height, from.x, from.y));
       active.set(1);
+      // Tells the ambient background to stop drifting for the duration — see transitionState.
+      isTransitioning.set(true);
       progress.set(0);
 
       progress.set(
@@ -168,9 +171,12 @@ export function RippleNavProvider({ children }: { children: ReactNode }) {
           withTiming(COVER, { duration: EXPAND_MS, easing: WAVE_EASING }),
           withTiming(HOLD_END, { duration: HOLD_MS, easing: Easing.linear }),
           withTiming(1, { duration: DISSOLVE_MS, easing: Easing.out(Easing.quad) }, (done) => {
-            // A UI-thread callback, not `runOnJS`: putting the overlay away is just two shared
+            // A UI-thread callback, not `runOnJS`: putting the overlay away is just shared
             // values, and there is no React state left to clear.
-            if (done) active.set(0);
+            if (done) {
+              active.set(0);
+              isTransitioning.set(false);
+            }
           }),
         ),
       );
@@ -353,5 +359,15 @@ const styles = StyleSheet.create({
   overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10, elevation: 10 },
   // `color.veil` is almost, but deliberately not exactly, `bgBase` — see the token.
   veil: { position: 'absolute', backgroundColor: color.veil },
-  ring: { position: 'absolute', borderColor: color.rippleRing },
+  /*
+   * `overflow: 'hidden'` is a performance property here, not a visual one — the ring has no
+   * content to clip.
+   *
+   * React Native only maps a view onto CoreAnimation's native `layer.borderWidth` /
+   * `borderColor` fast path when the view either has no sublayers or clips to its bounds.
+   * Falling off it means the border is drawn into a CGImage on the main thread instead — and
+   * these views are laid out at the screen's diagonal, so that is a bitmap thousands of pixels
+   * square, rasterised three times, on the first frame of every transition.
+   */
+  ring: { position: 'absolute', borderColor: color.rippleRing, overflow: 'hidden' },
 });

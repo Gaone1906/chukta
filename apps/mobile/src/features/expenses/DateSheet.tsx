@@ -46,7 +46,26 @@ export function describeDate(iso: string): string {
  * app on either OS, and the only requirement here is picking a day in the recent past — which
  * is a grid, some arithmetic, and no native module.
  */
-export function DateSheet({
+export function DateSheet(props: {
+  visible: boolean;
+  value: string;
+  onClose: () => void;
+  onPick: (iso: string) => void;
+}) {
+  /*
+   * Nothing is built until it is open — the same split PayerSheet already uses.
+   *
+   * Without it this ran on every render of the expense form, mounted or not: a fresh `Date`,
+   * an ISO conversion and a whole element tree for each of ~42 grid cells. That is JS work on
+   * the screen's very first render, which on this app is the frame the ripple's veil is meant
+   * to be hiding a mount behind. It also means the month cursor now resets to the selected
+   * date each time it opens, rather than remembering wherever it was left.
+   */
+  if (!props.visible) return null;
+  return <DateSheetBody {...props} />;
+}
+
+function DateSheetBody({
   visible,
   value,
   onClose,
