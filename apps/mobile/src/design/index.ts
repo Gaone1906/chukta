@@ -14,4 +14,5 @@ export { Sheet } from './components/Sheet';
 export { Toast } from './components/Toast';
 
 export { RippleReveal } from './motion/RippleReveal';
+export { RippleNavProvider, useRippleNav } from './motion/RippleNav';
 export * from './motion/rippleMath';

@@ -5,7 +5,17 @@ import { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { FAB, GlassButton, GlassSurface, SettledBadge, Toast, color, font, radius } from '@/design';
+import {
+  FAB,
+  GlassButton,
+  GlassSurface,
+  SettledBadge,
+  Toast,
+  color,
+  font,
+  radius,
+  useRippleNav,
+} from '@/design';
 import { BackChevron } from '@/features/onboarding/BackChevron';
 import { EmptyState } from '@/features/home/EmptyState';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
@@ -28,6 +38,7 @@ export default function PersonDetail() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { rippleTo } = useRippleNav();
   const [toast, setToast] = useState<string | null>(null);
 
   const { data, isLoading, isRefetching, refetch, error } = useQuery({
@@ -191,7 +202,7 @@ export default function PersonDetail() {
                     myShareMinor={e.my_share_minor}
                     groupName={e.group_name}
                     meta={`${firstName(name)}'s share ${formatAmount(money(e.their_share_minor, 'INR'), { signed: false })}`}
-                    onPress={() => router.push(`/expense/${e.id}`)}
+                    onPress={(at) => rippleTo(at, () => router.push(`/expense/${e.id}`))}
                   />
                 ))}
               </View>
@@ -203,8 +214,10 @@ export default function PersonDetail() {
       <FAB
         style={[styles.fab, { bottom: insets.bottom + 30 }]}
         accessibilityLabel={`Add an expense with ${name}`}
-        onPress={() =>
-          router.push({ pathname: '/expense/new', params: { withProfileIds: id! } })
+        onPress={(at) =>
+          rippleTo(at, () =>
+            router.push({ pathname: '/expense/new', params: { withProfileIds: id! } }),
+          )
         }
       />
 
@@ -252,7 +265,7 @@ const styles = StyleSheet.create({
   amount: { fontFamily: font.semibold, fontSize: 25 },
   settledRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   settledText: { flex: 1, fontFamily: font.light, fontSize: 13.5, color: color.textMuted },
-  settleButton: { flex: 0 },
+  settleButton: { flexShrink: 0 },
   breakdown: {
     paddingTop: 13,
     borderTopWidth: 1,

@@ -9,6 +9,7 @@ import { useSession } from '@/features/auth/session';
 import { ConflictSheet } from '@/features/expenses/ConflictSheet';
 import { DateSheet, describeDate } from '@/features/expenses/DateSheet';
 import { AmountField, DisclosureRow, TextField } from '@/features/expenses/fields';
+import { FOOTER_CLEARANCE, FooterBar } from '@/features/expenses/FooterBar';
 import { PayerSheet, type Participant } from '@/features/expenses/PayerSheet';
 import { ScreenHeader } from '@/features/expenses/ScreenHeader';
 import { SplitEditor } from '@/features/expenses/SplitEditor';
@@ -149,7 +150,7 @@ export default function EditExpense() {
       participants={participants}
       meId={profile?.id ?? null}
       seed={seed}
-      mutationId={mutationId.current}
+      mutationIdRef={mutationId}
       onSaved={async () => {
         await Promise.all(
           afterExpenseChange(groupId).map((key) =>
@@ -184,7 +185,7 @@ function EditForm({
   participants,
   meId,
   seed,
-  mutationId,
+  mutationIdRef,
   onSaved,
   onError,
   onReloadAfterConflict,
@@ -203,7 +204,7 @@ function EditForm({
   participants: Participant[];
   meId: string | null;
   seed: Parameters<typeof useExpenseForm>[2];
-  mutationId: string;
+  mutationIdRef: { current: string };
   onSaved: () => Promise<void>;
   onError: (message: string) => void;
   onReloadAfterConflict: () => Promise<void>;
@@ -219,7 +220,7 @@ function EditForm({
 
   const save = useMutation({
     mutationFn: () =>
-      updateExpense(expenseId, form.toDraft({ groupId }), revision, mutationId),
+      updateExpense(expenseId, form.toDraft({ groupId }), revision, mutationIdRef.current),
     onSuccess: onSaved,
     onError: (e: Error) => {
       // Conflicts get the diff sheet; everything else is a toast.
@@ -235,7 +236,7 @@ function EditForm({
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
-          { paddingTop: insetTop, paddingBottom: insetBottom + 130 },
+          { paddingTop: insetTop, paddingBottom: insetBottom + FOOTER_CLEARANCE },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -285,14 +286,14 @@ function EditForm({
         </View>
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insetBottom + 18 }]}>
+      <FooterBar>
         <GlassButton
           label={save.isPending ? 'Saving…' : 'Save changes'}
           variant="primary"
           disabled={!form.ready || save.isPending}
           onPress={() => save.mutate()}
         />
-      </View>
+      </FooterBar>
 
       <DateSheet
         visible={dateOpen}
@@ -330,5 +331,4 @@ const styles = StyleSheet.create({
   loading: { marginTop: 26 },
   form: { marginTop: 22, gap: 12 },
   fieldError: { fontFamily: font.light, fontSize: 12.5, color: color.creamRose },
-  footer: { position: 'absolute', left: 22, right: 22, bottom: 0 },
 });

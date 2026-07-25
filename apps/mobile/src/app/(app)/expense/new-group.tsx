@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { GlassButton, GlassSurface, Toast, color, font, radius } from '@/design';
+import { FOOTER_CLEARANCE, FooterBar } from '@/features/expenses/FooterBar';
 import { PersonPickRow } from '@/features/expenses/PickRow';
 import { SearchField } from '@/features/expenses/SearchField';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
@@ -88,7 +89,7 @@ export default function NewGroup() {
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
-          { paddingTop: insets.top + 14, paddingBottom: insets.bottom + 140 },
+          { paddingTop: insets.top + 14, paddingBottom: insets.bottom + FOOTER_CLEARANCE },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -174,7 +175,7 @@ export default function NewGroup() {
         )}
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 18 }]}>
+      <FooterBar>
         <GlassButton
           label={create.isPending ? 'Creating…' : 'Create group'}
           variant="primary"
@@ -186,7 +187,7 @@ export default function NewGroup() {
             ? 'Just you for now'
             : `You and ${members.length} ${members.length === 1 ? 'other' : 'others'}`}
         </Text>
-      </View>
+      </FooterBar>
 
       <Toast message={toast} />
     </KeyboardAvoidingView>
@@ -231,6 +232,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   inventLabel: { flex: 1, fontFamily: font.medium, fontSize: 14.5, color: color.creamWarm },
-  footer: { position: 'absolute', left: 22, right: 22, bottom: 0, gap: 8 },
   picked: { textAlign: 'center', fontFamily: font.light, fontSize: 12.5, color: color.textFaint },
 });

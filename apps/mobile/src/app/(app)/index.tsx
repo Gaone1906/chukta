@@ -3,11 +3,11 @@ import { useQuery } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { FAB, Row, SegmentedSwitcher, Toast, color, font, space } from '@/design';
+import { FAB, Row, SegmentedSwitcher, Toast, color, space, useRippleNav } from '@/design';
 import { EmptyState } from '@/features/home/EmptyState';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
 import { initials } from '@/features/people/Avatar';
@@ -27,6 +27,7 @@ const WORDMARK = require('../../../assets/brand/hisaab-mark.png');
 export default function Home() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { rippleTo } = useRippleNav();
   const [tab, setTab] = useState<'groups' | 'people'>('groups');
   const [toast, setToast] = useState<string | null>(null);
 
@@ -118,7 +119,7 @@ export default function Home() {
                   name={g.name}
                   meta={`${g.member_count} ${g.member_count === 1 ? 'member' : 'members'}`}
                   balance={money(g.net_minor, g.currency)}
-                  onPress={() => router.push(`/group/${g.id}`)}
+                  onPress={(at) => rippleTo(at, () => router.push(`/group/${g.id}`))}
                 />
               ))
             )
@@ -142,7 +143,7 @@ export default function Home() {
                 balance={money(p.net_minor, 'INR')}
                 avatar={initials(p.display_name)}
                 avatarTone={p.net_minor > 0n ? 'gold' : p.net_minor < 0n ? 'oxblood' : 'plain'}
-                onPress={() => router.push(`/person/${p.id}`)}
+                onPress={(at) => rippleTo(at, () => router.push(`/person/${p.id}`))}
               />
             ))
           )}
@@ -154,7 +155,7 @@ export default function Home() {
 
       <FAB
         style={[styles.fab, { bottom: insets.bottom + 30 }]}
-        onPress={() => router.push('/expense/who')}
+        onPress={(at) => rippleTo(at, () => router.push('/expense/who'))}
       />
 
       <Toast message={toast} />

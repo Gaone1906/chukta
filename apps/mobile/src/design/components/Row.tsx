@@ -19,7 +19,12 @@ export interface RowProps {
   avatarTone?: AvatarTone;
   compact?: boolean;
   showChevron?: boolean;
-  onPress?: () => void;
+  /**
+   * Reports the tap point in window coordinates, like FAB does — the ripple transition
+   * originates from wherever the finger landed, so the coordinate has to travel with the press
+   * rather than be reconstructed from the row's layout afterwards.
+   */
+  onPress?: (event: { x: number; y: number }) => void;
 }
 
 const AVATAR_FILL: Record<AvatarTone, string> = {
@@ -66,7 +71,7 @@ export function Row({
         onPressOut={() => {
           pressed.value = withTiming(0, { duration: motion.press.duration });
         }}
-        onPress={onPress}
+        onPress={(e) => onPress?.({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
       >
         <GlassSurface radius={compact ? radius.cardCompact : radius.card}>
           <View style={[styles.inner, compact ? styles.innerCompact : null]}>

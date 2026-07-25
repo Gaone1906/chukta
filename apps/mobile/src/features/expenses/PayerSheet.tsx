@@ -1,5 +1,5 @@
 import { formatAmount, money, parseAmount, toAmountInput } from '@hisaab/core';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { GlassButton, GlassSurface, SegmentedSwitcher, Sheet, color, font, radius } from '@/design';
@@ -26,8 +26,23 @@ export interface Payer {
  * The sheet edits a draft and only commits on Done — half-entered payer amounts must never
  * reach the form, where they would make the split preview flicker between invalid states.
  */
-export function PayerSheet({
-  visible,
+export function PayerSheet(props: {
+  visible: boolean;
+  onClose: () => void;
+  participants: Participant[];
+  totalMinor: bigint;
+  payers: Payer[];
+  onChange: (payers: Payer[]) => void;
+}) {
+  // The body is only mounted while the sheet is open, and its draft state is seeded from
+  // props on mount. That is what makes Cancel actually discard — closing unmounts the draft
+  // — and it avoids re-seeding through an effect, which would fire a second render every
+  // time the sheet opens.
+  if (!props.visible) return null;
+  return <PayerSheetBody {...props} />;
+}
+
+function PayerSheetBody({
   onClose,
   participants,
   totalMinor,
@@ -45,17 +60,9 @@ export function PayerSheet({
     payers.length > 1 ? 'multiple' : 'single',
   );
   const [single, setSingle] = useState<string | null>(payers[0]?.profileId ?? null);
-  const [amounts, setAmounts] = useState<Record<string, string>>({});
-
-  // Re-seed from props whenever the sheet opens, so cancelling really does discard.
-  useEffect(() => {
-    if (!visible) return;
-    setMode(payers.length > 1 ? 'multiple' : 'single');
-    setSingle(payers[0]?.profileId ?? null);
-    setAmounts(
-      Object.fromEntries(payers.map((p) => [p.profileId, toAmountInput(p.paidAmountMinor, 'INR')])),
-    );
-  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [amounts, setAmounts] = useState<Record<string, string>>(() =>
+    Object.fromEntries(payers.map((p) => [p.profileId, toAmountInput(p.paidAmountMinor, 'INR')])),
+  );
 
   const entered = participants.reduce((sum, p) => {
     const parsed = parseAmount(amounts[p.id] ?? '', 'INR');
@@ -84,7 +91,7 @@ export function PayerSheet({
 
   return (
     <Sheet
-      visible={visible}
+      visible
       onClose={onClose}
       title="Who paid?"
       subtitle={

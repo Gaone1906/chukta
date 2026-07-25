@@ -16,6 +16,7 @@ import { GlassButton, Toast, color, font } from '@/design';
 import { useSession } from '@/features/auth/session';
 import { DateSheet, describeDate } from '@/features/expenses/DateSheet';
 import { AmountField, DisclosureRow, TextField } from '@/features/expenses/fields';
+import { FOOTER_CLEARANCE, FooterBar } from '@/features/expenses/FooterBar';
 import { PayerSheet, type Participant } from '@/features/expenses/PayerSheet';
 import { SplitEditor } from '@/features/expenses/SplitEditor';
 import { useExpenseForm } from '@/features/expenses/useExpenseForm';
@@ -44,9 +45,10 @@ export default function NewExpense() {
   const queryClient = useQueryClient();
   const { profile } = useSession();
 
-  const { groupId, withProfileIds } = useLocalSearchParams<{
+  const { groupId, withProfileIds, fromPicker } = useLocalSearchParams<{
     groupId?: string;
     withProfileIds?: string;
+    fromPicker?: string;
   }>();
 
   const wantedIds = useMemo(
@@ -113,8 +115,15 @@ export default function NewExpense() {
           queryClient.invalidateQueries({ queryKey: key }),
         ),
       );
-      // back() rather than a push, so the FAB → form → back loop does not stack screens.
-      router.back();
+      // Unwind the whole flow rather than pushing: a save is the end of it, and the screen
+      // the user lands on must already show the balance that just moved.
+      if (fromPicker === '1') {
+        // Home -> picker -> form: unwind both, so Home is what they see.
+        router.dismissTo('/');
+      } else {
+        // Group or person FAB: one step back is the screen the expense belongs to.
+        router.back();
+      }
     },
     onError: (e: Error) => setToast(e.message),
   });
@@ -130,7 +139,7 @@ export default function NewExpense() {
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
-          { paddingTop: insets.top + 14, paddingBottom: insets.bottom + 130 },
+          { paddingTop: insets.top + 14, paddingBottom: insets.bottom + FOOTER_CLEARANCE },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -237,14 +246,14 @@ export default function NewExpense() {
         )}
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 18 }]}>
+      <FooterBar>
         <GlassButton
           label={save.isPending ? 'Saving…' : 'Save expense'}
           variant="primary"
           disabled={!form.ready || save.isPending}
           onPress={() => save.mutate()}
         />
-      </View>
+      </FooterBar>
 
       <DateSheet
         visible={dateOpen}
@@ -307,5 +316,4 @@ const styles = StyleSheet.create({
   loading: { marginTop: 26 },
   form: { marginTop: 22, gap: 12 },
   fieldError: { fontFamily: font.light, fontSize: 12.5, color: color.creamRose },
-  footer: { position: 'absolute', left: 22, right: 22, bottom: 0 },
 });

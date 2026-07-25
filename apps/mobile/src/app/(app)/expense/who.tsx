@@ -8,6 +8,7 @@ import Svg, { Path } from 'react-native-svg';
 import { GlassButton, GlassSurface, Toast, color, font, radius } from '@/design';
 import { EmptyState } from '@/features/home/EmptyState';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
+import { FOOTER_CLEARANCE, FooterBar } from '@/features/expenses/FooterBar';
 import { GroupPickRow, PersonPickRow } from '@/features/expenses/PickRow';
 import { SearchField } from '@/features/expenses/SearchField';
 import { BackChevron } from '@/features/onboarding/BackChevron';
@@ -84,9 +85,14 @@ export default function WhoPicker() {
 
   const advance = () => {
     if (!ready) return;
+    // `fromPicker` tells the form how to unwind after a successful save. The stack here is
+    // Home -> picker -> form, so a single back() would drop the user back onto this screen
+    // with their old selection still ticked, one step into a flow they just finished.
     router.push({
       pathname: '/expense/new',
-      params: groupId ? { groupId } : { withProfileIds: people.join(',') },
+      params: groupId
+        ? { groupId, fromPicker: '1' }
+        : { withProfileIds: people.join(','), fromPicker: '1' },
     });
   };
 
@@ -95,7 +101,7 @@ export default function WhoPicker() {
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
-          { paddingTop: insets.top + 14, paddingBottom: insets.bottom + 140 },
+          { paddingTop: insets.top + 14, paddingBottom: insets.bottom + FOOTER_CLEARANCE },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -224,12 +230,12 @@ export default function WhoPicker() {
 
       {/* The primary action stays pinned rather than sitting at the end of a long list —
           the list can be dozens of people and the button is the point of the screen. */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 18 }]}>
+      <FooterBar>
         <GlassButton label="Continue" variant="primary" disabled={!ready} onPress={advance} />
         <Text style={styles.picked} numberOfLines={1}>
           {picked}
         </Text>
-      </View>
+      </FooterBar>
 
       <Toast message={toast} />
     </View>
@@ -274,13 +280,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   inventLabel: { flex: 1, fontFamily: font.medium, fontSize: 14.5, color: color.creamWarm },
-  footer: {
-    position: 'absolute',
-    left: 22,
-    right: 22,
-    bottom: 0,
-    gap: 8,
-  },
   picked: {
     textAlign: 'center',
     fontFamily: font.light,

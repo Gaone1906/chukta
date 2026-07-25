@@ -4,7 +4,17 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { FAB, GlassButton, GlassSurface, SettledBadge, Toast, color, font, radius } from '@/design';
+import {
+  FAB,
+  GlassButton,
+  GlassSurface,
+  SettledBadge,
+  Toast,
+  color,
+  font,
+  radius,
+  useRippleNav,
+} from '@/design';
 import { EmptyState } from '@/features/home/EmptyState';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
 import { ExpenseRow } from '@/features/expenses/ExpenseRow';
@@ -23,6 +33,7 @@ export default function GroupDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { profile } = useSession();
+  const { rippleTo } = useRippleNav();
   const [toast, setToast] = useState<string | null>(null);
 
   const { data, isLoading, isRefetching, refetch, error } = useQuery({
@@ -142,8 +153,8 @@ export default function GroupDetail() {
                     description={e.description}
                     amountMinor={e.amount_minor}
                     myShareMinor={e.my_share_minor}
-                    meta={`${payerLabel(e.payers, data.members)} · split ${e.split_count} ways`}
-                    onPress={() => router.push(`/expense/${e.id}`)}
+                    meta={`${payerLabel(e.payers, data.members, profile?.id)} · split ${e.split_count} ways`}
+                    onPress={(at) => rippleTo(at, () => router.push(`/expense/${e.id}`))}
                   />
                 ))}
               </View>
@@ -155,7 +166,11 @@ export default function GroupDetail() {
       <FAB
         style={[styles.fab, { bottom: insets.bottom + 30 }]}
         accessibilityLabel="Add an expense to this group"
-        onPress={() => router.push({ pathname: '/expense/new', params: { groupId: id! } })}
+        onPress={(at) =>
+          rippleTo(at, () =>
+            router.push({ pathname: '/expense/new', params: { groupId: id! } }),
+          )
+        }
       />
 
       <Toast message={toast} />
@@ -166,9 +181,13 @@ export default function GroupDetail() {
 function payerLabel(
   payers: { profile_id: string; paid_amount_minor: bigint }[],
   members: GroupMember[],
+  meId: string | undefined,
 ): string {
   if (payers.length === 0) return 'Nobody paid';
   if (payers.length > 1) return `${payers.length} people paid`;
+  // "You paid", not your own display name — reading your own name back at you in a list you
+  // are obviously part of is the kind of thing that makes an app feel like a database.
+  if (payers[0]!.profile_id === meId) return 'You paid';
   const name = members.find((m) => m.profile_id === payers[0]!.profile_id)?.display_name;
   return `${name ?? 'Someone'} paid`;
 }

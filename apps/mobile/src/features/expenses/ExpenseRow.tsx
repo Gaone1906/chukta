@@ -12,7 +12,8 @@ export interface ExpenseRowProps {
   meta: string;
   /** Shown above the description on Person detail; null for a one-off. */
   groupName?: string | null;
-  onPress?: () => void;
+  /** Reports the tap point in window coordinates, so the ripple starts under the finger. */
+  onPress?: (event: { x: number; y: number }) => void;
 }
 
 /**
@@ -34,7 +35,7 @@ export function ExpenseRow({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${description}, ${formatAmount(money(amountMinor, 'INR'))}`}
-      onPress={onPress}
+      onPress={(e) => onPress?.({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
     >
       <GlassSurface radius={radius.card}>
         <View style={styles.row}>
