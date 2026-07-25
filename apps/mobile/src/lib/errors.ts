@@ -66,6 +66,31 @@ export class ServerError extends Error {
   }
 }
 
+/**
+ * We never reached the server.
+ *
+ * A distinct class rather than a plain Error because the message has to be replaced and the
+ * original must not be lost. What the transport actually produces is unfit to show anybody —
+ * observed verbatim on a screen during testing:
+ *
+ *   "Error: fetch failed: UnexpectedException: Could not connect to the server.
+ *    (at ExpoModulesCore/Promise.swift:56)"
+ *
+ * A Swift file and line number in front of somebody trying to split a dinner. The real text is
+ * kept on `cause` so a Sentry report still has it.
+ *
+ * **Deliberately still not a `ServerError`**, so `isServerRefusal` keeps returning false and
+ * the outbox keeps treating this as retryable transport rather than a decision. Getting that
+ * backwards would strand a queued write permanently on a dropped connection.
+ */
+export class NetworkError extends Error {
+  constructor(cause: string) {
+    super("Couldn't reach Hisaab. Check your connection — nothing was lost.");
+    this.name = 'NetworkError';
+    this.cause = cause;
+  }
+}
+
 /** True when the server decided; false when we never got an answer. */
 export function isServerRefusal(error: unknown): boolean {
   return error instanceof ServerError || error instanceof AuthzError || isConflict(error);
@@ -89,7 +114,9 @@ export function translateError(error: PostgrestError): Error {
   if (error.code) {
     return new ServerError(error.message || 'Something went wrong', error.code);
   }
-  return new Error(error.message || 'Something went wrong');
+  // No code: the request never arrived, so the message is the transport's, not ours, and is
+  // written for a crash log rather than a person. See NetworkError.
+  return new NetworkError(error.message || 'no detail');
 }
 
 export function isConflict(error: unknown): error is ConflictError {
