@@ -5,10 +5,30 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
 import { AmbientBackground, color } from '@/design';
 import { BlurTargetProvider } from '@/design/blurTarget';
 import { useAppFonts } from '@/design/fonts';
 import { SessionProvider, useSession } from '@/features/auth/session';
+import { isConflict } from '@/lib/errors';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Balances change when anyone in a shared group adds an expense, so a long stale time
+      // would show stale money. Phase 8 replaces polling entirely with the change_events
+      // subscription; until then, refetch on focus and keep the window short.
+      staleTime: 30_000,
+      retry: 2,
+    },
+    mutations: {
+      // Never retry a conflict — the point of P0409 is that the user has to choose. Retrying
+      // would just fail again with the same stale revision.
+      retry: (count, error) => !isConflict(error) && count < 1,
+    },
+  },
+});
 
 SplashScreen.preventAutoHideAsync().catch(() => {
   // Already hidden; nothing to do.
@@ -33,9 +53,11 @@ export default function RootLayout() {
           {/* Mounted once, above the navigator: the glass has nothing to refract without it,
               and per-screen mounting would restart the drift on every navigation. */}
           <AmbientBackground />
-          <SessionProvider>
-            <RootNavigator />
-          </SessionProvider>
+          <QueryClientProvider client={queryClient}>
+            <SessionProvider>
+              <RootNavigator />
+            </SessionProvider>
+          </QueryClientProvider>
         </BlurTargetProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
