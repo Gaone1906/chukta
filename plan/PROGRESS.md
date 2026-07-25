@@ -1054,3 +1054,195 @@ seconds indefinitely. Caught by watching `attempts` reach 23 inside ninety secon
   The group detail screen's members row still goes nowhere. Needs a design decision before it
   can be built.
 - **Screen titles scroll away** — see "Known, not yet fixed" above.
+
+---
+
+# NEXT UP — approved plan, not yet started (written 2026-07-26)
+
+Six requests after Phase 8, all approved to ship **before Phase 10**. The full plan is in
+`~/.claude/plans/nifty-strolling-plum.md`; everything load-bearing is repeated here so the
+plan file is not a dependency.
+
+## ⚠️ SECURITY — do this first, before any of the six
+
+**A placeholder takeover appears to exist in shipped code today, needing no guessing at all.**
+
+Found while pressure-testing the passcode design. Four links, each verified by reading the
+code; the end-to-end exploit was **NOT executed** (the probe failed on my own SQL typos), so
+treat this as strongly indicated rather than proven. **Reproduce it first, then fix.**
+
+1. `app.upsert_contact_profile` is find-or-create and returns the *existing* `profile_id` for
+   any live `(kind, value_norm)` — so a known email address is an email → UUID oracle, and it
+   is unthrottled. (`0024_client_generated_ids.sql:110-124`)
+2. `app.create_expense` **never validates that the profile ids in `payers` / `splits` /
+   `new_group.member_profile_ids` are anyone the caller knows.** It inserts whatever UUIDs the
+   payload carries. The only auth check is `assert_group_member` when a `group_id` is supplied;
+   a one-off expense has none. (`0011_write_rpcs.sql:87-183`, carried into `0023`)
+3. `auth_ext.shares_context_with` is satisfied by a single `expense_participants` row.
+   (`0009_auth_ext_helpers.sql:115-143`)
+4. So: name a stranger's placeholder in a one-off expense → you now "share context" with them →
+   `create_invite_link` passes its gate → `claim_placeholder` → `merge_profiles` absorbs their
+   history into your account. Irreversible; there is no un-merge anywhere in the schema.
+
+**The tell that this is real:** `app.create_group` DOES validate exactly this, raising
+`42501 'cannot add a profile you have no shared context with'` (`0016_group_mutations.sql`).
+Its sibling `create_expense` does not. One path was hardened and the other was missed.
+
+Minimum fix: validate every profile id in `create_expense`'s payload before the inserts —
+`id = v_me OR created_by_profile_id = v_me OR shares_context_with(id) OR (group_id is not null
+AND that id is a member of that group)`. Same shape as `create_group`'s existing check. Note
+this also closes a second hole: today anyone can inject fabricated debts onto a stranger.
+
+Also worth doing before adding any low-entropy path: `internal.profile_merges.row_counts`
+records nothing but the two ids it already has as columns (`0013:307`), and `merge_profiles`
+**sums** colliding split rows (`0013:227`), so a merge is mathematically irreversible, not just
+un-implemented. Record enough to reverse one.
+
+## 1. Motion (start here — hours, and it is what you see on every tap)
+
+### The ripple stalls — three measured defects
+
+- `Easing.bezier(0.16, 0.6, 0.22, 1)` has terminal slope **exactly 0** (its second control
+  point sits at y=1). **89% of the expand's travel happens in the first 200ms of its 440ms.**
+  Then segment 2 is `Easing.linear`, so speed steps from a dead stop to 0.889 progress/s — a
+  **74× jump across one frame**. That is the stall the user reported, and it is the same
+  front-loading fault as the curve it replaced.
+- `RippleNav.tsx:315` passes `travel` (the leading edge) to `ringOpacity` instead of each ring's
+  own lagged position, so all three run the leader's fade schedule. Ring 3 is invisible from
+  58% of the way out.
+- `maxRadius` measures to the **furthest corner**. For a tap at (201,250) on 402×874, only
+  **13.6%** of a ring's circumference is on screen across the last half of its travel — the
+  fade is scheduled against a destination nobody can see.
+
+**Fix: the veil and the rings want opposite curves and must stop sharing one value.** A filled
+disc covers area ∝ r², so the veil needs an ease-out. A thin ring outline is a travelling
+wavefront and wants **constant radial speed** — near-linear. Three independent shared values,
+one continuous segment each, no `withSequence`:
+
+| value | duration | easing | drives |
+|---|---|---|---|
+| `veil` | `cover` | `Easing.out(Easing.quad)` | veil scale; its completion callback fires navigation |
+| `wave` | `cover + hold` | **linear** | ring radii |
+| `dissolve` | `dissolve`, after `withDelay(cover + hold)` | `Easing.out(Easing.quad)` | veil opacity, `veilDrift`, global ring fade |
+
+Tokens retimed to `cover: 320, hold: 360, dissolve: 220` (total 900). Tune at 20× per trap 20.
+
+### Back navigation — the gesture already works
+
+`gestureEnabled` and `animation` are independent in RNS's native code
+(`RNSScreenStack.mm:1094`); the recognizer fires and pops today. `animation: 'none'` hard-codes
+`transitionDuration` to `0.0` (`RNSScreenStackAnimator.mm:60`), so there is nothing to
+interpolate — you are swiping successfully and seeing an instant cut.
+
+In `(app)/_layout.tsx`: `animation: 'slide_from_right'`, **`animationDuration: 300`** (the
+default is 500, which would outlast the hold and peek out from under the dissolving veil — the
+exact stutter that made `animation: 'none'` the original choice), `gestureEnabled: true`,
+`fullScreenGestureEnabled: true`, `animationMatchesGesture: true`. The push is invisible under
+the veil, so it only has to finish inside the 360ms hold.
+
+Android gets the animated pop but **not** the swipe — expo-router hard-codes
+`gestureEnabled: false` there (`NativeStackView.native.js:209`).
+
+*Rejected: RNS 4.26.2 ships a Reanimated custom-transition API (`goBackGesture`,
+`transitionAnimation`, `GestureDetectorProvider`) but expo-router 57.0.8 surfaces none of it —
+zero references in its build output. Reaching it means patching expo-router.*
+
+## 2. Rate the app
+
+The design has it and the port dropped it — `design-reference/screens/Hisaab Tip Jar.dc.html:94`
+is a gold star pill above Share. Add `expo-store-review@~57.0.1` (rebuild), a `features/tip/
+rate.ts` seam: `requestReview()` → `EXPO_PUBLIC_STORE_URL` → today's honest toast. Point
+`about.tsx`'s existing row at the same handler.
+
+**Two bugs next door:** `tip.tsx:145` never branches on `configured` (it toasts "not yet" even
+with a RevenueCat key set), and `purchases.ts` has **no `purchase()` export at all** despite its
+own header comment and this file describing it as the ready seam.
+
+## 3. Claim a person with a passcode
+
+**Already built:** `profile_claims` (stores only a hash), `claim_placeholder`, `merge_profiles`,
+and `create_invite_link` which mints 24 random bytes. Missing: a typeable code, somewhere to
+type it, and a throttle — **there is none anywhere on this path today.**
+
+**Hard limit:** `merge_profiles` refuses a source that already has an account (`0013:207`). A
+claim is always *placeholder → me*, one direction. Two people who each hold a placeholder of
+the other need **two codes**. There is no symmetric handshake and there cannot be one without
+building account merging, which is account takeover.
+
+**Use 8 characters, not 6.** A random guesser attacks the union of all live codes, so expected
+guesses is `S/N` for N live codes. At 32⁶ = 2^30 and no throttle: a *targeted* single code
+falls in ~30 hours at 10k req/s, and 10,000 live codes fall in ~11 seconds. Even with a
+throttle, 6 chars gives a large app roughly a **1-in-10 chance of a takeover in year one**.
+8 chars (2^40) buys 1024× for one extra typed pair — display as `XXXX-XXXX`.
+
+- 32-char Crockford-style alphabet, **exactly 32** so `% 32` on a uniform byte is unbiased.
+- **15-minute expiry** (not the table's 90-day default — that default is right for a 192-bit
+  link and catastrophic for a short code; it is the single biggest free lever on N).
+- **HMAC with an out-of-row pepper**, not the current unsalted SHA-256: a 40-bit input inverts
+  on a consumer GPU in minutes, so plain `digest()` is decorative here. `extensions.hmac` is
+  available (pgcrypto, `0001:9`).
+- Separate table `internal.claim_codes` — one table cannot carry one `expires_at` default for
+  both a 192-bit secret and a 40-bit one. Cron purge.
+- Supersede **all** live claims for the placeholder, not just the caller's (`0020:62-67` scopes
+  to `created_by_profile_id = v_me`, so a second inviter's code survives a "regenerate").
+- **Throttle in `internal`, three tiers**: 5/hour/actor, 20/hour/IP, and a **global 500 failures
+  / 5 min circuit breaker** — the tier that actually caps total entropy regardless of how many
+  accounts or IPs the attacker has.
+- **Return, don't raise.** PostgREST runs each RPC in one transaction, so inserting the attempt
+  row and then raising **rolls the counter back** — the throttle becomes a no-op that tests
+  green. Return `{ok:false, reason:'invalid'}` with one uniform reason for wrong/expired/used.
+- Notify every counterparty on merge; nothing tells anyone today.
+
+Client: `ClaimCodeSheet` to generate, `(app)/claim.tsx` to redeem, a **Claim a person** sidebar
+row. Online-only, like `claim_placeholder` already is (`outbox.ts:27`).
+
+## 4. Phone on the profile — REVISED, read this
+
+Approved answer was "error only against real accounts; a placeholder collision offers the claim
+flow". The security review argues that is an **enumeration oracle**: the attacker supplies a
+number they do not own and learns which of three states it is in — unknown, known-to-someone,
+or a real account. "Is this person on a money app" is a real disclosure, and it reintroduces
+exactly what `invite.tsx:22-38` deleted the contacts surface to avoid.
+
+**Its recommendation, which I think is right: verify before you look up.** The pre-verification
+response is identical in all three cases. `(auth)/phone.tsx` and `otp.tsx` are already built and
+flag-gated; GoTrue phone OTP needs an SMS provider (TRAI DLT) — so this may mean phone lands
+later than the rest of the batch. **Decide with the user before building.** If it ships
+unverified, at minimum never reveal the placeholder's display name or creator, and keep the
+response byte-identical across all three states.
+
+Note `0002:52` states the invariant this would break: `verified_at` is "set only from a verified
+auth identity. Merging on an unverified contact point would be a straightforward
+account-takeover vector."
+
+Also: a verified collision with an unclaimed placeholder should merge via `merge_profiles(...,
+'verified_link')` with **no code at all** — that reason enum value exists and is unused
+(`0002:88`), which suggests it was always the intended branch.
+
+Still needed regardless: **`packages/core/src/phone.ts`, an E.164 normaliser — none exists
+anywhere in the repo.** Default region IN. Property-tested; it decides whether two people
+converge on one identity.
+
+## 5. Contacts — pick one, resolve one
+
+`expo-contacts@~57.0.2`, **system picker only** — no bulk read, no upload. Prefills name +
+phone into `AddPersonSheet`; the number goes through the normaliser then the *existing*
+`upsert_contact_profile` dedupe, which already resolves to a real account if one holds it.
+(`contact_kind` already has `'phone'`; no client has ever passed it.)
+
+**This is a promise change in three places that must move together:** `legal/privacy.md:47`
+lists contacts *first* in "we do not collect"; `invite.tsx:89` tells users on screen "Hisaab
+never reads your contacts"; `plan/phase-07-sidebar-surfaces.md:104` has "No Contacts permission
+is requested anywhere" as a signed-off acceptance criterion. Plus `app.config.ts` usage strings
++ `READ_CONTACTS`, and Phase 11 gains an iOS `PrivacyInfo.xcprivacy` (none exists).
+
+## Order
+
+Security fix → ripple → back-nav → rating → `phone.ts` → migration 0025 + claim UI → phone on
+profile (pending the OTP decision) → contacts. Phase 10 after.
+
+## State at handover
+
+Tree clean at the last commit. Two files were mid-edit for the ripple (retimed `motion.ripple`
+tokens, `ringOpacity` keyed off each ring's own travel, a new `ringTravel`) and were **reverted**
+rather than left half-applied — all of it is specified above and is ~20 lines to redo.
