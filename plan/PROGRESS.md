@@ -3,7 +3,7 @@
 Single place to answer "where are we". Update the status table and the log at the end of
 every phase. Each phase has its own file in this directory with the detailed work list.
 
-**Last updated:** 2026-07-25 (Phase 5 in progress)
+**Last updated:** 2026-07-25 (Phase 5 done and verified on the emulator)
 
 ## Conventions
 
@@ -21,9 +21,9 @@ Use `Phase 0:` for repo-level chores that belong to no feature phase.
 | 0 | Repo & scaffold | [phase-00-repo-scaffold.md](phase-00-repo-scaffold.md) | ✅ done | 2–3 d |
 | 1 | Design system & motion | [phase-01-design-system.md](phase-01-design-system.md) | ✅ done (Android verified; iOS pending toolchain) | 1 wk |
 | 2 | `packages/core` money engine | [phase-02-core-money.md](phase-02-core-money.md) | ✅ done | 0.5 wk |
-| 3 | Supabase backend | [phase-03-backend.md](phase-03-backend.md) | ✅ done (15 migrations, 68 pgTAP) | 2 wk |
+| 3 | Supabase backend | [phase-03-backend.md](phase-03-backend.md) | ✅ done (18 migrations, 77 pgTAP) | 2 wk |
 | 4 | Auth & onboarding | [phase-04-auth-onboarding.md](phase-04-auth-onboarding.md) | ✅ done (Google verified to the account picker; Apple needs a paid team) | 1 wk |
-| 5 | Core loop | [phase-05-core-loop.md](phase-05-core-loop.md) | 🟡 5A,5B done · 5C,5D written (untested) · 5E–5J to do | 3 wk |
+| 5 | Core loop | [phase-05-core-loop.md](phase-05-core-loop.md) | ✅ done (5A–5J; whole loop verified on Android) | 3 wk |
 | 6 | Settle up & UPI | [phase-06-settle-upi.md](phase-06-settle-upi.md) | ⬜ not started | 1 wk |
 | 7 | Sidebar surfaces | [phase-07-sidebar-surfaces.md](phase-07-sidebar-surfaces.md) | ⬜ not started | 1.5 wk |
 | 8 | Offline & realtime | [phase-08-offline-realtime.md](phase-08-offline-realtime.md) | ⬜ not started | 1.5 wk |
@@ -308,7 +308,8 @@ result of things going wrong and being fixed.
 | App id | `com.hisaab.app` |
 | Supabase (hosted) | `https://khzjdtnagkaecbngjvoa.supabase.co` — schema **is** deployed |
 | Supabase (local) | `npx supabase start`, Postgres on 54322, API on 54321 |
-| Credentials | `apps/mobile/.env` — **gitignored**, already populated and working |
+| Credentials | `apps/mobile/.env` — **gitignored**, hosted project |
+| Local override | `apps/mobile/.env.local` — **gitignored**, points at local Supabase via `10.0.2.2`. Required for dev sign-in; delete it to go back to hosted |
 | Xcode | 26.6 installed but **`xcode-select` still points at Command Line Tools** — user must run `sudo xcode-select -s /Applications/Xcode.app` |
 
 ## Commands that actually work
@@ -324,7 +325,7 @@ adb reverse tcp:8081 tcp:8081                            # required each boot
 adb exec-out screencap -p > /tmp/s.png && sips -Z 800 /tmp/s.png --out /tmp/s_small.png
 
 # Database
-npx supabase db reset && npx supabase test db            # local, 68 pgTAP tests
+npx supabase db reset && npx supabase test db            # local, 77 pgTAP tests
 npx supabase db push --db-url "postgresql://postgres:<urlenc-pw>@db.<ref>.supabase.co:5432/postgres?sslmode=require"
 ```
 
@@ -350,6 +351,16 @@ every shell — they are not on the default PATH.
    `app.allocate_minor`.
 7. **A temp table cannot be resolved unqualified inside a `search_path = ''` function.**
 8. **Do not put a `GROUP BY` directly inside a scalar subquery** — wrap it.
+9. **PostgREST only exposes `public`.** Every RPC lives in `app`, so a client call resolves as
+   `public.<name>` and fails with "Could not find the function ... in the schema cache". The
+   client API is the wrapper list in `0018_public_api.sql`; a new client-callable RPC needs a
+   wrapper there or it is unreachable from the phone.
+10. **pgTAP tests must not assume an empty database.** The dev seed now populates the same
+    database the tests run against; two tests were asserting global counts and a globally
+    unique email, and broke the moment 5B landed. Scope every assertion to its own fixtures.
+11. **The emulator's "Try out your stylus" tutorial steals keystrokes** the first time a text
+    field is focused, truncating input to one character. Looks exactly like an app bug. Cancel
+    it once per emulator.
 
 ## Testing without real credentials
 
@@ -382,30 +393,60 @@ SHA-1 / package / client-id triple is accepted.
 - `sudo xcode-select -s /Applications/Xcode.app`.
 - Store display name ("Hisaab" is taken); a domain for deep links.
 
-### Phase 5 progress — where to pick up
+### Phase 5 — done, 2026-07-25
 
-**Done and committed**
-- **5A data layer** — `src/lib/api.ts` (typed RPC wrappers; money crosses as a *string*),
-  `queryKeys.ts` (`afterExpenseChange` invalidates Home + group + both people, because they
-  all derive from the same views), `errors.ts` (`ConflictError` for `P0409`).
-  `QueryClientProvider` is in the root layout; mutations never retry a conflict.
-- **5B seed** — `supabase/seed.sql`. Balances verified by hand against the allocator: Goa
-  252750, Flat 302 122666 (the uneven 184000/3 → 61334/61333/61333), Sunday football exactly 0
-  after its settlement. Seed no-ops with a notice until a dev account exists, so the order is:
-  `db reset` → dev sign-in in the app → `db reset` again.
+All ten chunks built and the whole loop walked on the Android emulator against local Supabase
+with the dev seed.
 
-**Written but NOT yet run on a device**
-- **5C Home** (`(app)/index.tsx`) — real data, both tabs, empty states, skeletons, pull to
-  refresh. Empty states are newly written; the design set has none anywhere.
-- **5D Group detail** (`(app)/group/[id].tsx`) — summary card, per-member breakdown,
-  expense list.
-- Supporting: `features/home/EmptyState.tsx`, `features/home/RowSkeleton.tsx`,
-  `features/expenses/ExpenseRow.tsx`, `features/expenses/ScreenHeader.tsx`.
+**What exists**
 
-**Immediate next step:** typecheck currently FAILS on purpose — Home and Group detail link to
-routes that do not exist yet (`/expense/who`, `/expense/new`, `/expense/[id]`, `/person/[id]`).
-Typed routes are doing their job. Create those screens (5E, 5F, 5G, 5H) and the errors clear.
+| Chunk | Where |
+|---|---|
+| 5A data layer | `src/lib/api.ts`, `queryKeys.ts`, `errors.ts` |
+| 5B seed | `supabase/seed.sql` |
+| 5C Home | `(app)/index.tsx` |
+| 5D Group detail | `(app)/group/[id].tsx` |
+| 5E Person detail | `(app)/person/[id].tsx` |
+| 5F Picker + new group | `(app)/expense/who.tsx`, `(app)/expense/new-group.tsx` |
+| 5G Expense form | `(app)/expense/new.tsx`, `features/expenses/{useExpenseForm,splitDraft,SplitEditor,PayerSheet,DateSheet,fields,FooterBar}` |
+| 5H Detail / edit / delete | `(app)/expense/[id].tsx`, `(app)/expense/edit.tsx`, `features/expenses/ConflictSheet.tsx` |
+| 5I Ripple navigation | `design/motion/RippleNav.tsx` |
 
-**Gotcha already hit:** `get_group_detail` returns a balance per member but does NOT label
-which one is the caller. Match against `useSession().profile.id` — do not try to infer it from
-the balances, they net to zero by construction.
+**Verified on device, not just written**
+
+- ₹100 split three ways writes `3334 / 3333 / 3333` — exactly ₹100. That is the bug the
+  prototype has (`Math.round` per share) and the reason the allocator exists.
+- Balances agree across Home, group detail and person detail, and move together after a write.
+- Naming the group field on a one-off really does promote the participant set into a group.
+- Edit bumps `revision` and records an `updated` row in `expense_revisions`.
+- Delete soft-deletes; the group's balance then flips to what the surviving settlement says,
+  which is derived balances behaving correctly rather than a bug.
+- Empty states, the settled badge, and the error state all render (the error state was seen for
+  real, courtesy of trap #9).
+
+**What Phase 5 changed in the backend**
+
+- `0016_group_mutations.sql` — `create_group` / `add_group_members`. Groups previously could
+  only come into existence as a side effect of `create_expense`'s `new_group`, so the picker's
+  "+ New group" escape hatch had nothing to call.
+- `0017_expense_detail.sql` — `get_expense_detail`, one round trip for the screen the design
+  set never had.
+- `0018_public_api.sql` — the client API surface. See trap #9.
+
+All three are applied to the hosted project as well as locally.
+
+**Known rough edges, deliberately left**
+
+- The ripple is a veil expanding over the outgoing screen rather than a mask revealing the
+  incoming one — a router will not hand you both screens as nodes. Reads the same because the
+  veil is the colour the screens already sit on. See the comment at the top of `RippleNav.tsx`.
+- Receipts (`expense_attachments`) are read by `get_expense_detail` but nothing displays or
+  uploads them yet — that is Phase 9.
+- Settle up is still a toast on both group and person detail. Phase 6.
+- Group members / group settings has no screen; `onMembers` in the prototype was bound to
+  nothing and it still needs designing.
+
+### Next: Phase 6 — Settle up & UPI
+
+`plan/phase-06-settle-upi.md`. `record_settlement` already exists and is tested; the screen,
+the UPI native module and the QR fallback do not.

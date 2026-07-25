@@ -1,6 +1,9 @@
 # Phase 5 — The core loop
 
-**Status:** 🟡 in progress · **Estimate:** 3 weeks · **Depends on:** Phases 1–4 (all done)
+**Status:** ✅ done, 2026-07-25 · **Estimate:** 3 weeks · **Depends on:** Phases 1–4 (all done)
+
+Every acceptance criterion below was checked on the Android emulator against local Supabase
+with the dev seed — see `plan/PROGRESS.md` for what was verified and what it exposed.
 
 The actual product: see your balances, add an expense, watch the balance move. Largest phase,
 and it contains the one screen that must be **designed** before it can be built.
