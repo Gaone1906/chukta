@@ -1,65 +1,192 @@
+import { money } from '@hisaab/core';
+import { useQuery } from '@tanstack/react-query';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Circle, Path } from 'react-native-svg';
 
-import { GlassButton, GlassSurface, color, font } from '@/design';
-import { useSession } from '@/features/auth/session';
+import { FAB, Row, SegmentedSwitcher, Toast, color, font, space } from '@/design';
+import { EmptyState } from '@/features/home/EmptyState';
+import { RowSkeleton } from '@/features/home/RowSkeleton';
+import { getHomeSummary } from '@/lib/api';
+import { queryKeys } from '@/lib/queryKeys';
+
+const WORDMARK = require('../../../assets/brand/hisaab-mark.png');
 
 /**
- * PLACEHOLDER. The real Home — segmented switcher, group and person rows, the FAB — is
- * Phase 5. This exists so onboarding has somewhere to land, and so signing in end to end is
- * verifiable now rather than in three weeks.
+ * Home — the hub.
+ * Ported from design-reference/screens/Hisaab Home.dc.html.
+ *
+ * Both tabs and every balance arrive in ONE round trip (`get_home_summary`). The obvious
+ * alternative — a query per list plus one per balance — is a request waterfall on the screen
+ * users open most.
  */
 export default function Home() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { profile, session, signOut } = useSession();
+  const [tab, setTab] = useState<'groups' | 'people'>('groups');
+  const [toast, setToast] = useState<string | null>(null);
+
+  const { data, isLoading, isRefetching, refetch, error } = useQuery({
+    queryKey: queryKeys.home(),
+    queryFn: getHomeSummary,
+  });
+
+  const ping = (message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 2600);
+  };
+
+  const groups = data?.groups ?? [];
+  const people = data?.people ?? [];
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 30 }]}>
-      <Text style={styles.heading}>Hisaab</Text>
-      <Text style={styles.sub}>Signed in. Home lands in Phase 5.</Text>
+    <View style={styles.root}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingTop: insets.top + 14, paddingBottom: insets.bottom + 150 },
+        ]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching && !isLoading}
+            onRefresh={() => void refetch()}
+            tintColor={color.goldBright}
+            colors={[color.goldLeaf]}
+            progressBackgroundColor={color.bgBase}
+          />
+        }
+      >
+        <View style={styles.header}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open profile"
+            style={styles.profileButton}
+            onPress={() => ping('Sidebar arrives in Phase 7.')}
+          >
+            <Svg width={17} height={18} viewBox="0 0 17 18" fill="none">
+              <Circle cx={8.5} cy={5.4} r={3.6} stroke="rgba(244,237,228,.85)" strokeWidth={1.4} />
+              <Path
+                d="M1.8 16.5c0-3.1 3-5.2 6.7-5.2s6.7 2.1 6.7 5.2"
+                stroke="rgba(244,237,228,.85)"
+                strokeWidth={1.4}
+                strokeLinecap="round"
+              />
+            </Svg>
+          </Pressable>
 
-      <GlassSurface radius={24} contentStyle={styles.card}>
-        <Row label="Name" value={profile?.display_name ?? '—'} />
-        <Row label="UPI ID" value={profile?.upi_vpa ?? 'not set'} />
-        <Row label="Profile id" value={profile?.id?.slice(0, 8) ?? '—'} />
-        <Row label="User id" value={session?.user.id.slice(0, 8) ?? '—'} />
-      </GlassSurface>
+          <Image source={WORDMARK} style={styles.wordmark} contentFit="contain" />
+        </View>
 
-      <View style={styles.spacer} />
+        <View style={styles.switcher}>
+          <SegmentedSwitcher
+            options={[
+              { value: 'groups', label: 'Groups' },
+              { value: 'people', label: 'People' },
+            ]}
+            value={tab}
+            onChange={setTab}
+          />
+        </View>
 
-      <GlassButton label="Kitchen sink" onPress={() => router.push('/_dev/kitchen-sink')} />
-      <GlassButton label="Sign out" onPress={() => void signOut()} style={styles.signOut} />
+        <View style={styles.list}>
+          {error ? (
+            <EmptyState
+              title="Couldn't load your ledger"
+              body={(error as Error).message}
+              actionLabel="Try again"
+              onAction={() => void refetch()}
+            />
+          ) : isLoading ? (
+            <RowSkeleton />
+          ) : tab === 'groups' ? (
+            groups.length === 0 ? (
+              <EmptyState
+                title="No groups yet"
+                body="A group is just a name and the people in it — a trip, a flat, a standing football booking. Add an expense and name it, and the group makes itself."
+                actionLabel="Add an expense"
+                onAction={() => router.push('/expense/who')}
+              />
+            ) : (
+              groups.map((g) => (
+                <Row
+                  key={g.id}
+                  name={g.name}
+                  meta={`${g.member_count} ${g.member_count === 1 ? 'member' : 'members'}`}
+                  balance={money(g.net_minor, g.currency)}
+                  onPress={() => router.push(`/group/${g.id}`)}
+                />
+              ))
+            )
+          ) : people.length === 0 ? (
+            <EmptyState
+              title="Nobody here yet"
+              body="People show up once you share an expense with them. You don't have to add anyone first."
+              actionLabel="Add an expense"
+              onAction={() => router.push('/expense/who')}
+            />
+          ) : (
+            people.map((p) => (
+              <Row
+                key={p.id}
+                name={p.display_name}
+                meta={
+                  p.shared_group_count > 0
+                    ? `${p.shared_group_count} shared ${p.shared_group_count === 1 ? 'group' : 'groups'}`
+                    : 'One-off expenses'
+                }
+                balance={money(p.net_minor, 'INR')}
+                avatar={initials(p.display_name)}
+                avatarTone={p.net_minor > 0n ? 'gold' : p.net_minor < 0n ? 'oxblood' : 'plain'}
+                onPress={() => router.push(`/person/${p.id}`)}
+              />
+            ))
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Fades the list out behind the FAB rather than letting rows collide with it. */}
+      <View pointerEvents="none" style={styles.fade} />
+
+      <FAB
+        style={[styles.fab, { bottom: insets.bottom + 30 }]}
+        onPress={() => router.push('/expense/who')}
+      />
+
+      <Toast message={toast} />
     </View>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.row}>
-      <Text style={styles.label}>{label}</Text>
-      <Text style={styles.value} numberOfLines={1}>
-        {value}
-      </Text>
-    </View>
-  );
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('');
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, paddingHorizontal: 26 },
-  heading: { fontFamily: font.display, fontSize: 34, color: color.cream },
-  sub: { marginTop: 4, marginBottom: 24, fontFamily: font.light, fontSize: 14.5, color: color.textMuted },
-  card: { padding: 18, gap: 14 },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
-  label: {
-    fontFamily: font.regular,
-    fontSize: 10.5,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    color: color.textFaint,
+  root: { flex: 1 },
+  scroll: { paddingHorizontal: 22 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  profileButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: color.glassBorder,
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
-  value: { flex: 1, textAlign: 'right', fontFamily: font.medium, fontSize: 15, color: color.cream },
-  spacer: { flex: 1 },
-  signOut: { marginTop: 11 },
+  wordmark: { width: 124, height: 40, opacity: 0.92 },
+  switcher: { marginTop: 20 },
+  list: { marginTop: 18, gap: 11 },
+  fade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 140 },
+  fab: { position: 'absolute', right: 24 },
+  spacer: { height: space.xxl },
 });

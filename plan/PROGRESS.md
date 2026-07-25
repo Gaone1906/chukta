@@ -23,7 +23,7 @@ Use `Phase 0:` for repo-level chores that belong to no feature phase.
 | 2 | `packages/core` money engine | [phase-02-core-money.md](phase-02-core-money.md) | ✅ done | 0.5 wk |
 | 3 | Supabase backend | [phase-03-backend.md](phase-03-backend.md) | ✅ done (15 migrations, 68 pgTAP) | 2 wk |
 | 4 | Auth & onboarding | [phase-04-auth-onboarding.md](phase-04-auth-onboarding.md) | ✅ done (Google verified to the account picker; Apple needs a paid team) | 1 wk |
-| 5 | Core loop | [phase-05-core-loop.md](phase-05-core-loop.md) | 🟡 in progress — chunks 5A–5J | 3 wk |
+| 5 | Core loop | [phase-05-core-loop.md](phase-05-core-loop.md) | 🟡 5A,5B done · 5C,5D written (untested) · 5E–5J to do | 3 wk |
 | 6 | Settle up & UPI | [phase-06-settle-upi.md](phase-06-settle-upi.md) | ⬜ not started | 1 wk |
 | 7 | Sidebar surfaces | [phase-07-sidebar-surfaces.md](phase-07-sidebar-surfaces.md) | ⬜ not started | 1.5 wk |
 | 8 | Offline & realtime | [phase-08-offline-realtime.md](phase-08-offline-realtime.md) | ⬜ not started | 1.5 wk |
@@ -381,3 +381,31 @@ SHA-1 / package / client-id triple is accepted.
   Apple therefore cannot be demonstrated at all (needs the entitlement).
 - `sudo xcode-select -s /Applications/Xcode.app`.
 - Store display name ("Hisaab" is taken); a domain for deep links.
+
+### Phase 5 progress — where to pick up
+
+**Done and committed**
+- **5A data layer** — `src/lib/api.ts` (typed RPC wrappers; money crosses as a *string*),
+  `queryKeys.ts` (`afterExpenseChange` invalidates Home + group + both people, because they
+  all derive from the same views), `errors.ts` (`ConflictError` for `P0409`).
+  `QueryClientProvider` is in the root layout; mutations never retry a conflict.
+- **5B seed** — `supabase/seed.sql`. Balances verified by hand against the allocator: Goa
+  252750, Flat 302 122666 (the uneven 184000/3 → 61334/61333/61333), Sunday football exactly 0
+  after its settlement. Seed no-ops with a notice until a dev account exists, so the order is:
+  `db reset` → dev sign-in in the app → `db reset` again.
+
+**Written but NOT yet run on a device**
+- **5C Home** (`(app)/index.tsx`) — real data, both tabs, empty states, skeletons, pull to
+  refresh. Empty states are newly written; the design set has none anywhere.
+- **5D Group detail** (`(app)/group/[id].tsx`) — summary card, per-member breakdown,
+  expense list.
+- Supporting: `features/home/EmptyState.tsx`, `features/home/RowSkeleton.tsx`,
+  `features/expenses/ExpenseRow.tsx`, `features/expenses/ScreenHeader.tsx`.
+
+**Immediate next step:** typecheck currently FAILS on purpose — Home and Group detail link to
+routes that do not exist yet (`/expense/who`, `/expense/new`, `/expense/[id]`, `/person/[id]`).
+Typed routes are doing their job. Create those screens (5E, 5F, 5G, 5H) and the errors clear.
+
+**Gotcha already hit:** `get_group_detail` returns a balance per member but does NOT label
+which one is the caller. Match against `useSession().profile.id` — do not try to infer it from
+the balances, they net to zero by construction.
