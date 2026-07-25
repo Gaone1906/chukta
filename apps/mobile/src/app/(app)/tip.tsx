@@ -17,7 +17,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassButton, GlassSurface, Toast, color, font, radius } from '@/design';
 import { ScreenHeader } from '@/features/expenses/ScreenHeader';
 import { inviteMessage, plainInviteUrl } from '@/features/invite/inviteLink';
-import { getMyTips, isTipJarConfigured, tipProducts } from '@/features/tip/purchases';
+import { getMyTips, isTipJarConfigured, purchase, tipProducts } from '@/features/tip/purchases';
+import { rateApp } from '@/features/tip/rate';
 
 /**
  * Tip jar.
@@ -62,6 +63,39 @@ export default function TipJar() {
   const share = async () => {
     try {
       await Share.share({ message: inviteMessage(plainInviteUrl()) });
+    } catch (e) {
+      ping((e as Error).message);
+    }
+  };
+
+  /*
+   * The Send button used to toast "not yet" unconditionally — it never looked at `configured`,
+   * so wiring RevenueCat up would not have changed what it did. It calls `purchase()` now, and
+   * the honest message comes from the error that throws when the store is not wired, which is
+   * the one place that fact is known.
+   */
+  const send = async () => {
+    const product = tipProducts().find((p) => p.amountMinor === amountMinor);
+    try {
+      await purchase(product?.id ?? `tip_custom_${amountMinor}`);
+      ping('Thank you — genuinely.');
+      void tipsQuery.refetch();
+    } catch (e) {
+      ping((e as Error).message);
+    }
+  };
+
+  /*
+   * No success toast on the good path, deliberately. `requestReview()` resolves whether or not
+   * the OS actually showed the sheet — both stores ration these silently — so "thanks for
+   * rating!" would be a lie most of the time. Only the case where there is nowhere at all to
+   * send them says anything. See features/tip/rate.ts.
+   */
+  const rate = async () => {
+    try {
+      if ((await rateApp()) === 'unavailable') {
+        ping('Once Hisaab is on the store, this is where you rate it.');
+      }
     } catch (e) {
       ping((e as Error).message);
     }
@@ -142,14 +176,23 @@ export default function TipJar() {
           }
           variant="primary"
           disabled={!configured || amountMinor <= 0n}
-          onPress={() =>
-            ping(
-              // Named products, so this reads as a thing that is coming rather than broken.
-              `Not yet — tips go through the App Store and Play, and Hisaab isn't on either one yet. ${tipProducts().length} tiers are ready to switch on.`,
-            )
-          }
+          onPress={() => void send()}
           style={styles.send}
         />
+
+        {/* Rate, then Share. Both are in the design (Hisaab Tip Jar.dc.html) and the rating one
+            was dropped in the port. It sits above Share and is styled warmer — gold border and
+            a gold star against Share's plain white — because for someone who opened the tip jar
+            and decided against paying, a rating is the more valuable of the two. */}
+        <Pressable
+          onPress={() => void rate()}
+          accessibilityRole="button"
+          accessibilityLabel="Rate Hisaab"
+          style={({ pressed }) => [styles.ratePill, pressed ? styles.ratePressed : null]}
+        >
+          <Text style={styles.rateStar}>★</Text>
+          <Text style={styles.rateLabel}>Rate Hisaab</Text>
+        </Pressable>
 
         {/* The margin goes on `style`, not `contentStyle` — contentStyle lands on the inner
             view inside the surface, so a margin there pads the content and leaves the panel
@@ -238,6 +281,42 @@ const styles = StyleSheet.create({
   rupee: { fontFamily: font.light, fontSize: 17, color: color.textMuted },
   customInput: { flex: 1, fontFamily: font.medium, fontSize: 16, color: color.cream },
   send: { marginTop: 18 },
+
+  /*
+   * Gold, where Share is white. Straight from the design: `rgba(184,150,60,.4)` border over a
+   * `.1` fill, 44pt tall, fully rounded. Deliberately quieter than the Send button above it
+   * (which is `.6` over `.2`) and warmer than Share below — a three-step ladder of emphasis
+   * rather than two buttons competing.
+   */
+  ratePill: {
+    marginTop: 20,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    height: 44,
+    paddingHorizontal: 20,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(184,150,60,0.4)',
+    backgroundColor: 'rgba(184,150,60,0.1)',
+  },
+  // `scale(.97)` in the design. Kept as a plain Pressable style rather than a Reanimated press
+  // — this is a once-a-year button and does not need a worklet.
+  ratePressed: {
+    transform: [{ scale: 0.97 }],
+    borderColor: 'rgba(184,150,60,0.7)',
+    backgroundColor: 'rgba(184,150,60,0.26)',
+  },
+  rateStar: { color: color.goldBright, fontSize: 15, lineHeight: 18 },
+  rateLabel: {
+    fontFamily: font.medium,
+    fontSize: 14.5,
+    color: 'rgba(246,233,203,0.9)',
+    letterSpacing: 0.1,
+  },
+
   altSpacing: { marginTop: 26 },
   alt: { padding: 16, gap: 12 },
   altTitle: {

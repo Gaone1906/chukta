@@ -45,6 +45,39 @@ export function isTipJarConfigured(): boolean {
   return Boolean(process.env.EXPO_PUBLIC_REVENUECAT_KEY);
 }
 
+/**
+ * Buy one tip.
+ *
+ * This export is the thing the header above has been describing all along and which did not
+ * actually exist — `tip.tsx` never called it, so even with a RevenueCat key set the Send button
+ * toasted "not yet". Both halves of that are fixed: this throws a typed, honest error until the
+ * store is wired, and the screen now branches on `isTipJarConfigured()` and calls it.
+ *
+ * When RevenueCat lands, the body becomes `Purchases.purchaseStoreProduct(...)` and the receipt
+ * goes to the `iap-verify` Edge Function. **The client still never writes `tip_jar_purchases`**
+ * — see the rule above, which does not relax when this gets a real implementation.
+ */
+export class TipUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TipUnavailableError';
+  }
+}
+
+export async function purchase(productId: string): Promise<void> {
+  if (!isTipJarConfigured()) {
+    throw new TipUnavailableError(
+      "Tips go through the App Store and Play, and Hisaab isn't on either one yet.",
+    );
+  }
+
+  // Deliberately not a silent no-op. If the key is set but this is still unimplemented, the
+  // loudest possible failure is the one that gets it finished before anyone is charged.
+  throw new TipUnavailableError(
+    `The store key is set but the purchase flow is not wired up yet (${productId}).`,
+  );
+}
+
 export interface Tip {
   id: string;
   amountMinor: bigint;

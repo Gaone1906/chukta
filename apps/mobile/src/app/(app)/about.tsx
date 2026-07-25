@@ -15,6 +15,7 @@ import Svg, { Path } from 'react-native-svg';
 
 import { GlassSurface, Seal, Toast, color, font, radius, useRippleNav } from '@/design';
 import { ScreenHeader } from '@/features/expenses/ScreenHeader';
+import { rateApp } from '@/features/tip/rate';
 
 /**
  * About.
@@ -51,12 +52,21 @@ export default function About() {
     }
   };
 
-  const rate = () => {
-    // Deliberately honest rather than a dead button: there is no store listing to rate yet,
-    // and expo-store-review would need a native rebuild to even ask. Wired up in Phase 11,
-    // when there is something to link to.
-    setToast('Once Hisaab is on the store, this is where you rate it.');
-    setTimeout(() => setToast(null), 3000);
+  /*
+   * Same handler as the tip jar's gold pill — one ladder (review sheet → store URL → an honest
+   * message), one place to change it. See features/tip/rate.ts for why there is no success
+   * message on the good path.
+   */
+  const rate = async () => {
+    try {
+      if ((await rateApp()) === 'unavailable') {
+        setToast('Once Hisaab is on the store, this is where you rate it.');
+        setTimeout(() => setToast(null), 3000);
+      }
+    } catch (e) {
+      setToast((e as Error).message);
+      setTimeout(() => setToast(null), 3000);
+    }
   };
 
   return (
@@ -86,7 +96,7 @@ export default function About() {
           <Rule />
           <LinkRow label="Privacy Policy" onPress={() => void openLegal('privacy')} />
           <Rule />
-          <LinkRow label="Rate Hisaab" onPress={rate} />
+          <LinkRow label="Rate Hisaab" onPress={() => void rate()} />
           <Rule />
           <LinkRow
             label="Tip jar"
