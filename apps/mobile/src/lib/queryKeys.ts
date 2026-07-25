@@ -13,6 +13,7 @@ export const queryKeys = {
   expense: (expenseId: string) => ['expense', expenseId] as const,
   simplifiedDebts: (groupId: string) => ['simplified-debts', groupId] as const,
   contacts: (search: string) => ['contacts', search] as const,
+  notificationPrefs: () => ['notification-prefs'] as const,
 };
 
 /**

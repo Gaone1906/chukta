@@ -95,7 +95,7 @@ export default function GroupDetail() {
         ) : (
           <>
             {/* Summary card: net position, then who owes what inside the group. */}
-            <GlassSurface radius={radius.panel} elevation="glass" contentStyle={styles.summary}>
+            <GlassSurface radius={radius.panel} elevation="glass" style={styles.summarySpacing} contentStyle={styles.summary}>
               <Text style={styles.summaryLabel}>
                 {myNet > 0n ? "You're owed" : myNet < 0n ? 'You owe' : 'All square'}
               </Text>
@@ -215,7 +215,11 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   scroll: { paddingHorizontal: 22 },
   loading: { marginTop: 24 },
-  summary: { marginTop: 22, padding: 20, gap: 14 },
+  // Margin on `style`, not `contentStyle`. contentStyle lands on the inner view inside
+  // GlassSurface, so a margin there pads the content and leaves the card itself flush
+  // against whatever is above it.
+  summarySpacing: { marginTop: 22 },
+  summary: { padding: 20, gap: 14 },
   summaryLabel: {
     fontFamily: font.regular,
     fontSize: 10.5,

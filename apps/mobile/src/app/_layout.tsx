@@ -7,10 +7,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import { AmbientBackground, color } from '@/design';
+import { AmbientBackground, Toast, color } from '@/design';
 import { BlurTargetProvider } from '@/design/blurTarget';
 import { useAppFonts } from '@/design/fonts';
 import { SessionProvider, useSession } from '@/features/auth/session';
+import { usePendingInvite } from '@/features/invite/usePendingInvite';
 import { isConflict } from '@/lib/errors';
 
 const queryClient = new QueryClient({
@@ -94,6 +95,10 @@ function RootNavigator() {
   const pathname = usePathname();
   const router = useRouter();
 
+  // Lives here rather than on a screen: an invite link can land on any of them, and the claim
+  // has to survive the redirect through sign-in that it almost always triggers.
+  const inviteMessage = usePendingInvite();
+
   useEffect(() => {
     // Wait until the persisted session has been read, or we bounce to login and back on every
     // cold start.
@@ -120,13 +125,16 @@ function RootNavigator() {
   }, [loading, session, needsProfileSetup, pathname, router]);
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        // Screens must be transparent so the ambient background shows through.
-        contentStyle: { backgroundColor: 'transparent' },
-        animation: 'fade',
-      }}
-    />
+    <>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          // Screens must be transparent so the ambient background shows through.
+          contentStyle: { backgroundColor: 'transparent' },
+          animation: 'fade',
+        }}
+      />
+      <Toast message={inviteMessage} />
+    </>
   );
 }

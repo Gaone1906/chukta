@@ -101,7 +101,7 @@ export default function PersonDetail() {
           </View>
         ) : (
           <>
-            <GlassSurface radius={radius.panel} elevation="glass" contentStyle={styles.summary}>
+            <GlassSurface radius={radius.panel} elevation="glass" style={styles.summarySpacing} contentStyle={styles.summary}>
               <View style={styles.summaryTop}>
                 <View style={styles.summaryLeft}>
                   <Text style={styles.summaryLabel}>
@@ -237,7 +237,11 @@ const styles = StyleSheet.create({
   name: { flex: 1, fontFamily: font.display, fontSize: 34, color: color.cream },
   nameMeta: { fontFamily: font.light, fontSize: 12.5, color: color.textFaint },
   loading: { marginTop: 24 },
-  summary: { marginTop: 16, padding: 20, gap: 14 },
+  // Margin on `style`, not `contentStyle`. contentStyle lands on the inner view inside
+  // GlassSurface, so a margin there pads the content and leaves the card itself flush
+  // against whatever is above it.
+  summarySpacing: { marginTop: 16 },
+  summary: { padding: 20, gap: 14 },
   summaryTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
   summaryLeft: { flex: 1, gap: 7 },
   summaryLabel: {

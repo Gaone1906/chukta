@@ -157,14 +157,14 @@ export default function ExpenseDetailScreen() {
         ) : (
           <>
             {e.deleted_at ? (
-              <GlassSurface radius={radius.cardCompact} contentStyle={styles.deletedBanner}>
+              <GlassSurface radius={radius.cardCompact} style={styles.deletedBannerSpacing} contentStyle={styles.deletedBanner}>
                 <Text style={styles.deletedText}>
                   This expense was deleted. It no longer counts towards anyone&rsquo;s balance.
                 </Text>
               </GlassSurface>
             ) : null}
 
-            <GlassSurface radius={radius.panel} elevation="glass" contentStyle={styles.summary}>
+            <GlassSurface radius={radius.panel} elevation="glass" style={styles.summarySpacing} contentStyle={styles.summary}>
               <Text style={styles.total}>{formatAmount(money(e.amount_minor, 'INR'))}</Text>
               <Text style={styles.splitType}>{SPLIT_LABEL[e.split_type]}</Text>
 
@@ -394,9 +394,14 @@ const styles = StyleSheet.create({
   editButton: { paddingHorizontal: 14, paddingVertical: 8 },
   editLabel: { fontFamily: font.medium, fontSize: 15, color: color.creamWarm },
   loading: { marginTop: 24 },
-  deletedBanner: { marginTop: 18, padding: 15 },
+  // Margin on `style`, not `contentStyle`. contentStyle lands on the inner view inside
+  // GlassSurface, so a margin there pads the content and leaves the card itself flush
+  // against whatever is above it.
+  deletedBannerSpacing: { marginTop: 18 },
+  deletedBanner: { padding: 15 },
   deletedText: { fontFamily: font.light, fontSize: 13.5, lineHeight: 20, color: color.creamRose },
-  summary: { marginTop: 20, padding: 20, gap: 6 },
+  summarySpacing: { marginTop: 20 },
+  summary: { padding: 20, gap: 6 },
   total: { fontFamily: font.semibold, fontSize: 38, color: color.textHighlight },
   splitType: { fontFamily: font.light, fontSize: 13, color: color.textMuted },
   divider: { marginVertical: 12, height: 1, backgroundColor: 'rgba(255,255,255,0.09)' },

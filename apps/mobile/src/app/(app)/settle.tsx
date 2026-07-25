@@ -196,7 +196,7 @@ export default function SettleUp() {
           />
         ) : (
           <>
-            <GlassSurface radius={radius.panel} elevation="glass" contentStyle={styles.amountCard}>
+            <GlassSurface radius={radius.panel} elevation="glass" style={styles.amountCardSpacing} contentStyle={styles.amountCard}>
               <Text style={styles.label}>{iOwe ? 'You owe' : `${firstName} owes you`}</Text>
 
               <View style={styles.amountRow}>
@@ -383,7 +383,11 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   scroll: { paddingHorizontal: 22 },
   loading: { marginTop: 26 },
-  amountCard: { marginTop: 22, padding: 20, gap: 8 },
+  // Margin on `style`, not `contentStyle`. contentStyle lands on the inner view inside
+  // GlassSurface, so a margin there pads the content and leaves the card itself flush
+  // against whatever is above it.
+  amountCardSpacing: { marginTop: 22 },
+  amountCard: { padding: 20, gap: 8 },
   label: {
     fontFamily: font.regular,
     fontSize: 10.5,

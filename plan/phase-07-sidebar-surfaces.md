@@ -1,6 +1,12 @@
 # Phase 7 — Sidebar surfaces
 
-**Status:** ⬜ not started · **Estimate:** 1.5 weeks · **Depends on:** Phase 5
+**Status:** ✅ built, 2026-07-25 · **Estimate:** 1.5 weeks · **Depends on:** Phase 5
+
+> Outcome, deviations and what is still blocked: `plan/PROGRESS.md` → "Phase 7 — Sidebar
+> surfaces". Three things below were **not** built as written — the `pg_trgm` directory search
+> (a user-enumeration API), an editable currency picker (v1 is INR-only by CHECK constraint),
+> and the tip purchase itself (needs developer accounts). Read that entry before treating any
+> of this file as the plan of record.
 
 ## Goal
 

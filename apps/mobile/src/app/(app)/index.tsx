@@ -7,10 +7,11 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { FAB, Row, SegmentedSwitcher, Toast, color, space, useRippleNav } from '@/design';
+import { FAB, Row, SegmentedSwitcher, color, space, useRippleNav } from '@/design';
 import { EmptyState } from '@/features/home/EmptyState';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
 import { initials } from '@/features/people/Avatar';
+import { Sidebar } from '@/features/sidebar/Sidebar';
 import { getHomeSummary } from '@/lib/api';
 import { queryKeys } from '@/lib/queryKeys';
 
@@ -29,17 +30,12 @@ export default function Home() {
   const router = useRouter();
   const { rippleTo } = useRippleNav();
   const [tab, setTab] = useState<'groups' | 'people'>('groups');
-  const [toast, setToast] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const { data, isLoading, isRefetching, refetch, error } = useQuery({
     queryKey: queryKeys.home(),
     queryFn: getHomeSummary,
   });
-
-  const ping = (message: string) => {
-    setToast(message);
-    setTimeout(() => setToast(null), 2600);
-  };
 
   const groups = data?.groups ?? [];
   const people = data?.people ?? [];
@@ -67,7 +63,7 @@ export default function Home() {
             accessibilityRole="button"
             accessibilityLabel="Open profile"
             style={styles.profileButton}
-            onPress={() => ping('Sidebar arrives in Phase 7.')}
+            onPress={() => setSidebarOpen(true)}
           >
             <Svg width={17} height={18} viewBox="0 0 17 18" fill="none">
               <Circle cx={8.5} cy={5.4} r={3.6} stroke="rgba(244,237,228,.85)" strokeWidth={1.4} />
@@ -158,7 +154,7 @@ export default function Home() {
         onPress={(at) => rippleTo(at, () => router.push('/expense/who'))}
       />
 
-      <Toast message={toast} />
+      <Sidebar visible={sidebarOpen} onClose={() => setSidebarOpen(false)} />
     </View>
   );
 }

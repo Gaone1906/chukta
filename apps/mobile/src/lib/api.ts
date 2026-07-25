@@ -515,3 +515,99 @@ export async function searchKnownPeople(search: string): Promise<HomePerson[]> {
   if (!term) return home.people;
   return home.people.filter((p) => p.display_name.toLowerCase().includes(term));
 }
+
+// ---------------------------------------------------------------- sidebar surfaces
+
+export interface NotificationPrefs {
+  new_expenses: boolean;
+  expense_edits: boolean;
+  comments: boolean;
+  settlements: boolean;
+  reminders: boolean;
+}
+
+const DEFAULT_PREFS: NotificationPrefs = {
+  new_expenses: true,
+  expense_edits: true,
+  comments: true,
+  settlements: true,
+  reminders: true,
+};
+
+/**
+ * Notification preferences, defaulted rather than required to exist.
+ *
+ * The row is created lazily on the first change, so a user who never opens Settings has no row
+ * at all — and "no row" has to mean the defaults, not "everything off". Phase 9 reads the same
+ * table server-side and applies the same defaults there.
+ */
+export async function getNotificationPrefs(profileId: string): Promise<NotificationPrefs> {
+  const { data, error } = await supabase
+    .from('notification_prefs')
+    .select('new_expenses, expense_edits, comments, settlements, reminders')
+    .eq('profile_id', profileId)
+    .maybeSingle();
+
+  if (error) throw translateError(error);
+  return { ...DEFAULT_PREFS, ...(data ?? {}) };
+}
+
+export async function setNotificationPrefs(
+  profileId: string,
+  prefs: NotificationPrefs,
+): Promise<void> {
+  // Upsert rather than update: the row may genuinely not exist yet.
+  const { error } = await supabase
+    .from('notification_prefs')
+    .upsert({ profile_id: profileId, ...prefs }, { onConflict: 'profile_id' });
+
+  if (error) throw translateError(error);
+}
+
+export async function updateMyProfile(
+  profileId: string,
+  patch: { display_name?: string; upi_vpa?: string | null; avatar_url?: string | null },
+): Promise<void> {
+  // A plain table write, not an RPC: 0010 grants UPDATE on exactly these columns and the
+  // profiles_update_self policy scopes it to your own row. Nothing here crosses to anyone else.
+  const { error } = await supabase.from('profiles').update(patch).eq('id', profileId);
+  if (error) throw translateError(error);
+}
+
+export async function submitFeedback(
+  profileId: string,
+  body: string,
+  meta: { appVersion?: string; platform?: string } = {},
+): Promise<void> {
+  const { error } = await supabase.from('feedback').insert({
+    profile_id: profileId,
+    body: body.trim(),
+    app_version: meta.appVersion ?? null,
+    platform: meta.platform ?? null,
+  });
+  if (error) throw translateError(error);
+}
+
+export interface InviteLink {
+  token: string;
+  profile_id: string;
+  display_name: string;
+  expires_at: string;
+}
+
+/** Mint a claim token for a placeholder. Only works for someone who has not signed up. */
+export async function createInviteLink(profileId: string): Promise<InviteLink> {
+  return rpc<InviteLink>('create_invite_link', { p_profile_id: profileId });
+}
+
+export async function claimPlaceholder(token: string): Promise<{ profile_id: string; merged: boolean }> {
+  return rpc('claim_placeholder', { p_token: token });
+}
+
+/**
+ * Delete the account. Anonymises the profile and removes the login — see 0020 for why a hard
+ * delete is impossible when your splits are half of somebody else's balance.
+ */
+export async function deleteAccount(): Promise<void> {
+  await rpc('delete_account', {});
+}

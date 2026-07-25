@@ -7,134 +7,22 @@ export type Json =
   | Json[]
 
 export type Database = {
-  app: {
+  graphql_public: {
     Tables: {
       [_ in never]: never
     }
     Views: {
-      v_group_balances: {
-        Row: {
-          ccy: string | null
-          group_id: string | null
-          net_minor: number | null
-          profile_id: string | null
-        }
-        Relationships: []
-      }
-      v_pair_balances: {
-        Row: {
-          ccy: string | null
-          hi: string | null
-          lo: string | null
-          net_minor: number | null
-        }
-        Relationships: []
-      }
-      v_pair_ledger: {
-        Row: {
-          amt: number | null
-          ccy: string | null
-          group_id: string | null
-          hi: string | null
-          lo: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
-      add_comment: {
+      graphql: {
         Args: {
-          p_body: string
-          p_client_mutation_id: string
-          p_expense_id: string
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
         }
         Returns: Json
-      }
-      allocate_minor: {
-        Args: { p_keys: string[]; p_total: number; p_weights: number[] }
-        Returns: number[]
-      }
-      claim_placeholder: { Args: { p_token: string }; Returns: Json }
-      create_expense: {
-        Args: { p_client_mutation_id: string; p_payload: Json }
-        Returns: Json
-      }
-      delete_expense: {
-        Args: {
-          p_client_mutation_id: string
-          p_expected_revision: number
-          p_expense_id: string
-        }
-        Returns: Json
-      }
-      expense_diff: { Args: { p_after: Json; p_before: Json }; Returns: Json }
-      expense_snapshot: { Args: { p_expense_id: string }; Returns: Json }
-      floor_div: {
-        Args: { denominator: number; numerator: number }
-        Returns: number
-      }
-      get_group_detail: {
-        Args: { p_before?: string; p_group_id: string; p_limit?: number }
-        Returns: Json
-      }
-      get_home_summary: { Args: never; Returns: Json }
-      get_person_detail: {
-        Args: { p_limit?: number; p_profile_id: string }
-        Returns: Json
-      }
-      merge_profiles: {
-        Args: { p_reason?: string; p_source: string; p_target: string }
-        Returns: Json
-      }
-      next_recurrence: {
-        Args: {
-          p_day_of_month: number
-          p_frequency: string
-          p_from: string
-          p_interval_count: number
-        }
-        Returns: string
-      }
-      rebuild_expense_debts: {
-        Args: { p_expense_id: string }
-        Returns: undefined
-      }
-      record_settlement: {
-        Args: { p_client_mutation_id: string; p_payload: Json }
-        Returns: Json
-      }
-      restore_expense: {
-        Args: { p_client_mutation_id: string; p_expense_id: string }
-        Returns: Json
-      }
-      simplify_group_debts: {
-        Args: { p_group_id: string }
-        Returns: {
-          amount_minor: number
-          from_profile_id: string
-          to_profile_id: string
-        }[]
-      }
-      sync_pull: {
-        Args: { p_limit?: number; p_since_event_id?: number }
-        Returns: Json
-      }
-      update_expense: {
-        Args: {
-          p_client_mutation_id: string
-          p_expected_revision: number
-          p_expense_id: string
-          p_payload: Json
-        }
-        Returns: Json
-      }
-      upsert_contact_profile: {
-        Args: {
-          p_display_name: string
-          p_kind?: Database["public"]["Enums"]["contact_kind"]
-          p_value_norm?: string
-        }
-        Returns: string
       }
     }
     Enums: {
@@ -1177,12 +1065,143 @@ export type Database = {
           },
         ]
       }
+      tip_jar_purchases: {
+        Row: {
+          amount_minor: number
+          created_at: string
+          currency: string
+          id: string
+          product_id: string
+          profile_id: string
+          purchased_at: string
+          raw_receipt: Json | null
+          store: string
+          store_txn_id: string
+          verified_at: string
+        }
+        Insert: {
+          amount_minor: number
+          created_at?: string
+          currency?: string
+          id?: string
+          product_id: string
+          profile_id: string
+          purchased_at?: string
+          raw_receipt?: Json | null
+          store: string
+          store_txn_id: string
+          verified_at?: string
+        }
+        Update: {
+          amount_minor?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          product_id?: string
+          profile_id?: string
+          purchased_at?: string
+          raw_receipt?: Json | null
+          store?: string
+          store_txn_id?: string
+          verified_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tip_jar_purchases_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      add_comment: {
+        Args: {
+          p_body: string
+          p_client_mutation_id: string
+          p_expense_id: string
+        }
+        Returns: Json
+      }
+      add_group_members: {
+        Args: {
+          p_client_mutation_id: string
+          p_group_id: string
+          p_profile_ids: string[]
+        }
+        Returns: Json
+      }
+      claim_placeholder: { Args: { p_token: string }; Returns: Json }
+      create_expense: {
+        Args: { p_client_mutation_id: string; p_payload: Json }
+        Returns: Json
+      }
+      create_group: {
+        Args: { p_client_mutation_id: string; p_payload: Json }
+        Returns: Json
+      }
+      create_invite_link: { Args: { p_profile_id: string }; Returns: Json }
+      delete_account: { Args: never; Returns: Json }
+      delete_expense: {
+        Args: {
+          p_client_mutation_id: string
+          p_expected_revision: number
+          p_expense_id: string
+        }
+        Returns: Json
+      }
+      get_expense_detail: { Args: { p_expense_id: string }; Returns: Json }
+      get_group_detail: {
+        Args: { p_before?: string; p_group_id: string; p_limit?: number }
+        Returns: Json
+      }
+      get_home_summary: { Args: never; Returns: Json }
+      get_person_detail: {
+        Args: { p_limit?: number; p_profile_id: string }
+        Returns: Json
+      }
+      record_settlement: {
+        Args: { p_client_mutation_id: string; p_payload: Json }
+        Returns: Json
+      }
+      restore_expense: {
+        Args: { p_client_mutation_id: string; p_expense_id: string }
+        Returns: Json
+      }
+      simplify_group_debts: {
+        Args: { p_group_id: string }
+        Returns: {
+          amount_minor: number
+          from_profile_id: string
+          to_profile_id: string
+        }[]
+      }
+      sync_pull: {
+        Args: { p_limit?: number; p_since_event_id?: number }
+        Returns: Json
+      }
+      update_expense: {
+        Args: {
+          p_client_mutation_id: string
+          p_expected_revision: number
+          p_expense_id: string
+          p_payload: Json
+        }
+        Returns: Json
+      }
+      upsert_contact_profile: {
+        Args: {
+          p_display_name: string
+          p_kind?: Database["public"]["Enums"]["contact_kind"]
+          p_value_norm?: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       contact_kind: "phone" | "email"
@@ -1314,7 +1333,7 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  app: {
+  graphql_public: {
     Enums: {},
   },
   public: {

@@ -8,8 +8,12 @@ import { GlassSurface } from './GlassSurface';
 export interface GlassButtonProps {
   label: string;
   onPress?: () => void;
-  /** 'primary' is the gold-filled CTA; 'secondary' is outlined glass. */
-  variant?: 'primary' | 'secondary';
+  /**
+   * 'primary' is the gold-filled CTA, 'secondary' outlined glass, 'danger' the oxblood fill
+   * for irreversible actions, and 'ghost' a quiet text-only button — which exists so that the
+   * *safe* option beside a destructive one can be visually lighter without being hard to find.
+   */
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
   disabled?: boolean;
   /** Leading icon, vertically centred against the label. */
   icon?: ReactNode;
@@ -30,7 +34,7 @@ export function GlassButton({
     transform: [{ scale: 1 - pressed.value * 0.018 }],
   }));
 
-  const primary = variant === 'primary';
+  const filled = variant === 'primary' || variant === 'danger';
 
   return (
     <Animated.View style={[animatedStyle, style]}>
@@ -48,10 +52,22 @@ export function GlassButton({
         onPress={onPress}
         style={disabled ? styles.disabled : undefined}
       >
-        {primary ? (
-          <View style={styles.primary}>
+        {filled ? (
+          <View style={[styles.primary, variant === 'danger' ? styles.danger : null]}>
             {icon ? <View style={styles.icon}>{icon}</View> : null}
-            <Text style={[styles.label, styles.labelPrimary]}>{label}</Text>
+            <Text
+              style={[
+                styles.label,
+                variant === 'danger' ? styles.labelDanger : styles.labelPrimary,
+              ]}
+            >
+              {label}
+            </Text>
+          </View>
+        ) : variant === 'ghost' ? (
+          <View style={styles.ghost}>
+            {icon ? <View style={styles.icon}>{icon}</View> : null}
+            <Text style={[styles.label, styles.labelGhost]}>{label}</Text>
           </View>
         ) : (
           <GlassSurface radius={radius.pill} elevation="none" contentStyle={styles.secondary}>
@@ -88,8 +104,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
   },
+  danger: { borderColor: color.oweBorder, backgroundColor: color.oweFill },
+  ghost: {
+    height: 50,
+    paddingHorizontal: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
   icon: { alignItems: 'center', justifyContent: 'center' },
   label: { fontFamily: font.medium, fontSize: 16, color: color.cream, letterSpacing: 0.1 },
   labelPrimary: { color: color.creamWarm },
+  labelDanger: { color: color.creamRose },
+  labelGhost: { fontFamily: font.regular, color: color.textMuted },
   disabled: { opacity: 0.35 },
 });

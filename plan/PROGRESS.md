@@ -3,7 +3,7 @@
 Single place to answer "where are we". Update the status table and the log at the end of
 every phase. Each phase has its own file in this directory with the detailed work list.
 
-**Last updated:** 2026-07-25 (Phase 5 done and verified on the emulator)
+**Last updated:** 2026-07-25 (Phase 7 built and walked on the iOS simulator)
 
 ## Conventions
 
@@ -21,11 +21,11 @@ Use `Phase 0:` for repo-level chores that belong to no feature phase.
 | 0 | Repo & scaffold | [phase-00-repo-scaffold.md](phase-00-repo-scaffold.md) | ✅ done | 2–3 d |
 | 1 | Design system & motion | [phase-01-design-system.md](phase-01-design-system.md) | ✅ done (verified on Android **and** iOS) | 1 wk |
 | 2 | `packages/core` money engine | [phase-02-core-money.md](phase-02-core-money.md) | ✅ done | 0.5 wk |
-| 3 | Supabase backend | [phase-03-backend.md](phase-03-backend.md) | ✅ done (18 migrations, 77 pgTAP) | 2 wk |
+| 3 | Supabase backend | [phase-03-backend.md](phase-03-backend.md) | ✅ done (21 migrations, 96 pgTAP) | 2 wk |
 | 4 | Auth & onboarding | [phase-04-auth-onboarding.md](phase-04-auth-onboarding.md) | ✅ done (Google verified to the account picker; Apple needs a paid team) | 1 wk |
 | 5 | Core loop | [phase-05-core-loop.md](phase-05-core-loop.md) | ✅ done (5A–5J; whole loop verified on Android) | 3 wk |
 | 6 | Settle up & UPI | [phase-06-settle-upi.md](phase-06-settle-upi.md) | ✅ built (6A–6C); needs a physical device to close | 1 wk |
-| 7 | Sidebar surfaces | [phase-07-sidebar-surfaces.md](phase-07-sidebar-surfaces.md) | ⬜ not started | 1.5 wk |
+| 7 | Sidebar surfaces | [phase-07-sidebar-surfaces.md](phase-07-sidebar-surfaces.md) | ✅ built; tipping blocked on developer accounts | 1.5 wk |
 | 8 | Offline & realtime | [phase-08-offline-realtime.md](phase-08-offline-realtime.md) | ⬜ not started | 1.5 wk |
 | 9 | Push, FX, recurring, receipts | [phase-09-push-fx-recurring.md](phase-09-push-fx-recurring.md) | ⬜ not started | 1.5 wk |
 | 10 | States & polish | [phase-10-states-polish.md](phase-10-states-polish.md) | ⬜ not started | 1.5 wk |
@@ -62,7 +62,7 @@ Everything from 4 onward is sequential.
 |---|---|---|---|
 | 1 | Store display name — "Hisaab" is taken. Bundle id settled: `com.hisaab.app` | Phase 11 | name open |
 | 2 | ~~Currency: Help FAQ vs feature spec~~ | — | **resolved: INR only for v1** |
-| 3 | Domain for Universal Links / App Links (invite deep links) | Phase 7 | open |
+| 3 | Domain for Universal Links / App Links (invite deep links). Links are built and shareable; they open a web page rather than the app until the association files are published. | Phase 11 | open |
 | 9 | **Hosted Supabase project** — the local stack is Docker on this Mac, unreachable from a phone | device alpha | **needed from user** |
 | 10 | ~~Google OAuth client IDs~~ | — | **done — provider enabled, verified** |
 | 4 | Sentry for crash reporting — assumed yes | Phase 10 | assumed |
@@ -541,7 +541,86 @@ Deliberately a warning, not a block: "I paid for my own thing" is a real thing t
 refusing it would be the app deciding it knows better. Verified on the iOS simulator in both
 directions (you paid / they paid), and that it disappears the moment the split is normal.
 
-### Next: Phase 7 — Sidebar surfaces
+### Phase 7 — Sidebar surfaces — ✅ built, 2026-07-25
 
-`plan/phase-07-sidebar-surfaces.md`. Settings, Add friend (share sheet), Tip jar, Help, About.
-The Home profile button and the group members row are both still stubs pointing here.
+All six surfaces exist and every sidebar row navigates. Walked end to end on the iOS simulator
+against local Supabase with the dev seed.
+
+**What exists**
+
+| Piece | Where |
+|---|---|
+| Sidebar drawer | `features/sidebar/Sidebar.tsx` |
+| Settings | `(app)/settings.tsx`, `features/settings/{SettingsGroup,EditFieldSheet,DeleteAccountSheet}` |
+| Invite friends | `(app)/invite.tsx`, `features/invite/{inviteLink,usePendingInvite}` |
+| Tip jar | `(app)/tip.tsx`, `features/tip/purchases.ts` |
+| Help | `(app)/help.tsx` |
+| About | `(app)/about.tsx` |
+| Backend | `0020_sidebar_surfaces.sql`, `0021_public_api_phase7.sql`, `tests/sidebar.test.sql` |
+
+**Backend was almost all already there.** Phase 3 built `profile_claims`, `notification_prefs`
+and `feedback`, and 0010 granted the self-scoped writes with column-level grants plus RLS — so
+profile edits, the notification toggles and the feedback box are ordinary table writes with no
+RPC layer. Only three things needed writing: `create_invite_link`, `delete_account`, and the
+`tip_jar_purchases` table.
+
+**Verified on device, not just written**
+
+- Editing the UPI ID round-trips: `profiles.upi_vpa = 'pranav@okhdfcbank'` after a save.
+- A notification toggle lazily creates the row: `notification_prefs.comments = false` with no
+  row beforehand.
+- Tapping Invite on a placeholder mints a claim with **only** the 32-byte SHA-256 stored, and
+  opens the real iOS share sheet with the personalised message.
+- The sidebar version reads `1.0.0` from `expo-constants` — not the prototype's hardcoded
+  `v1.0.3`, which disagreed with its own About screen.
+
+**Deviations from the phase plan, all deliberate**
+
+- **No `pg_trgm` name search over all users.** The plan called for one; a fuzzy search across
+  every profile is a user-enumeration API. Finding a specific existing person already works
+  through `upsert_contact_profile`, which matches an **exact** contact point — you have to know
+  their email rather than guess at their name.
+- **Currency is shown, not editable.** v1 is INR-only and enforced by a CHECK on every money
+  row; a picker that cannot work would be a lie about the app.
+- **Five notification toggles, not the prototype's three.** The table has five, and the two the
+  prototype omits (edits, comments) are the ones people most want to turn off.
+- **Deletion is confirmed by typing `DELETE`**, not a second tap. There is no undo and no grace
+  period, so a tap sitting where the previous tap just was is too easy.
+- **The FAQ's currency answer is rewritten.** The prototype answers "a group holds one
+  currency", implying a per-group setting that does not exist.
+
+**Blocked, and why**
+
+- **Tipping cannot complete.** It needs products in App Store Connect and Play Console, which
+  need paid developer accounts. `features/tip/purchases.ts` is the seam: when
+  `EXPO_PUBLIC_REVENUECAT_KEY` exists, `isTipJarConfigured()` flips and `purchase()` gets a
+  body — no screen changes. The button says so rather than failing at the tap.
+- **Invite links do not open the app yet.** They are https URLs pointing at the GitHub Pages
+  site (`EXPO_PUBLIC_INVITE_ORIGIN`), and Universal Links / App Links need the association
+  files on a domain we do not own — open question #3. Chosen over a `hisaab://` scheme
+  deliberately: a custom scheme fails *silently* when the app is not installed, which is the
+  entire audience for an invite. `usePendingInvite` already redeems a token from either form.
+- **Rate Hisaab** says "once Hisaab is on the store" rather than being a dead button.
+  `expo-store-review` is a native module and there is no listing to link to. Phase 11.
+
+**Bug found and fixed while verifying, worth remembering**
+
+`GlassSurface`'s `contentStyle` lands on the **inner** view. A `marginTop` there pads the
+content and leaves the card itself flush against whatever is above it. Five Phase 5 screens had
+this — group detail, person detail, settle up, and both cards on expense detail — so their
+summary cards had been sitting tight under the header with a large gap inside since Phase 5.
+Margins now go on `style`; `contentStyle` is padding and gap only.
+
+Also fixed: the Settings switch was writing a Reanimated shared value **during render**, which
+warns and restarts the animation on any re-render. Now a `useDerivedValue`.
+
+### Next: Phase 8 — Offline & realtime
+
+`plan/phase-08-offline-realtime.md`. The outbox, `sync_pull`, the `change_events` subscription
+and the conflict UI. `internal.change_events` and `app.sync_pull` already exist from Phase 3;
+nothing on the client consumes them yet.
+
+Still open from earlier phases: task #43 (empty and error states — the picker uses bare
+one-line text where Home uses `EmptyState`, and error states print raw PostgREST messages at
+users), and **group members / group settings**, which was never designed and is the last hole
+from the original audit — the group detail screen's members row still goes nowhere.
