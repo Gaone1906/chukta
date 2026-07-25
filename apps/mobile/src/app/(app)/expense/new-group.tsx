@@ -51,7 +51,10 @@ export default function NewGroup() {
   const [addingPerson, setAddingPerson] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery({ queryKey: queryKeys.home(), queryFn: getHomeSummary });
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: queryKeys.home(),
+    queryFn: getHomeSummary,
+  });
 
   const term = search.trim().toLowerCase();
   const roster = useMemo(
@@ -174,7 +177,22 @@ export default function NewGroup() {
               </GlassSurface>
             </Pressable>
 
-            {roster.length === 0 ? (
+            {/*
+              * A roster that FAILED is not an empty roster, and the difference matters: "nobody
+              * to add yet" would quietly tell somebody with twenty friends that they have none.
+              *
+              * Unlike the expense form, this does not take over the screen. Naming a group is
+              * the only thing actually required here, and a group of one is legitimate — so the
+              * screen stays usable and the list says why it is short.
+              */}
+            {error && !data ? (
+              <Pressable accessibilityRole="button" onPress={() => void refetch()}>
+                <Text style={styles.none}>
+                  Couldn&rsquo;t load your people. Tap to try again — you can still name the
+                  group and add them later.
+                </Text>
+              </Pressable>
+            ) : roster.length === 0 ? (
               <Text style={styles.none}>
                 Nobody to add yet — a group of one is fine, you can add people later.
               </Text>

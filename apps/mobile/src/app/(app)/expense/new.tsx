@@ -20,6 +20,7 @@ import { FOOTER_CLEARANCE, FooterBar } from '@/features/expenses/FooterBar';
 import { PayerSheet, type Participant } from '@/features/expenses/PayerSheet';
 import { SplitEditor } from '@/features/expenses/SplitEditor';
 import { useExpenseForm } from '@/features/expenses/useExpenseForm';
+import { EmptyState } from '@/features/home/EmptyState';
 import { Avatar } from '@/features/people/Avatar';
 import { BackChevron } from '@/features/onboarding/BackChevron';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
@@ -169,6 +170,37 @@ export default function NewExpense() {
 
   const loading = !profile || (groupId ? groupQuery.isLoading : homeQuery.isLoading);
   const payerLabel = describePayers(form.payers, participants);
+
+  /*
+   * A roster that failed to load is NOT an empty roster.
+   *
+   * Without this, a dropped request left `participants` at `[]` and the form rendered anyway —
+   * an expense you can type an amount into, pick a split for, and not actually complete,
+   * because the people it is between never arrived. Worse, it looked identical to having no
+   * friends yet, so the honest response ("try again") was the one thing the screen did not
+   * suggest.
+   *
+   * Errors only when there is nothing cached to fall back on, which is the same rule Home
+   * follows: a failed REFRESH of a roster we already hold is not worth interrupting anyone for.
+   */
+  const rosterError = groupId ? groupQuery.error : homeQuery.error;
+  const rosterMissing = groupId ? !groupQuery.data : !homeQuery.data;
+
+  if (rosterError && rosterMissing) {
+    return (
+      <View style={styles.root}>
+        <View style={[styles.errorTop, { paddingTop: insets.top + 14 }]}>
+          <BackChevron onPress={() => router.back()} />
+        </View>
+        <EmptyState
+          title="Couldn't load who this is between"
+          body={(rosterError as Error).message}
+          actionLabel="Try again"
+          onAction={() => void (groupId ? groupQuery.refetch() : homeQuery.refetch())}
+        />
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -328,6 +360,7 @@ function describePayers(
 }
 
 const styles = StyleSheet.create({
+  errorTop: { paddingHorizontal: 20, paddingBottom: 8 },
   root: { flex: 1 },
   scroll: { paddingHorizontal: 22 },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
