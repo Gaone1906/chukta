@@ -3,7 +3,7 @@
 Single place to answer "where are we". Update the status table and the log at the end of
 every phase. Each phase has its own file in this directory with the detailed work list.
 
-**Last updated:** 2026-07-25 (Phase 7 built and walked on the iOS simulator)
+**Last updated:** 2026-07-25 (Phase 7, then a round of fixes from using it)
 
 ## Conventions
 
@@ -21,7 +21,7 @@ Use `Phase 0:` for repo-level chores that belong to no feature phase.
 | 0 | Repo & scaffold | [phase-00-repo-scaffold.md](phase-00-repo-scaffold.md) | ✅ done | 2–3 d |
 | 1 | Design system & motion | [phase-01-design-system.md](phase-01-design-system.md) | ✅ done (verified on Android **and** iOS) | 1 wk |
 | 2 | `packages/core` money engine | [phase-02-core-money.md](phase-02-core-money.md) | ✅ done | 0.5 wk |
-| 3 | Supabase backend | [phase-03-backend.md](phase-03-backend.md) | ✅ done (21 migrations, 96 pgTAP) | 2 wk |
+| 3 | Supabase backend | [phase-03-backend.md](phase-03-backend.md) | ✅ done (22 migrations, 98 pgTAP) | 2 wk |
 | 4 | Auth & onboarding | [phase-04-auth-onboarding.md](phase-04-auth-onboarding.md) | ✅ done (Google verified to the account picker; Apple needs a paid team) | 1 wk |
 | 5 | Core loop | [phase-05-core-loop.md](phase-05-core-loop.md) | ✅ done (5A–5J; whole loop verified on Android) | 3 wk |
 | 6 | Settle up & UPI | [phase-06-settle-upi.md](phase-06-settle-upi.md) | ✅ built (6A–6C); needs a physical device to close | 1 wk |
@@ -613,6 +613,65 @@ Margins now go on `style`; `contentStyle` is padding and gap only.
 
 Also fixed: the Settings switch was writing a Reanimated shared value **during render**, which
 warns and restarts the animation on any re-render. Now a `useDerivedValue`.
+
+### Fixes from actually using it, 2026-07-25
+
+Found by the user walking the app rather than by a test. Worth reading before Phase 8, because
+two of them are about *reachability* rather than correctness — the code worked and nobody could
+get to it.
+
+**Adding a person had no visible door.** The capability existed: type a name into the picker's
+search box that matches nobody, and an "add them" row appears. Nothing said so, and the row was
+invisible until the exact right thing had been typed. There is now a `+ Add someone` action
+beside `+ New group` and a permanent last row in the people list, both opening
+`features/people/AddPersonSheet.tsx`.
+
+A sheet, not a route, and the reason generalises: these screens are *holding a selection* —
+the picker's ticked people, the group's member list — so navigating away and back would either
+lose it or need state threaded between routes. The sheet hands the new id straight back and the
+caller ticks them, so the tap that adds someone is the tap that picks them.
+
+**And that flow was broken underneath.** `get_home_summary` returned exactly two kinds of
+person: someone you share a group with, and someone you share an expense with. Both require
+history. So a freshly named person was invisible to the entire app the moment you left the
+picker, and the expense form showed **"Someone"**, because that summary is where it resolves
+names. `0022_home_includes_new_placeholders.sql` also returns unclaimed placeholders you
+created yourself — narrow on purpose, and it stops being special the instant they sign up. The
+test suite asserts the boundary too: somebody else's placeholder stays invisible, because this
+must not become a directory.
+
+> Both of these are the same shape: **a capability that exists in the schema but has no path to
+> it in the UI is not a feature.** Phase 3 built placeholder identity, claim-in-place and
+> merge-on-signup — the hardest part — and until now the only way to reach any of it was a
+> search box that happened to match nobody.
+
+**"Create group" looked broken.** Selecting members left the button dead, because a group needs
+a name and nothing said so. The caption under it now explains, in gold rather than as a grey
+aside — it is the reason the button above it is disabled, so it has to be read.
+
+**The ripple is now every forward transition except the sidebar.** `rippleFrom(event, …)` takes
+the press event straight from any `onPress`, so `GlassButton` and `EmptyState` ripple without
+their screen measuring anything. Previously only Home's rows and the FAB rippled and everything
+else cut instantly, which is what read as inconsistent.
+
+**The jank had a real cause, and it is worth not repeating.** The veil and its three rings
+animated `width`, `height`, `borderRadius`, `left` and `top` — all **layout** properties, so
+every frame forced a re-measure and re-position, on top of whatever the incoming screen was
+doing as it mounted. They are now laid out once at full size and moved by `transform` and
+`opacity` only, which the compositor handles with no layout pass at all. Same easing, same
+maths, same 900ms. **Never animate layout properties in this codebase; scale a fixed-size view
+instead.**
+
+**Also fixed:** `GlassSurface`'s `contentStyle` lands on the inner view, so a `marginTop` there
+pads the content and leaves the card flush against whatever is above. Five Phase 5 screens had
+it. And the Settings switch was writing a Reanimated shared value during render.
+
+### Known, not yet fixed
+
+- **Screen titles scroll away.** `ScreenHeader` sits inside the ScrollView on every detail
+  screen, so the title and back chevron leave with the content. The prototypes pin the header
+  and scroll only the body. Consistent across the app, so it is a fidelity gap rather than a
+  bug — one contained change, since they all share `ScreenHeader`.
 
 ### Next: Phase 8 — Offline & realtime
 
