@@ -316,6 +316,14 @@ result of things going wrong and being fixed.
 ## Commands that actually work
 
 ```bash
+# iOS. expo run:ios misidentifies a booted simulator as a device under Xcode 26, so drive
+# xcodebuild directly. Simulator: iPhone 17 Pro, BB49D14F-3053-4A4E-BDB3-A294A8578AFB.
+xcodebuild -workspace ios/Hisaab.xcworkspace -scheme Hisaab -configuration Debug \
+  -sdk iphonesimulator -destination "platform=iOS Simulator,id=<UDID>" \
+  -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO build
+xcrun simctl install <UDID> ios/build/Build/Products/Debug-iphonesimulator/Hisaab.app
+xcrun simctl launch <UDID> com.hisaab.app
+
 # Android: boot, build, run
 $ANDROID_HOME/emulator/emulator -avd Medium_Phone_API_36.1 -no-snapshot-save -no-boot-anim &
 cd apps/mobile && npx expo run:android --no-bundler     # ~3-6 min incremental
@@ -491,6 +499,35 @@ with correct finder patterns, and the "they owe you" direction correctly offers 
 **Blocked on hardware, not on code:** whether a real UPI app opens prefilled, whether the
 picker shows real icons, and whether the QR actually scans. All three need a physical Android
 device with GPay/PhonePe installed.
+
+### Open bugs — fix these before Phase 7
+
+**1. The expense form can strand you out of your own split.** `(app)/expense/new.tsx` builds
+its participant list as:
+
+```ts
+return profile ? [me, ...others] : others;
+```
+
+If `useSession().profile` has not resolved on first render, the list is *only the other
+person*. `useExpenseForm`'s seeding effect then locks `split.included` to whatever was present
+at that moment and never revisits it — so you are silently left out of an expense you are part
+of. The narrow window (the profile is normally loaded long before this screen) is why it is
+intermittent.
+
+Seen in the wild on 2026-07-25: an expense saved as `payer=Harshi:4000, splits=Harshi:4000`.
+Payer and sole ower are the same person, so it nets to zero and moves nobody's balance — which
+to the user looks exactly like "it didn't record". A second expense a minute later, same entry
+point, split correctly. **Not proven** to be this race rather than the user deselecting
+themselves; the stored row looks identical either way. The race is real in the code regardless.
+
+*Fix:* derive `included` from the current participants (track explicitly-deselected ids
+instead), so a late-arriving profile cannot be missed. That removes the whole class of bug
+rather than narrowing the window.
+
+**2. Nothing warns before saving a net-zero expense.** The app happily wrote the row above.
+An expense whose payers and owers cancel is almost never what someone means, and it is
+indistinguishable from a failed save. Warn in the form, or block it.
 
 ### Next: Phase 7 — Sidebar surfaces
 
