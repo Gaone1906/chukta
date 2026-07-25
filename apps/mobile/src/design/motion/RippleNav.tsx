@@ -36,7 +36,19 @@ interface RippleNavState {
 
 const RippleNavContext = createContext<RippleNavState | null>(null);
 
-const EXPAND_FRACTION = 0.55;
+/**
+ * Three phases, as fractions of the total duration.
+ *
+ *   0        → EXPAND   the veil grows from the tap point until it covers the screen
+ *   EXPAND   → HOLD     fully opaque; the navigation happens in here
+ *   HOLD     → 1        the veil dissolves onto the screen that is now underneath
+ *
+ * The hold is the important one. Pushing a route and immediately fading the veil means the
+ * veil goes translucent while the new screen is still mounting, and what shows through the
+ * gap is the OLD screen — which reads as the transition stuttering.
+ */
+const EXPAND_FRACTION = 0.5;
+const HOLD_FRACTION = 0.68;
 
 export function RippleNavProvider({ children }: { children: ReactNode }) {
   const { width, height } = useWindowDimensions();
@@ -73,7 +85,8 @@ export function RippleNavProvider({ children }: { children: ReactNode }) {
       // mutation on the render path, and this runs from an onPress handler.
       progress.set(0);
 
-      // The push happens while the veil is fully opaque, so the stack swap is never seen.
+      // The push fires the moment the veil finishes covering the screen — not earlier, or the
+      // swap shows in the corners the wavefront has not reached yet.
       progress.set(
         withTiming(
           EXPAND_FRACTION,
@@ -103,9 +116,13 @@ export function RippleNavProvider({ children }: { children: ReactNode }) {
   const rMax = origin ? maxRadius(width, height, origin.x, origin.y) : 0;
 
   const veilStyle = useAnimatedStyle(() => {
-    // Expand phase drives the radius; dissolve phase drives the opacity.
+    // Radius is driven by the expand phase; opacity stays at 1 through the hold and only
+    // starts falling once the new screen has had a beat to mount.
     const expand = Math.min(1, progress.value / EXPAND_FRACTION);
-    const dissolve = Math.max(0, (progress.value - EXPAND_FRACTION) / (1 - EXPAND_FRACTION));
+    const dissolve = Math.max(
+      0,
+      (progress.value - HOLD_FRACTION) / (1 - HOLD_FRACTION),
+    );
     const r = Math.max(1, rippleEase(expand) * rMax);
     return {
       width: r * 2,
@@ -119,7 +136,7 @@ export function RippleNavProvider({ children }: { children: ReactNode }) {
 
   return (
     <RippleNavContext.Provider value={{ rippleTo }}>
-      {children}
+      <View style={styles.root}>{children}</View>
 
       {origin ? (
         <View pointerEvents="none" style={styles.overlay}>
@@ -147,7 +164,7 @@ function Ring({
   const style = useAnimatedStyle(() => {
     const expand = Math.min(1, progress.value / EXPAND_FRACTION);
     const r = ringRadius(rippleEase(expand), rMax, index);
-    const dissolve = Math.max(0, (progress.value - EXPAND_FRACTION) / (1 - EXPAND_FRACTION));
+    const dissolve = Math.max(0, (progress.value - HOLD_FRACTION) / (1 - HOLD_FRACTION));
     return {
       width: r * 2,
       height: r * 2,
@@ -179,6 +196,7 @@ export function useRippleNav(): RippleNavState {
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   veil: { position: 'absolute', backgroundColor: color.bgBase },
   ring: { position: 'absolute', borderColor: 'rgba(184,150,60,0.55)' },
