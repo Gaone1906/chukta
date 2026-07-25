@@ -42,14 +42,14 @@ export function SplitEditor({
   shares: Map<string, bigint> | null;
   error: string | null;
 }) {
-  const included = participants.filter((p) => state.included.includes(p.id));
+  const isIn = (id: string) => !state.excluded.includes(id);
+  const included = participants.filter((p) => isIn(p.id));
 
-  const toggle = (id: string) => {
-    const next = state.included.includes(id)
-      ? state.included.filter((p) => p !== id)
-      : [...state.included, id];
-    onChange({ ...state, included: next });
-  };
+  const toggle = (id: string) =>
+    onChange({
+      ...state,
+      excluded: isIn(id) ? [...state.excluded, id] : state.excluded.filter((x) => x !== id),
+    });
 
   return (
     <View style={styles.root}>
@@ -84,7 +84,7 @@ export function SplitEditor({
               participant={p}
               state={state}
               onChange={onChange}
-              included={state.included.includes(p.id)}
+              included={isIn(p.id)}
               onToggle={() => toggle(p.id)}
               share={shares?.get(p.id) ?? null}
             />
@@ -306,7 +306,8 @@ function ItemizedEditor({
           description: '',
           amount: '',
           kind,
-          participants: kind === 'line' ? state.included : [],
+          // `participants` here is already the included set — see the caller.
+          participants: kind === 'line' ? participants.map((p) => p.id) : [],
         },
       ],
     });

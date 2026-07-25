@@ -30,23 +30,36 @@ export interface DraftItem {
 
 export interface SplitState {
   type: SplitType;
-  /** Who the expense is split between. Everyone in this list is a participant. */
-  included: string[];
+  /**
+   * Who the user has explicitly taken *off* the expense.
+   *
+   * Deselections, not selections — and that direction is load-bearing. The participant list
+   * arrives from a query and grows as it resolves; a stored list of included ids can only be
+   * seeded once, so anyone who appears after that moment is silently left out of an expense
+   * they are part of. Storing the exceptions instead makes the default "everyone currently on
+   * the screen", however late they arrive, and nothing has to guess when the roster is final.
+   */
+  excluded: string[];
   exact: Record<string, string>;
   percentage: Record<string, string>;
   shares: Record<string, string>;
   items: DraftItem[];
 }
 
-export function emptySplitState(participantIds: string[]): SplitState {
+export function emptySplitState(excluded: string[] = []): SplitState {
   return {
     type: 'equal',
-    included: [...participantIds],
+    excluded: [...excluded],
     exact: {},
     percentage: {},
     shares: {},
     items: [],
   };
+}
+
+/** Who this expense is split between: everyone present, minus the explicit deselections. */
+export function includedIds(participantIds: string[], state: SplitState): string[] {
+  return participantIds.filter((id) => !state.excluded.includes(id));
 }
 
 export interface SplitResult {
@@ -61,9 +74,15 @@ export interface SplitResult {
  * Errors are returned rather than thrown: an incomplete split is the normal state of this
  * screen for as long as someone is typing, not an exceptional one.
  */
-export function computeDraftShares(totalMinor: bigint, state: SplitState): SplitResult {
+export function computeDraftShares(
+  totalMinor: bigint,
+  state: SplitState,
+  participantIds: string[],
+): SplitResult {
+  const included = includedIds(participantIds, state);
+
   if (totalMinor <= 0n) return { shares: null, error: null };
-  if (state.included.length === 0) {
+  if (included.length === 0) {
     return { shares: null, error: 'Pick at least one person to split this between.' };
   }
 
@@ -71,13 +90,13 @@ export function computeDraftShares(totalMinor: bigint, state: SplitState): Split
 
   switch (state.type) {
     case 'equal':
-      input = { type: 'equal', participants: state.included };
+      input = { type: 'equal', participants: included };
       break;
 
     case 'exact': {
       const amounts = new Map<string, bigint>();
       let sum = 0n;
-      for (const id of state.included) {
+      for (const id of included) {
         const parsed = parseAmount(state.exact[id] ?? '', 'INR');
         if (parsed === null || parsed < 0n) {
           return { shares: null, error: 'Every person needs an amount.' };
@@ -102,7 +121,7 @@ export function computeDraftShares(totalMinor: bigint, state: SplitState): Split
     case 'percentage': {
       const percentages = new Map<string, number>();
       let sum = 0;
-      for (const id of state.included) {
+      for (const id of included) {
         const raw = (state.percentage[id] ?? '').trim();
         const value = raw === '' ? NaN : Number(raw);
         if (!Number.isFinite(value) || value < 0) {
@@ -128,7 +147,7 @@ export function computeDraftShares(totalMinor: bigint, state: SplitState): Split
 
     case 'shares': {
       const shares = new Map<string, number>();
-      for (const id of state.included) {
+      for (const id of included) {
         const raw = (state.shares[id] ?? '').trim();
         const value = raw === '' ? 1 : Number(raw);
         if (!Number.isInteger(value) || value <= 0) {
@@ -164,7 +183,7 @@ export function computeDraftShares(totalMinor: bigint, state: SplitState): Split
       if (items.length === 0) {
         return { shares: null, error: 'Add at least one line.' };
       }
-      input = { type: 'itemized', items, participants: state.included };
+      input = { type: 'itemized', items, participants: included };
       break;
     }
   }

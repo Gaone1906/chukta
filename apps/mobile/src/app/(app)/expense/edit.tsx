@@ -287,6 +287,9 @@ function EditForm({
       </ScrollView>
 
       <FooterBar>
+        {form.netZeroWarning ? (
+          <Text style={styles.footerWarning}>{form.netZeroWarning}</Text>
+        ) : null}
         <GlassButton
           label={save.isPending ? 'Saving…' : 'Save changes'}
           variant="primary"
@@ -331,4 +334,12 @@ const styles = StyleSheet.create({
   loading: { marginTop: 26 },
   form: { marginTop: 22, gap: 12 },
   fieldError: { fontFamily: font.light, fontSize: 12.5, color: color.creamRose },
+  // Gold rather than rose — a caution, not a rejection. Same treatment as the new-expense form.
+  footerWarning: {
+    fontFamily: font.light,
+    fontSize: 12.5,
+    lineHeight: 18,
+    textAlign: 'center',
+    color: color.textHighlight,
+  },
 });

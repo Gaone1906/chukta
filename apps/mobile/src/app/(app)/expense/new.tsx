@@ -70,27 +70,39 @@ export default function NewExpense() {
   });
 
   const participants: Participant[] = useMemo(() => {
+    // No profile yet means no list at all, rather than a list without you in it. Every entry
+    // point puts the signed-in person on the expense, so half a roster is wrong rather than
+    // incomplete — and the screen below waits for this the same way it waits for the query.
+    if (!profile) return [];
+
     const me: Participant = {
-      id: profile?.id ?? '',
+      id: profile.id,
       name: 'You',
-      avatarUrl: profile?.avatar_url ?? null,
+      avatarUrl: profile.avatar_url,
     };
 
     if (groupId) {
       const members = groupQuery.data?.members ?? [];
       return members.map((m) =>
-        m.profile_id === profile?.id
+        m.profile_id === profile.id
           ? me
           : { id: m.profile_id, name: m.display_name, avatarUrl: m.avatar_url },
       );
     }
 
     const known = homeQuery.data?.people ?? [];
-    const others = wantedIds.map((id) => {
-      const person = known.find((p) => p.id === id);
-      return { id, name: person?.display_name ?? 'Someone', avatarUrl: person?.avatar_url ?? null };
-    });
-    return profile ? [me, ...others] : others;
+    const others = wantedIds
+      // The picker can hand back your own id; you are already `me`.
+      .filter((id) => id !== profile.id)
+      .map((id) => {
+        const person = known.find((p) => p.id === id);
+        return {
+          id,
+          name: person?.display_name ?? 'Someone',
+          avatarUrl: person?.avatar_url ?? null,
+        };
+      });
+    return [me, ...others];
   }, [groupId, groupQuery.data, homeQuery.data, wantedIds, profile]);
 
   const form = useExpenseForm(participants, profile?.id ?? null);
@@ -128,7 +140,7 @@ export default function NewExpense() {
     onError: (e: Error) => setToast(e.message),
   });
 
-  const loading = groupId ? groupQuery.isLoading : homeQuery.isLoading;
+  const loading = !profile || (groupId ? groupQuery.isLoading : homeQuery.isLoading);
   const payerLabel = describePayers(form.payers, participants);
 
   return (
@@ -247,6 +259,9 @@ export default function NewExpense() {
       </ScrollView>
 
       <FooterBar>
+        {form.netZeroWarning ? (
+          <Text style={styles.footerWarning}>{form.netZeroWarning}</Text>
+        ) : null}
         <GlassButton
           label={save.isPending ? 'Saving…' : 'Save expense'}
           variant="primary"
@@ -316,4 +331,13 @@ const styles = StyleSheet.create({
   loading: { marginTop: 26 },
   form: { marginTop: 22, gap: 12 },
   fieldError: { fontFamily: font.light, fontSize: 12.5, color: color.creamRose },
+  // Gold rather than rose: this is worth reading before pressing Save, but it is not an error
+  // and the expense is allowed to be saved exactly as it stands.
+  footerWarning: {
+    fontFamily: font.light,
+    fontSize: 12.5,
+    lineHeight: 18,
+    textAlign: 'center',
+    color: color.textHighlight,
+  },
 });
