@@ -33,7 +33,8 @@ select is(
      and p.prosecdef
      and p.proname in (
        'create_expense','update_expense','delete_expense','restore_expense',
-       'record_settlement','add_comment','upsert_contact_profile','claim_placeholder')
+       'record_settlement','add_comment','upsert_contact_profile','claim_placeholder',
+       'create_group','add_group_members')
      and p.prosrc not like '%auth_ext.assert_signed_in()%'),
   '',
   'every write RPC calls auth_ext.assert_signed_in()'

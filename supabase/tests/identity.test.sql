@@ -41,7 +41,7 @@ values ('bbbbbbbb-0000-0000-0000-00000000bbbb', 'Priya',
         (select id from public.profiles where user_id = '00000000-0000-0000-0000-00000000aaaa'));
 
 insert into public.profile_contact_points (profile_id, kind, value_norm, source)
-values ('bbbbbbbb-0000-0000-0000-00000000bbbb', 'email', 'priya@example.com', 'invite');
+values ('bbbbbbbb-0000-0000-0000-00000000bbbb', 'email', 'priya.claimtest@example.com', 'invite');
 
 insert into public.expenses (id, description, amount_minor, split_type, spent_on, created_by_profile_id)
 values ('eeee0001-0000-0000-0000-000000000001', 'Airport cab', 100000, 'equal', current_date,
@@ -60,7 +60,7 @@ insert into public.expense_participants (expense_id, profile_id, is_payer, is_ow
 
 -- Priya finally signs up, with the address she was invited by.
 insert into auth.users (id, email) values
-  ('00000000-0000-0000-0000-00000000bbbb', 'priya@example.com');
+  ('00000000-0000-0000-0000-00000000bbbb', 'priya.claimtest@example.com');
 
 select is(
   (select id from public.profiles where user_id = '00000000-0000-0000-0000-00000000bbbb'),

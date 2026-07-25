@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
-import { formatAmount, groupDigits, balanceCaption } from '../src/format';
+import {
+  formatAmount,
+  groupDigits,
+  balanceCaption,
+  parseAmount,
+  toAmountInput,
+} from '../src/format';
 import { money, exponentOf, add, sum, subtract } from '../src/money';
 
 describe('groupDigits', () => {
@@ -112,5 +118,46 @@ describe('balanceCaption', () => {
     expect(balanceCaption(money(0n, 'INR'))).toBe('settled');
     expect(balanceCaption(money(-100n, 'INR'))).toBe('you owe');
     expect(balanceCaption(money(100n, 'INR'))).toBe('owes you');
+  });
+});
+
+describe('parseAmount', () => {
+  it('reads plain and decimal rupee amounts', () => {
+    expect(parseAmount('1420', 'INR')).toBe(142000n);
+    expect(parseAmount('1420.5', 'INR')).toBe(142050n);
+    expect(parseAmount('1420.55', 'INR')).toBe(142055n);
+    expect(parseAmount('0.01', 'INR')).toBe(1n);
+    expect(parseAmount('.5', 'INR')).toBe(50n);
+    expect(parseAmount('7.', 'INR')).toBe(700n);
+  });
+
+  it('tolerates what people actually paste', () => {
+    expect(parseAmount('₹1,24,000', 'INR')).toBe(12400000n);
+    expect(parseAmount(' 1 420 ', 'INR')).toBe(142000n);
+  });
+
+  it('returns null rather than guessing', () => {
+    expect(parseAmount('', 'INR')).toBeNull();
+    expect(parseAmount('abc', 'INR')).toBeNull();
+    expect(parseAmount('1.234', 'INR')).toBeNull(); // more precision than the currency has
+    expect(parseAmount('1.2.3', 'INR')).toBeNull();
+  });
+
+  it('never routes through a float', () => {
+    // 19.99 * 100 is 1998.9999999999998 in binary floating point; Math.round rescues that one
+    // but not 8.165 or 1.005, which round the wrong way. These must all be exact.
+    expect(parseAmount('19.99', 'INR')).toBe(1999n);
+    expect(parseAmount('8.165', 'USD')).toBeNull(); // 3dp in a 2dp currency
+    expect(parseAmount('1.005', 'INR')).toBeNull();
+    expect(parseAmount('90071992547409.93', 'INR')).toBe(9007199254740993n); // > 2^53
+  });
+
+  it('round-trips through toAmountInput', () => {
+    fc.assert(
+      fc.property(fc.bigInt({ min: 0n, max: 10n ** 15n }), (minor) => {
+        const text = toAmountInput(minor, 'INR');
+        expect(parseAmount(text, 'INR') ?? 0n).toBe(minor);
+      }),
+    );
   });
 });

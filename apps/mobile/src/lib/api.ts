@@ -218,6 +218,125 @@ export async function getPersonDetail(profileId: string): Promise<PersonDetail> 
   };
 }
 
+export interface ExpenseDetail {
+  expense: {
+    id: string;
+    group_id: string | null;
+    group_name: string | null;
+    description: string;
+    amount_minor: bigint;
+    currency: string;
+    split_type: 'equal' | 'exact' | 'percentage' | 'shares' | 'itemized';
+    spent_on: string;
+    revision: number;
+    deleted_at: string | null;
+    created_by_profile_id: string;
+    created_at: string;
+  };
+  my_share_minor: bigint;
+  my_paid_minor: bigint;
+  payers: {
+    profile_id: string;
+    display_name: string;
+    avatar_url: string | null;
+    paid_amount_minor: bigint;
+  }[];
+  splits: {
+    profile_id: string;
+    display_name: string;
+    avatar_url: string | null;
+    share_amount_minor: bigint;
+    weight: number | null;
+  }[];
+  items: {
+    id: string;
+    name: string;
+    amount_minor: bigint;
+    kind: 'line' | 'tax' | 'tip' | 'discount';
+    participants: string[];
+  }[];
+  comments: {
+    id: string;
+    author_profile_id: string;
+    display_name: string;
+    avatar_url: string | null;
+    body: string;
+    created_at: string;
+  }[];
+  history: {
+    revision: number;
+    action: string;
+    actor_profile_id: string | null;
+    display_name: string | null;
+    created_at: string;
+  }[];
+  receipts: { id: string; storage_path: string; mime_type: string }[];
+}
+
+export async function getExpenseDetail(expenseId: string): Promise<ExpenseDetail> {
+  const raw = await rpc<Record<string, any>>('get_expense_detail', { p_expense_id: expenseId });
+  const e = raw.expense as Record<string, unknown>;
+
+  return {
+    expense: {
+      id: String(e.id),
+      group_id: (e.group_id as string | null) ?? null,
+      group_name: (e.group_name as string | null) ?? null,
+      description: String(e.description),
+      amount_minor: big(e.amount_minor),
+      currency: String(e.currency ?? 'INR'),
+      split_type: e.split_type as ExpenseDetail['expense']['split_type'],
+      spent_on: String(e.spent_on),
+      revision: Number(e.revision ?? 1),
+      deleted_at: (e.deleted_at as string | null) ?? null,
+      created_by_profile_id: String(e.created_by_profile_id),
+      created_at: String(e.created_at),
+    },
+    my_share_minor: big(raw.my_share_minor),
+    my_paid_minor: big(raw.my_paid_minor),
+    payers: (raw.payers ?? []).map((p: Record<string, unknown>) => ({
+      profile_id: String(p.profile_id),
+      display_name: String(p.display_name),
+      avatar_url: (p.avatar_url as string | null) ?? null,
+      paid_amount_minor: big(p.paid_amount_minor),
+    })),
+    splits: (raw.splits ?? []).map((s: Record<string, unknown>) => ({
+      profile_id: String(s.profile_id),
+      display_name: String(s.display_name),
+      avatar_url: (s.avatar_url as string | null) ?? null,
+      share_amount_minor: big(s.share_amount_minor),
+      weight: s.weight == null ? null : Number(s.weight),
+    })),
+    items: (raw.items ?? []).map((i: Record<string, unknown>) => ({
+      id: String(i.id),
+      name: String(i.name),
+      amount_minor: big(i.amount_minor),
+      kind: i.kind as ExpenseDetail['items'][number]['kind'],
+      participants: ((i.participants as string[] | null) ?? []).map(String),
+    })),
+    comments: (raw.comments ?? []).map((c: Record<string, unknown>) => ({
+      id: String(c.id),
+      author_profile_id: String(c.author_profile_id),
+      display_name: String(c.display_name),
+      avatar_url: (c.avatar_url as string | null) ?? null,
+      body: String(c.body),
+      created_at: String(c.created_at),
+    })),
+    history: (raw.history ?? []).map((h: Record<string, unknown>) => ({
+      revision: Number(h.revision),
+      action: String(h.action),
+      actor_profile_id: (h.actor_profile_id as string | null) ?? null,
+      display_name: (h.display_name as string | null) ?? null,
+      created_at: String(h.created_at),
+    })),
+    receipts: (raw.receipts ?? []).map((a: Record<string, unknown>) => ({
+      id: String(a.id),
+      storage_path: String(a.storage_path),
+      mime_type: String(a.mime_type),
+    })),
+  };
+}
+
 export async function getSimplifiedDebts(groupId: string): Promise<Transfer[]> {
   const { data, error } = await supabase.rpc('simplify_group_debts' as never, {
     p_group_id: groupId,
@@ -340,6 +459,39 @@ export async function recordSettlement(
       note: input.note ?? null,
       settled_on: input.settledOn,
     },
+    p_client_mutation_id: mutationId,
+  });
+}
+
+/**
+ * Create a group with no expenses in it yet — the "+ New group" escape hatch in the picker.
+ *
+ * The main path never needs this: naming the group field on the expense form promotes the
+ * participant set into a group in the same call. This is for the user who wants the group to
+ * exist first.
+ */
+export async function createGroup(
+  input: { id?: string; name: string; memberProfileIds: string[] },
+  mutationId: string,
+): Promise<{ group_id: string; name: string }> {
+  return rpc('create_group', {
+    p_payload: {
+      id: input.id ?? Crypto.randomUUID(),
+      name: input.name,
+      member_profile_ids: input.memberProfileIds,
+    },
+    p_client_mutation_id: mutationId,
+  });
+}
+
+export async function addGroupMembers(
+  groupId: string,
+  profileIds: string[],
+  mutationId: string,
+): Promise<{ group_id: string; added: number }> {
+  return rpc('add_group_members', {
+    p_group_id: groupId,
+    p_profile_ids: profileIds,
     p_client_mutation_id: mutationId,
   });
 }

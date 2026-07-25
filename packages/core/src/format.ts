@@ -7,7 +7,7 @@
  * and test rather than one we hope is present at runtime.
  */
 
-import { exponentOf, symbolOf, type Money } from './money';
+import { exponentOf, symbolOf, type CurrencyCode, type Money } from './money';
 
 export type GroupingStyle = 'indian' | 'western';
 
@@ -79,6 +79,50 @@ export function formatAmount(amount: Money, options: FormatOptions = {}): string
   if (symbol) out = symbolOf(amount.currency) + out;
   if (negative && signed) out = '-' + out;
   return out;
+}
+
+/**
+ * Parse what a user typed into exact minor units.
+ *
+ * Deliberately NOT `Math.round(parseFloat(text) * 100)`: 19.99 is not representable in binary
+ * floating point and that expression is one of the classic ways a finance app loses a paisa.
+ * The decimal string is split on the point and the two halves are converted as integers, so
+ * nothing ever becomes a float.
+ *
+ * Returns null for anything unparseable, so a form can show a field error instead of guessing.
+ * Grouping separators and the currency symbol are tolerated — people paste "₹1,24,000".
+ */
+export function parseAmount(text: string, currency: CurrencyCode): bigint | null {
+  const exponent = exponentOf(currency);
+  const cleaned = text.replace(/[,\s ]/g, '').replace(/^[^\d.-]+/, '');
+  if (cleaned === '' || cleaned === '.' || cleaned === '-') return null;
+
+  const match = /^(-?)(\d*)(?:\.(\d*))?$/.exec(cleaned);
+  if (!match) return null;
+
+  const [, sign, wholeText = '', fractionText = ''] = match;
+  if (fractionText.length > exponent) return null;
+
+  const whole = BigInt(wholeText === '' ? '0' : wholeText);
+  const fraction = BigInt(fractionText.padEnd(exponent, '0') || '0');
+  const magnitude = whole * 10n ** BigInt(exponent) + fraction;
+  return sign === '-' ? -magnitude : magnitude;
+}
+
+/** Minor units back into a plain editable string — "125000" → "1250" (no symbol, no grouping). */
+export function toAmountInput(minor: bigint, currency: CurrencyCode): string {
+  if (minor === 0n) return '';
+  const exponent = exponentOf(currency);
+  const negative = minor < 0n;
+  const abs = negative ? -minor : minor;
+  const divisor = 10n ** BigInt(exponent);
+  const whole = abs / divisor;
+  const fraction = abs % divisor;
+  const body =
+    fraction === 0n
+      ? whole.toString()
+      : `${whole}.${fraction.toString().padStart(exponent, '0')}`;
+  return negative ? `-${body}` : body;
 }
 
 /**

@@ -10,6 +10,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { FAB, Row, SegmentedSwitcher, Toast, color, font, space } from '@/design';
 import { EmptyState } from '@/features/home/EmptyState';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
+import { initials } from '@/features/people/Avatar';
 import { getHomeSummary } from '@/lib/api';
 import { queryKeys } from '@/lib/queryKeys';
 
@@ -159,14 +160,6 @@ export default function Home() {
       <Toast message={toast} />
     </View>
   );
-}
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('');
 }
 
 const styles = StyleSheet.create({

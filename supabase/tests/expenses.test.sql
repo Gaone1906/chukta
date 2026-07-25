@@ -138,8 +138,11 @@ select lives_ok(
   'replaying the same mutation id is accepted rather than erroring'
 );
 
+-- Scoped to this test's own expense id rather than counting the whole table: the dev seed in
+-- supabase/seed.sql also populates this database, and a global count would make every test
+-- here fail the moment the seed grew a row.
 select is(
-  (select count(*) from public.expenses),
+  (select count(*) from public.expenses where id = 'eeee1111-0000-0000-0000-000000000001'),
   1::bigint,
   'THE RETRY CASE: server committed, response lost, client retried - still one expense'
 );
