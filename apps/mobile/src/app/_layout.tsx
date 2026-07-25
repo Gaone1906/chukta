@@ -1,4 +1,4 @@
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, usePathname, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
@@ -42,9 +42,18 @@ export default function RootLayout() {
   );
 }
 
+/** Onboarding lives at these paths. Route groups are stripped from the URL by expo-router. */
+const AUTH_PATHS = ['/sign-in', '/phone', '/otp', '/profile', '/done'];
+
 function RootNavigator() {
   const { session, loading, needsProfileSetup } = useSession();
-  const segments = useSegments();
+  /*
+   * usePathname rather than useSegments: segments is a TUPLE whose length comes from the
+   * generated route types, and `.expo/types/` is gitignored — so indexing `segments[1]`
+   * typechecks locally and fails in CI, where those types don't exist. A pathname is a plain
+   * string either way, and reads better here regardless.
+   */
+  const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
@@ -52,25 +61,25 @@ function RootNavigator() {
     // cold start.
     if (loading) return;
 
-    const group = segments[0];
-    if (group === '_dev') return; // the kitchen sink is reachable regardless of auth
+    // The kitchen sink is reachable regardless of auth state.
+    if (pathname.startsWith('/_dev')) return;
 
-    const inAuthFlow = group === '(auth)';
+    const inAuthFlow = AUTH_PATHS.includes(pathname);
 
     if (!session && !inAuthFlow) {
       router.replace('/sign-in');
-    } else if (session && needsProfileSetup && segments[1] !== 'profile' && segments[1] !== 'done') {
+    } else if (session && needsProfileSetup && pathname !== '/profile' && pathname !== '/done') {
       // Signed in but onboarding is unfinished — send them to finish it rather than into an
       // app where their name is blank.
       router.replace('/profile');
-    } else if (session && !needsProfileSetup && inAuthFlow && segments[1] !== 'done') {
+    } else if (session && !needsProfileSetup && inAuthFlow && pathname !== '/done') {
       // `done` is excluded deliberately. Saving the profile clears needsProfileSetup, and
       // without this the guard fires the instant the save lands and redirects straight past
       // the completion screen — the seal moment never plays. That screen navigates onward
       // itself once the stamp has landed.
       router.replace('/');
     }
-  }, [loading, session, needsProfileSetup, segments, router]);
+  }, [loading, session, needsProfileSetup, pathname, router]);
 
   return (
     <Stack
