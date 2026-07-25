@@ -91,14 +91,22 @@ export default function Claim() {
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScreenHeader title="Claim a person" />
-
+      {/*
+        * The header goes INSIDE the ScrollView, and the top inset onto the content container —
+        * the convention every other screen here follows. Outside it, the header has nothing
+        * applying `insets.top` and lands underneath the status bar and the dynamic island.
+        */}
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + 14, paddingBottom: insets.bottom + 28 },
+        ]}
         keyboardShouldPersistTaps="handled"
       >
+        <ScreenHeader title="Claim a person" />
+
         {done !== null ? (
-          <GlassSurface radius={radius.card} contentStyle={styles.panel}>
+          <GlassSurface radius={radius.card} style={styles.doneSpacing} contentStyle={styles.panel}>
             <Text style={styles.doneTitle}>You are {done} now.</Text>
             <Text style={styles.doneBody}>
               Everything they had recorded against you has moved onto your account. It is already
@@ -162,9 +170,10 @@ export default function Claim() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 4 },
+  content: { paddingHorizontal: 20 },
 
   lede: {
+    marginTop: 18,
     fontFamily: font.regular,
     fontSize: 15,
     lineHeight: 22,
@@ -172,6 +181,7 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
 
+  doneSpacing: { marginTop: 22 },
   panel: { padding: 16, gap: 10 },
   label: {
     fontFamily: font.medium,
