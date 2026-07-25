@@ -3,7 +3,7 @@
 Single place to answer "where are we". Update the status table and the log at the end of
 every phase. Each phase has its own file in this directory with the detailed work list.
 
-**Last updated:** 2026-07-25 (Phase 1)
+**Last updated:** 2026-07-25 (Phase 2)
 
 ## Conventions
 
@@ -20,7 +20,7 @@ Use `Phase 0:` for repo-level chores that belong to no feature phase.
 |---|---|---|---|---|
 | 0 | Repo & scaffold | [phase-00-repo-scaffold.md](phase-00-repo-scaffold.md) | ✅ done | 2–3 d |
 | 1 | Design system & motion | [phase-01-design-system.md](phase-01-design-system.md) | ✅ done (Android verified; iOS pending toolchain) | 1 wk |
-| 2 | `packages/core` money engine | [phase-02-core-money.md](phase-02-core-money.md) | ⬜ not started (money + formatting landed early) | 0.5 wk |
+| 2 | `packages/core` money engine | [phase-02-core-money.md](phase-02-core-money.md) | ✅ done | 0.5 wk |
 | 3 | Supabase backend | [phase-03-backend.md](phase-03-backend.md) | ⬜ not started | 2 wk |
 | 4 | Auth & onboarding | [phase-04-auth-onboarding.md](phase-04-auth-onboarding.md) | ⬜ not started | 1 wk |
 | 5 | Core loop | [phase-05-core-loop.md](phase-05-core-loop.md) | ⬜ not started | 3 wk |
@@ -136,3 +136,32 @@ Everything from 4 onward is sequential.
 - Metro does not resolve `./foo.js` → `./foo.ts`. `packages/core` uses extensionless relative
   imports; adding a `.js` extension breaks the bundler while tsc and Vitest stay happy.
 - The emulator's default 6GB data partition is too small for an 85MB debug APK; raised to 16GB.
+
+### Phase 2 — `packages/core` money engine — ✅ done, 2026-07-25
+
+**Done**
+- `bigintMath.ts` — `floorDiv` (rounds toward −∞, unlike the built-in `/`) and `roundHalfEven`.
+- `allocate.ts` — largest-remainder allocation with a `weight desc, key asc` tiebreak. Every
+  split type, both currencies of every expense, and every pairwise debt route through it.
+- `split.ts` — all five types reduced to one allocator call. Itemised flattens lines, then
+  spreads tax/tip/discount pro rata to pre-tax subtotals, then sums per person.
+- `fx.ts` — `parseRate` keeps ten decimal places exactly by parsing digits rather than going
+  through `Number`; `allocateDualCurrency` converts once at the total and allocates in each
+  currency with the same weights and tiebreak.
+- `settle.ts` — `resolvePairwise` (net first, so a payer who also owes never self-edges) and
+  `simplifyDebts` (exact-cancellation pass, then greedy max cash flow).
+- `fixtures.ts` — 10 canonical allocation cases, **the contract with the plpgsql allocator**.
+
+**90 tests green**, including property tests asserting: shares always sum to exactly the total
+(all five types, any weights, negative totals included); no share is ever more than one unit
+from its ideal; allocation is stable and order-independent; simplification preserves every net
+balance and emits at most n−1 transfers; and both currency vectors sum exactly.
+
+**Notes for Phase 3**
+- `ALLOCATION_FIXTURES` / `fixturesAsJson()` are what `supabase/tests/allocator.test.sql`
+  must assert against. If a fixture ever needs changing, the SQL implementation changes with
+  it — they are not independently adjustable.
+- Percentages are validated to sum to exactly 100 and are rejected otherwise, never
+  normalised. The DB check constraint should match that, not silently rescale.
+- Relative imports in this package stay extensionless. Adding `.js` satisfies tsc and Vitest
+  but Metro cannot resolve it — verified again with `expo export` after this phase.

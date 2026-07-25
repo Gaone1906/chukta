@@ -1,6 +1,6 @@
 # Phase 2 — `packages/core`, the money engine
 
-**Status:** ⬜ not started · **Estimate:** 0.5 week · **Depends on:** Phase 0
+**Status:** ✅ done (2026-07-25) · **Estimate:** 0.5 week · **Depends on:** Phase 0
 **Can run in parallel with Phases 1 and 3.**
 
 ## Goal
