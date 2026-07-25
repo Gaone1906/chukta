@@ -1,6 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -10,6 +10,7 @@ import {
   Text,
   TextInput,
   View,
+  type GestureResponderEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
@@ -21,7 +22,10 @@ import { SearchField } from '@/features/expenses/SearchField';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
 import { BackChevron } from '@/features/onboarding/BackChevron';
 import { AddPersonSheet } from '@/features/people/AddPersonSheet';
-import { createGroup, getHomeSummary, newMutationId } from '@/lib/api';
+import { getHomeSummary } from '@/lib/api';
+import { useOffline } from '@/lib/offline/OfflineProvider';
+import { withPendingPeople } from '@/lib/offline/people';
+import { queueCreateGroup } from '@/lib/offline/writes';
 import { queryKeys } from '@/lib/queryKeys';
 
 /**
@@ -38,7 +42,8 @@ export default function NewGroup() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { rippleTo } = useRippleNav();
+  const { rippleFrom } = useRippleNav();
+  const offline = useOffline();
 
   const [name, setName] = useState('');
   const [search, setSearch] = useState('');
@@ -50,8 +55,11 @@ export default function NewGroup() {
 
   const term = search.trim().toLowerCase();
   const roster = useMemo(
-    () => (data?.people ?? []).filter((p) => !term || p.display_name.toLowerCase().includes(term)),
-    [data, term],
+    () =>
+      withPendingPeople(data?.people ?? [], offline.pendingPeople, offline.effects).filter(
+        (p) => !term || p.display_name.toLowerCase().includes(term),
+      ),
+    [data, term, offline.pendingPeople, offline.effects],
   );
   // Whoever the sheet creates joins the group straight away — you opened it in order to put
   // them in, so making you find and tick them afterwards would be a step for nothing.
@@ -61,29 +69,31 @@ export default function NewGroup() {
     void queryClient.invalidateQueries({ queryKey: queryKeys.home() });
   };
 
-  // One idempotency key for this screen, generated once and held across every attempt. The
-  // case it exists for: the server commits, the response is lost, the user taps Create again.
-  // A fresh uuid per tap would make that a second group; the same uuid makes it a no-op that
-  // returns the original result.
-  const mutationId = useRef(newMutationId());
+  /*
+   * The group exists the moment you tap Create.
+   *
+   * Previously this waited for the server, because the route it navigates to is built from the
+   * returned group id — so with no signal the button spun and then failed. `create_group` has
+   * accepted a client-supplied id since 0016 and simply was never given one; now the id is
+   * minted here, the write is queued, and the navigation happens in the same frame.
+   *
+   * The idempotency key moves with it, from a ref on this screen into the outbox row. Same
+   * guarantee, longer life: the ref died when the screen unmounted, and the queue can outlive
+   * the screen by hours.
+   */
+  const create = (event: GestureResponderEvent) => {
+    try {
+      const groupId = queueCreateGroup({ name: name.trim(), memberProfileIds: members });
+      offline.refresh();
+      offline.sync();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.home() });
+      rippleFrom(event, () => router.replace(`/group/${groupId}`));
+    } catch (e) {
+      setToast((e as Error).message);
+    }
+  };
 
-  // Where the Create button was when it was pressed, so the ripple starts from the finger even
-  // though it only plays once the server has answered.
-  const createdFrom = useRef({ x: 0, y: 0 });
-
-  const create = useMutation({
-    mutationFn: () =>
-      createGroup({ name: name.trim(), memberProfileIds: members }, mutationId.current),
-    onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.home() });
-      // No press event here — the navigation happens when the write lands, not when the button
-      // was tapped, so the origin is the button's own position on screen.
-      rippleTo(createdFrom.current, () => router.replace(`/group/${result.group_id}`));
-    },
-    onError: (e: Error) => setToast(e.message),
-  });
-
-  const ready = name.trim().length > 0 && !create.isPending;
+  const ready = name.trim().length > 0;
 
   return (
     <KeyboardAvoidingView
@@ -175,13 +185,10 @@ export default function NewGroup() {
 
       <FooterBar>
         <GlassButton
-          label={create.isPending ? 'Creating…' : 'Create group'}
+          label="Create group"
           variant="primary"
           disabled={!ready}
-          onPress={(e) => {
-            createdFrom.current = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY };
-            create.mutate();
-          }}
+          onPress={create}
         />
         <Text style={[styles.picked, !name.trim() ? styles.pickedPrompt : null]} numberOfLines={1}>
           {!name.trim()

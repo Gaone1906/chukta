@@ -1,12 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GlassButton, Toast, color, font } from '@/design';
 import { useSession } from '@/features/auth/session';
-import { ConflictSheet } from '@/features/expenses/ConflictSheet';
 import { DateSheet, describeDate } from '@/features/expenses/DateSheet';
 import { AmountField, DisclosureRow, TextField } from '@/features/expenses/fields';
 import { FOOTER_CLEARANCE, FooterBar } from '@/features/expenses/FooterBar';
@@ -16,7 +15,10 @@ import { SplitEditor } from '@/features/expenses/SplitEditor';
 import { useExpenseForm } from '@/features/expenses/useExpenseForm';
 import { EmptyState } from '@/features/home/EmptyState';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
-import { getExpenseDetail, getGroupDetail, newMutationId, updateExpense } from '@/lib/api';
+import { getExpenseDetail, getGroupDetail } from '@/lib/api';
+import type { ExpenseShape } from '@/lib/offline/effects';
+import { useOffline } from '@/lib/offline/OfflineProvider';
+import { queueUpdateExpense, shapeFromDetail } from '@/lib/offline/writes';
 import { afterExpenseChange, queryKeys } from '@/lib/queryKeys';
 
 /**
@@ -24,8 +26,9 @@ import { afterExpenseChange, queryKeys } from '@/lib/queryKeys';
  *
  * The same form as `new`, seeded from the server and saved with `expected_revision`. That
  * revision is the whole point: two people editing the same expense from two phones is
- * routine, and the write refuses rather than clobbers — see ConflictSheet for what the user
- * sees when it does.
+ * routine, and the write refuses rather than clobbers. Since Phase 8 the write is queued, so
+ * the refusal surfaces in the pending inbox (`/pending`) rather than in a sheet here — it can
+ * arrive long after this screen is gone.
  *
  * A separate route rather than a mode on `new` because the two differ in what they may
  * change: an edit cannot move an expense between groups or promote it into a new one, since
@@ -36,12 +39,12 @@ export default function EditExpense() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { profile } = useSession();
+  const offline = useOffline();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [dateOpen, setDateOpen] = useState(false);
   const [payerOpen, setPayerOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const mutationId = useRef(newMutationId());
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: queryKeys.expense(id!),
@@ -150,13 +153,14 @@ export default function EditExpense() {
       participants={participants}
       meId={profile?.id ?? null}
       seed={seed}
-      mutationIdRef={mutationId}
-      onSaved={async () => {
-        await Promise.all(
-          afterExpenseChange(groupId).map((key) =>
-            queryClient.invalidateQueries({ queryKey: key }),
-          ),
-        );
+      before={shapeFromDetail(data)}
+      meProfileId={profile?.id ?? null}
+      onSaved={() => {
+        offline.refresh();
+        offline.sync();
+        for (const key of afterExpenseChange(groupId)) {
+          void queryClient.invalidateQueries({ queryKey: key });
+        }
         router.back();
       }}
       onError={setToast}
@@ -165,12 +169,6 @@ export default function EditExpense() {
       payerOpen={payerOpen}
       setPayerOpen={setPayerOpen}
       toast={toast}
-      onReloadAfterConflict={async () => {
-        // A conflict means our revision is stale. Refetch, and the key above rebuilds the form
-        // against the server's version rather than leaving the user editing a ghost.
-        mutationId.current = newMutationId();
-        await refetch();
-      }}
       insetTop={insets.top + 14}
       insetBottom={insets.bottom}
     />
@@ -185,10 +183,10 @@ function EditForm({
   participants,
   meId,
   seed,
-  mutationIdRef,
+  before,
+  meProfileId,
   onSaved,
   onError,
-  onReloadAfterConflict,
   dateOpen,
   setDateOpen,
   payerOpen,
@@ -204,10 +202,11 @@ function EditForm({
   participants: Participant[];
   meId: string | null;
   seed: Parameters<typeof useExpenseForm>[2];
-  mutationIdRef: { current: string };
-  onSaved: () => Promise<void>;
+  /** Where the expense stands now, so the overlay can carry the difference rather than the total. */
+  before: ExpenseShape;
+  meProfileId: string | null;
+  onSaved: () => void;
   onError: (message: string) => void;
-  onReloadAfterConflict: () => Promise<void>;
   dateOpen: boolean;
   setDateOpen: (open: boolean) => void;
   payerOpen: boolean;
@@ -218,15 +217,26 @@ function EditForm({
 }) {
   const form = useExpenseForm(participants, meId, seed);
 
-  const save = useMutation({
-    mutationFn: () =>
-      updateExpense(expenseId, form.toDraft({ groupId }), revision, mutationIdRef.current),
-    onSuccess: onSaved,
-    onError: (e: Error) => {
-      // Conflicts get the diff sheet; everything else is a toast.
-      if (e.name !== 'ConflictError') onError(e.message);
-    },
-  });
+  /*
+   * The edit is queued, carrying the revision it was made against.
+   *
+   * Which moves where a conflict appears. It used to be a sheet on this screen, because the
+   * write and its refusal were the same tap; now the refusal can arrive hours later on a
+   * screen that no longer exists, so it lands in the pending inbox instead — one path for both
+   * cases rather than two, only one of which would ever get exercised.
+   *
+   * What has not changed is the rule: `expected_revision` still travels with the write and the
+   * server still refuses rather than clobbers. **No auto-merge on money.**
+   */
+  const save = () => {
+    if (!meProfileId) return;
+    try {
+      queueUpdateExpense(meProfileId, expenseId, before, form.toDraft({ groupId }), revision);
+      onSaved();
+    } catch (e) {
+      onError((e as Error).message);
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -291,10 +301,10 @@ function EditForm({
           <Text style={styles.footerWarning}>{form.netZeroWarning}</Text>
         ) : null}
         <GlassButton
-          label={save.isPending ? 'Saving…' : 'Save changes'}
+          label="Save changes"
           variant="primary"
-          disabled={!form.ready || save.isPending}
-          onPress={() => save.mutate()}
+          disabled={!form.ready}
+          onPress={save}
         />
       </FooterBar>
 
@@ -312,15 +322,6 @@ function EditForm({
         totalMinor={form.amountMinor}
         payers={form.payers}
         onChange={form.setPayers}
-      />
-
-      <ConflictSheet
-        error={save.error}
-        onClose={() => save.reset()}
-        onReload={async () => {
-          save.reset();
-          await onReloadAfterConflict();
-        }}
       />
 
       <Toast message={toast} />

@@ -7,7 +7,7 @@ import {
   settlementNote,
   toAmountInput,
 } from '@hisaab/core';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -34,7 +34,9 @@ import { RowSkeleton } from '@/features/home/RowSkeleton';
 import { Avatar } from '@/features/people/Avatar';
 import { QrCode } from '@/features/settle/QrCode';
 import { discoverUpiApps, openUpiPayment, type UpiApp } from '@/features/settle/upiApps';
-import { getPersonDetail, newMutationId, recordSettlement } from '@/lib/api';
+import { getPersonDetail, newMutationId } from '@/lib/api';
+import { useOffline } from '@/lib/offline/OfflineProvider';
+import { queueSettlement } from '@/lib/offline/writes';
 import { afterExpenseChange, queryKeys } from '@/lib/queryKeys';
 
 /**
@@ -54,6 +56,7 @@ export default function SettleUp() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const offline = useOffline();
   const { profile } = useSession();
   const { profileId, groupId, groupName } = useLocalSearchParams<{
     profileId?: string;
@@ -122,29 +125,41 @@ export default function SettleUp() {
     }
   }, [canPayByUpi, person, theirVpa, amountMinor, profile, groupName, mutationId]);
 
-  const record = useMutation({
-    mutationFn: () =>
-      recordSettlement(
+  /*
+   * Recording a settlement is queued like every other money write — with one difference that
+   * decides the shape of it.
+   *
+   * `mutationId` is held in state, not minted here, because it has already left the device:
+   * it goes out inside the UPI deep link as the transaction reference `tr`, before the write
+   * is attempted at all. So the queue has to adopt that exact key rather than generate its
+   * own. Handing UPI one reference and the server another would break the only thread tying a
+   * payment in GPay to a settlement in Hisaab.
+   */
+  const record = () => {
+    if (!profile) return;
+    try {
+      queueSettlement(
+        profile.id,
         {
           groupId: groupId ?? null,
-          fromProfileId: iOwe ? profile!.id : profileId!,
-          toProfileId: iOwe ? profileId! : profile!.id,
+          fromProfileId: iOwe ? profile.id : profileId!,
+          toProfileId: iOwe ? profileId! : profile.id,
           amountMinor,
           method: 'upi',
           settledOn: toISODate(new Date()),
         },
         mutationId,
-      ),
-    onSuccess: async () => {
-      await Promise.all(
-        afterExpenseChange(groupId ?? null).map((key) =>
-          queryClient.invalidateQueries({ queryKey: key }),
-        ),
       );
+      offline.refresh();
+      offline.sync();
+      for (const key of afterExpenseChange(groupId ?? null)) {
+        void queryClient.invalidateQueries({ queryKey: key });
+      }
       router.back();
-    },
-    onError: (e: Error) => setToast(e.message),
-  });
+    } catch (e) {
+      setToast((e as Error).message);
+    }
+  };
 
   const copy = async (label: string, value: string) => {
     await Clipboard.setStringAsync(value);
@@ -344,10 +359,10 @@ export default function SettleUp() {
       {!settled && data ? (
         <FooterBar>
           <GlassButton
-            label={record.isPending ? 'Recording…' : 'Mark as settled'}
+            label="Mark as settled"
             variant={iOwe ? 'secondary' : 'primary'}
-            disabled={amountMinor <= 0n || record.isPending || !profile}
-            onPress={() => record.mutate()}
+            disabled={amountMinor <= 0n || !profile}
+            onPress={record}
           />
           <Text style={styles.disclaimer}>
             Self-reported. Nobody here can check your bank.

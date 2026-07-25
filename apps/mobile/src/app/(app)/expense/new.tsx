@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
 import {
@@ -23,7 +23,9 @@ import { useExpenseForm } from '@/features/expenses/useExpenseForm';
 import { Avatar } from '@/features/people/Avatar';
 import { BackChevron } from '@/features/onboarding/BackChevron';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
-import { createExpense, getGroupDetail, getHomeSummary, newMutationId } from '@/lib/api';
+import { getGroupDetail, getHomeSummary } from '@/lib/api';
+import { useOffline } from '@/lib/offline/OfflineProvider';
+import { newId, queueCreateExpense } from '@/lib/offline/writes';
 import { afterExpenseChange, queryKeys } from '@/lib/queryKeys';
 
 /**
@@ -44,6 +46,7 @@ export default function NewExpense() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { profile } = useSession();
+  const offline = useOffline();
 
   const { groupId, withProfileIds, fromPicker } = useLocalSearchParams<{
     groupId?: string;
@@ -96,37 +99,60 @@ export default function NewExpense() {
       .filter((id) => id !== profile.id)
       .map((id) => {
         const person = known.find((p) => p.id === id);
+        // Somebody named while offline is not in the home summary yet — that list is the
+        // server's answer and the server has not been told. Without this fallback the form
+        // shows "Someone" for the person you just typed the name of, which is exactly the bug
+        // migration 0022 fixed for the online case.
+        const queued = offline.pendingPeople.find((p) => p.id === id);
         return {
           id,
-          name: person?.display_name ?? 'Someone',
+          name: person?.display_name ?? queued?.displayName ?? 'Someone',
           avatarUrl: person?.avatar_url ?? null,
         };
       });
     return [me, ...others];
-  }, [groupId, groupQuery.data, homeQuery.data, wantedIds, profile]);
+  }, [groupId, groupQuery.data, homeQuery.data, wantedIds, profile, offline.pendingPeople]);
 
   const form = useExpenseForm(participants, profile?.id ?? null);
 
   const [dateOpen, setDateOpen] = useState(false);
   const [payerOpen, setPayerOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const mutationId = useRef(newMutationId());
+  /*
+   * A save is a local fact, not a request.
+   *
+   * This used to await `create_expense` and do everything in `onSuccess` — which meant that
+   * with no signal the button spun and then failed, on the screen this app is most likely to
+   * be used on with no signal. Now the write goes into the outbox, the balances move by the
+   * effect computed alongside it, and the network is the drainer's problem.
+   *
+   * Both ids are minted here rather than by the server: the expense's, and the group's when
+   * the form named one. Nothing downstream can wait for a response that may be hours away.
+   */
+  const newGroupId = useRef(newId());
 
-  const save = useMutation({
-    mutationFn: () =>
-      createExpense(
+  const save = () => {
+    if (!profile) return;
+    try {
+      const { groupId: savedGroupId } = queueCreateExpense(
+        profile.id,
         form.toDraft({
           groupId: groupId ?? null,
           newGroupMemberIds: groupId ? undefined : participants.map((p) => p.id),
+          newGroupId: newGroupId.current,
         }),
-        mutationId.current,
-      ),
-    onSuccess: async (result) => {
-      await Promise.all(
-        afterExpenseChange(result.group_id).map((key) =>
-          queryClient.invalidateQueries({ queryKey: key }),
-        ),
       );
+
+      offline.refresh();
+      offline.sync();
+
+      // Invalidate anyway. Online this is the refetch that replaces the overlay with the
+      // server's own numbers a moment later; offline the queries are paused and the cached
+      // figures stand, with the pending effect on top.
+      for (const key of afterExpenseChange(savedGroupId)) {
+        void queryClient.invalidateQueries({ queryKey: key });
+      }
+
       // Unwind the whole flow rather than pushing: a save is the end of it, and the screen
       // the user lands on must already show the balance that just moved.
       if (fromPicker === '1') {
@@ -136,9 +162,10 @@ export default function NewExpense() {
         // Group or person FAB: one step back is the screen the expense belongs to.
         router.back();
       }
-    },
-    onError: (e: Error) => setToast(e.message),
-  });
+    } catch (e) {
+      setToast((e as Error).message);
+    }
+  };
 
   const loading = !profile || (groupId ? groupQuery.isLoading : homeQuery.isLoading);
   const payerLabel = describePayers(form.payers, participants);
@@ -263,10 +290,10 @@ export default function NewExpense() {
           <Text style={styles.footerWarning}>{form.netZeroWarning}</Text>
         ) : null}
         <GlassButton
-          label={save.isPending ? 'Saving…' : 'Save expense'}
+          label="Save expense"
           variant="primary"
-          disabled={!form.ready || save.isPending}
-          onPress={() => save.mutate()}
+          disabled={!form.ready}
+          onPress={save}
         />
       </FooterBar>
 

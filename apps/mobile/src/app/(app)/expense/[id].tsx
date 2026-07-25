@@ -1,7 +1,7 @@
 import { formatAmount, money } from '@hisaab/core';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -27,20 +27,15 @@ import {
   useRippleNav,
 } from '@/design';
 import { useSession } from '@/features/auth/session';
-import { ConflictSheet } from '@/features/expenses/ConflictSheet';
 import { describeDate } from '@/features/expenses/DateSheet';
 import { ScreenHeader } from '@/features/expenses/ScreenHeader';
 import { EmptyState } from '@/features/home/EmptyState';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
 import { Avatar } from '@/features/people/Avatar';
-import {
-  addComment,
-  deleteExpense,
-  getExpenseDetail,
-  newMutationId,
-  type ExpenseDetail,
-} from '@/lib/api';
+import { getExpenseDetail, type ExpenseDetail } from '@/lib/api';
 import { isConflict } from '@/lib/errors';
+import { useOffline } from '@/lib/offline/OfflineProvider';
+import { queueComment, queueDeleteExpense, shapeFromDetail } from '@/lib/offline/writes';
 import { afterExpenseChange, queryKeys } from '@/lib/queryKeys';
 
 const SPLIT_LABEL: Record<ExpenseDetail['expense']['split_type'], string> = {
@@ -68,12 +63,12 @@ export default function ExpenseDetailScreen() {
   const { rippleFrom } = useRippleNav();
   const queryClient = useQueryClient();
   const { profile } = useSession();
+  const offline = useOffline();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [comment, setComment] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const deleteMutationId = useRef(newMutationId());
 
   const { data, isLoading, isRefetching, refetch, error } = useQuery({
     queryKey: queryKeys.expense(id!),
@@ -88,29 +83,50 @@ export default function ExpenseDetailScreen() {
       ),
     );
 
-  const post = useMutation({
-    mutationFn: (body: string) => addComment(id!, body, newMutationId()),
-    onSuccess: async () => {
+  /*
+   * A comment was the one write in the app with no idempotency at all: it minted a fresh
+   * mutation key inline on every call, so any retry would have posted it twice. That never
+   * showed because nothing retried — an outbox retries by design, which is exactly the kind of
+   * latent bug a queue turns into a real one. The key is now frozen in the row.
+   */
+  const post = (body: string) => {
+    try {
+      queueComment(id!, body);
       setComment('');
-      await queryClient.invalidateQueries({ queryKey: queryKeys.expense(id!) });
-    },
-    onError: (e: Error) => setToast(e.message),
-  });
+      offline.refresh();
+      offline.sync();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.expense(id!) });
+    } catch (err) {
+      setToast((err as Error).message);
+    }
+  };
 
-  const remove = useMutation({
-    mutationFn: () => deleteExpense(id!, data!.expense.revision, deleteMutationId.current),
-    onSuccess: async () => {
+  /*
+   * Deleting is queued like everything else, which moves where a conflict can surface.
+   *
+   * The refusal can arrive long after this screen is gone, so it lands in the pending inbox
+   * (`/pending`) rather than in a sheet here — which is also why the sheet that used to live
+   * here is gone. Same rule either way: **delete beats edit**, and nothing is merged.
+   */
+  const remove = () => {
+    if (!data || !profile) return;
+    try {
+      queueDeleteExpense(
+        profile.id,
+        id!,
+        shapeFromDetail(data),
+        data.expense.revision,
+      );
       setConfirmDelete(false);
-      await invalidate();
+      offline.refresh();
+      offline.sync();
+      void invalidate();
       router.back();
-    },
-    onError: (e: Error) => {
+    } catch (err) {
       setConfirmDelete(false);
-      // A conflict is not a failure to retry: someone else moved this expense, and the sheet
-      // below shows what they did rather than letting a second delete guess.
-      if (!isConflict(e)) setToast(e.message);
-    },
-  });
+      if (!isConflict(err)) setToast((err as Error).message);
+    }
+  };
 
   const e = data?.expense;
   const net = data ? data.my_paid_minor - data.my_share_minor : 0n;
@@ -283,8 +299,8 @@ export default function ExpenseDetailScreen() {
                   accessibilityRole="button"
                   accessibilityLabel="Post comment"
                   hitSlop={8}
-                  disabled={comment.trim().length === 0 || post.isPending}
-                  onPress={() => post.mutate(comment.trim())}
+                  disabled={comment.trim().length === 0}
+                  onPress={() => post(comment.trim())}
                   style={comment.trim().length === 0 ? styles.sendOff : undefined}
                 >
                   <Svg width={17} height={15} viewBox="0 0 18 16" fill="none">
@@ -334,10 +350,10 @@ export default function ExpenseDetailScreen() {
         footer={
           <View style={styles.confirmButtons}>
             <GlassButton
-              label={remove.isPending ? 'Deleting…' : 'Delete'}
+              label="Delete"
               variant="primary"
-              disabled={remove.isPending}
-              onPress={() => remove.mutate()}
+
+              onPress={remove}
             />
             <GlassButton
               label="Keep it"
@@ -346,15 +362,6 @@ export default function ExpenseDetailScreen() {
             />
           </View>
         }
-      />
-
-      <ConflictSheet
-        error={remove.error}
-        onClose={() => remove.reset()}
-        onReload={async () => {
-          remove.reset();
-          await refetch();
-        }}
       />
 
       <Toast message={toast} />

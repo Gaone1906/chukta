@@ -337,6 +337,53 @@ export async function getExpenseDetail(expenseId: string): Promise<ExpenseDetail
   };
 }
 
+/** One change, as it arrives live or comes back from a catch-up pull. */
+export interface ChangeEvent {
+  event_id: number;
+  entity_type: 'expense' | 'settlement' | 'comment' | 'group' | 'member' | 'profile';
+  entity_id: string;
+  op: 'insert' | 'update' | 'delete';
+  group_id: string | null;
+  actor_profile_id: string | null;
+  payload: Record<string, unknown>;
+}
+
+export interface SyncPull {
+  /** The cursor fell outside the retention window — start over rather than miss a month. */
+  full_resync: boolean;
+  events: ChangeEvent[];
+  cursor: number;
+}
+
+/**
+ * Everything that happened to me since event N.
+ *
+ * The catch-up half of the live path: a broadcast covers the app being open, this covers it
+ * having been closed. Both read the same table and speak the same cursor, so a client that
+ * misses a broadcast is not missing anything permanently — the next pull has it.
+ */
+export async function syncPull(sinceEventId: number, limit = 500): Promise<SyncPull> {
+  const raw = await rpc<{
+    full_resync: boolean;
+    events: Record<string, unknown>[] | null;
+    cursor: number | string;
+  }>('sync_pull', { p_since_event_id: sinceEventId, p_limit: limit });
+
+  return {
+    full_resync: Boolean(raw.full_resync),
+    events: (raw.events ?? []).map((e) => ({
+      event_id: Number(e.id ?? e.event_id ?? 0),
+      entity_type: e.entity_type as ChangeEvent['entity_type'],
+      entity_id: String(e.entity_id),
+      op: e.op as ChangeEvent['op'],
+      group_id: (e.group_id as string | null) ?? null,
+      actor_profile_id: (e.actor_profile_id as string | null) ?? null,
+      payload: (e.payload as Record<string, unknown>) ?? {},
+    })),
+    cursor: Number(raw.cursor ?? sinceEventId),
+  };
+}
+
 export async function getSimplifiedDebts(groupId: string): Promise<Transfer[]> {
   const { data, error } = await supabase.rpc('simplify_group_debts' as never, {
     p_group_id: groupId,
@@ -354,8 +401,14 @@ export async function getSimplifiedDebts(groupId: string): Promise<Transfer[]> {
 export interface ExpenseDraft {
   id?: string;
   groupId?: string | null;
-  /** Set to create the group inline — naming it promotes the participant set into a group. */
-  newGroup?: { name: string; memberProfileIds: string[] } | null;
+  /**
+   * Set to create the group inline — naming it promotes the participant set into a group.
+   *
+   * `id` is supplied by the client so a queued expense can name the group it belongs to before
+   * either has reached the server. Optional only for callers that are definitely online; the
+   * offline path always sets it.
+   */
+  newGroup?: { id?: string; name: string; memberProfileIds: string[] } | null;
   description: string;
   amountMinor: bigint;
   splitType: 'equal' | 'exact' | 'percentage' | 'shares' | 'itemized';
@@ -369,7 +422,11 @@ function draftToPayload(draft: ExpenseDraft, id: string) {
     id,
     group_id: draft.groupId ?? null,
     new_group: draft.newGroup
-      ? { name: draft.newGroup.name, member_profile_ids: draft.newGroup.memberProfileIds }
+      ? {
+          id: draft.newGroup.id ?? null,
+          name: draft.newGroup.name,
+          member_profile_ids: draft.newGroup.memberProfileIds,
+        }
       : null,
     description: draft.description,
     // bigint has no JSON representation; send the decimal string and let Postgres parse it.
@@ -496,15 +553,29 @@ export async function addGroupMembers(
   });
 }
 
-/** Create (or find) a profile for someone who has not signed up. */
+/**
+ * Create (or find) a profile for someone who has not signed up.
+ *
+ * `profileId` is the id the caller has already started using — an offline "add someone by
+ * name" has to be able to put them on an expense before the server has heard of either. The
+ * server honours it when it is free and refuses it when it belongs to somebody else.
+ *
+ * **The returned id may not be the one you asked for.** If the contact point matches a person
+ * who already exists, you get theirs — that is the dedupe working, and it is why the outbox
+ * drainer remaps the id across everything still queued behind this row.
+ */
 export async function upsertContactProfile(
   displayName: string,
   contact?: { kind: 'phone' | 'email'; value: string },
+  profileId?: string,
+  mutationId?: string,
 ): Promise<string> {
   return rpc<string>('upsert_contact_profile', {
     p_display_name: displayName,
     p_kind: contact?.kind ?? null,
     p_value_norm: contact?.value ?? null,
+    p_profile_id: profileId ?? null,
+    p_client_mutation_id: mutationId ?? null,
   });
 }
 

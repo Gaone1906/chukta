@@ -21,6 +21,8 @@ import { SearchField } from '@/features/expenses/SearchField';
 import { BackChevron } from '@/features/onboarding/BackChevron';
 import { AddPersonSheet } from '@/features/people/AddPersonSheet';
 import { getHomeSummary } from '@/lib/api';
+import { useOffline } from '@/lib/offline/OfflineProvider';
+import { withPendingPeople } from '@/lib/offline/people';
 import { queryKeys } from '@/lib/queryKeys';
 
 /**
@@ -42,6 +44,7 @@ export default function WhoPicker() {
   const [addingPerson, setAddingPerson] = useState(false);
   const [groupId, setGroupId] = useState<string | null>(null);
   const [people, setPeople] = useState<string[]>([]);
+  const offline = useOffline();
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: queryKeys.home(),
@@ -54,8 +57,11 @@ export default function WhoPicker() {
     [data, term],
   );
   const folks = useMemo(
-    () => (data?.people ?? []).filter((p) => !term || p.display_name.toLowerCase().includes(term)),
-    [data, term],
+    () =>
+      withPendingPeople(data?.people ?? [], offline.pendingPeople, offline.effects).filter(
+        (p) => !term || p.display_name.toLowerCase().includes(term),
+      ),
+    [data, term, offline.pendingPeople, offline.effects],
   );
 
   // Whoever the sheet creates is ticked immediately — the tap that added them is also the tap

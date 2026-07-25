@@ -2,7 +2,7 @@ import { money } from '@hisaab/core';
 import { useQuery } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -13,6 +13,8 @@ import { RowSkeleton } from '@/features/home/RowSkeleton';
 import { initials } from '@/features/people/Avatar';
 import { Sidebar } from '@/features/sidebar/Sidebar';
 import { getHomeSummary } from '@/lib/api';
+import { deltaFor } from '@/lib/offline/effects';
+import { useOffline } from '@/lib/offline/OfflineProvider';
 import { queryKeys } from '@/lib/queryKeys';
 
 const WORDMARK = require('../../../assets/brand/hisaab-mark.png');
@@ -31,14 +33,56 @@ export default function Home() {
   const { rippleTo, rippleFrom } = useRippleNav();
   const [tab, setTab] = useState<'groups' | 'people'>('groups');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { effects, pendingPeople } = useOffline();
 
   const { data, isLoading, isRefetching, refetch, error } = useQuery({
     queryKey: queryKeys.home(),
     queryFn: getHomeSummary,
   });
 
-  const groups = data?.groups ?? [];
-  const people = data?.people ?? [];
+  /*
+   * The server's numbers, plus whatever is still sitting in the outbox.
+   *
+   * This is what makes an expense entered with no signal actually *do* something. The cached
+   * figure is the last thing the server said and stays untouched; the overlay on top of it is
+   * the sum of every queued write's effect, computed when that write was made by the same
+   * `resolvePairwise` the server uses. When the queue drains and the refetch lands, the
+   * overlay empties and the server's own figure is what remains — so this is a temporary
+   * amendment to the truth, never a second copy of it.
+   */
+  const groups = useMemo(
+    () =>
+      (data?.groups ?? []).map((g) => ({
+        ...g,
+        net_minor: g.net_minor + deltaFor(effects, 'group', g.id),
+      })),
+    [data?.groups, effects],
+  );
+
+  const people = useMemo(() => {
+    const known = (data?.people ?? []).map((p) => ({
+      ...p,
+      net_minor: p.net_minor + deltaFor(effects, 'person', p.id),
+    }));
+
+    // Somebody named while offline is not in the summary yet — that list is the server's
+    // answer, and the server has not been told. Showing them here is the same fix migration
+    // 0022 made for the online case: a person you just created who is invisible to the app is
+    // not a person you can split anything with.
+    const seen = new Set(known.map((p) => p.id));
+    const queued = pendingPeople
+      .filter((p) => !seen.has(p.id))
+      .map((p) => ({
+        id: p.id,
+        display_name: p.displayName,
+        avatar_url: null,
+        is_placeholder: true,
+        shared_group_count: 0,
+        net_minor: deltaFor(effects, 'person', p.id),
+      }));
+
+    return [...known, ...queued].sort((a, b) => a.display_name.localeCompare(b.display_name));
+  }, [data?.people, effects, pendingPeople]);
 
   return (
     <View style={styles.root}>

@@ -5,7 +5,8 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 
 import { AmbientBackground, Toast, color } from '@/design';
 import { BlurTargetProvider } from '@/design/blurTarget';
@@ -13,14 +14,27 @@ import { useAppFonts } from '@/design/fonts';
 import { SessionProvider, useSession } from '@/features/auth/session';
 import { usePendingInvite } from '@/features/invite/usePendingInvite';
 import { isConflict } from '@/lib/errors';
+import { OfflineProvider } from '@/lib/offline/OfflineProvider';
+import { OfflineBanner } from '@/lib/offline/OfflineBanner';
+import { CACHE_BUSTER, CACHE_MAX_AGE, queryPersister } from '@/lib/offline/persister';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Balances change when anyone in a shared group adds an expense, so a long stale time
-      // would show stale money. Phase 8 replaces polling entirely with the change_events
-      // subscription; until then, refetch on focus and keep the window short.
-      staleTime: 30_000,
+      // Balances change when anyone in a shared group adds an expense. Phase 8 replaced polling
+      // with the change_events subscription, which invalidates the affected keys the moment
+      // anything moves — so the stale window no longer has to be short to stay honest.
+      staleTime: 60_000,
+      /*
+       * Long enough to outlive the persisted cache, and that is the whole point.
+       *
+       * A query is only written to disk if it is still IN the cache when the persister
+       * dehydrates. At the default five minutes, everything the user was not currently looking
+       * at would be collected before the app closed — so the "works offline" cache would hold
+       * one screen. Matching gcTime to the cache's max age is what makes a cold start on a
+       * plane show the whole app rather than the last thing that was open.
+       */
+      gcTime: CACHE_MAX_AGE,
       retry: 2,
     },
     mutations: {
@@ -69,11 +83,28 @@ export default function RootLayout() {
               colors: { ...DarkTheme.colors, background: 'transparent', card: 'transparent' },
             }}
           >
-            <QueryClientProvider client={queryClient}>
+            {/*
+              * The cached reads, restored before the first render that could show an empty
+              * screen. `buster` discards anything written by an older serializer rather than
+              * feeding it to a newer one — tagged bigints read back by the wrong parser would
+              * render as [object Object] where a balance belongs.
+              */}
+            <PersistQueryClientProvider
+              client={queryClient}
+              persistOptions={{
+                persister: queryPersister,
+                maxAge: CACHE_MAX_AGE,
+                buster: CACHE_BUSTER,
+              }}
+            >
               <SessionProvider>
-                <RootNavigator />
+                {/* Inside SessionProvider: the queue, the cursor and the subscription all
+                    belong to one profile, so none of them can start before there is one. */}
+                <OfflineProvider>
+                  <RootNavigator />
+                </OfflineProvider>
               </SessionProvider>
-            </QueryClientProvider>
+            </PersistQueryClientProvider>
           </ThemeProvider>
         </BlurTargetProvider>
       </SafeAreaProvider>
@@ -134,6 +165,7 @@ function RootNavigator() {
           animation: 'fade',
         }}
       />
+      <OfflineBanner />
       <Toast message={inviteMessage} />
     </>
   );

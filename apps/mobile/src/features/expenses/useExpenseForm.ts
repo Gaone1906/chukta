@@ -133,11 +133,20 @@ export function useExpenseForm(
     return `Everyone's share matches what they put in, so this changes nobody's balance.`;
   })();
 
-  const toDraft = (options: { groupId?: string | null; newGroupMemberIds?: string[] }): ExpenseDraft => ({
+  const toDraft = (options: {
+    groupId?: string | null;
+    newGroupMemberIds?: string[];
+    /** The id the caller has already committed to for an inline new group. */
+    newGroupId?: string;
+  }): ExpenseDraft => ({
     groupId: options.groupId ?? null,
     newGroup:
       groupName.trim() && options.newGroupMemberIds
-        ? { name: groupName.trim(), memberProfileIds: options.newGroupMemberIds }
+        ? {
+            id: options.newGroupId,
+            name: groupName.trim(),
+            memberProfileIds: options.newGroupMemberIds,
+          }
         : null,
     description: description.trim(),
     amountMinor,

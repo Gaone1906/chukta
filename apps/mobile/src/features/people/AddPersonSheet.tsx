@@ -6,7 +6,9 @@ import Svg, { Path } from 'react-native-svg';
 
 import { GlassButton, Sheet, color, font } from '@/design';
 import { inviteMessage, personalInviteUrl } from '@/features/invite/inviteLink';
-import { createInviteLink, upsertContactProfile } from '@/lib/api';
+import { createInviteLink } from '@/lib/api';
+import { useOffline } from '@/lib/offline/OfflineProvider';
+import { queueContactProfile } from '@/lib/offline/writes';
 import { queryKeys } from '@/lib/queryKeys';
 import { Avatar } from './Avatar';
 
@@ -47,33 +49,49 @@ function AddPersonBody({
   onAdded: (profileId: string, displayName: string) => void;
 }) {
   const queryClient = useQueryClient();
+  const offline = useOffline();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [added, setAdded] = useState<{ id: string; name: string } | null>(null);
   const [note, setNote] = useState<string | null>(null);
 
-  const create = useMutation({
-    mutationFn: async () => {
+  /*
+   * The person exists as soon as you tap Add.
+   *
+   * This is the most response-dependent write in the app — the returned id is handed straight
+   * to `onAdded`, which ticks them into the selection behind the sheet, and from there it
+   * flows into route params, an expense's payers and splits, and a group's member list. Which
+   * is exactly why it could not work offline until `upsert_contact_profile` learned to accept
+   * a client-supplied id (migration 0024).
+   *
+   * One consequence worth knowing about: if the email you typed already belongs to somebody,
+   * the server hands back THEIR id rather than the one minted here, and the drainer rewrites
+   * every queued write that referenced the invented one. The dedupe still wins — it just wins
+   * later than it used to.
+   */
+  const create = () => {
+    try {
       const trimmed = email.trim().toLowerCase();
-      const id = await upsertContactProfile(
+      const id = queueContactProfile(
         name.trim(),
         // Normalised here because the RPC dedupes on `value_norm` exactly — an address
         // differing only in case would otherwise create a second identity for one person,
         // which is what the unique index on live contact points exists to prevent.
         trimmed ? { kind: 'email', value: trimmed } : undefined,
       );
-      return { id, name: name.trim() };
-    },
-    onSuccess: async (person) => {
+      const person = { id, name: name.trim() };
       setAdded(person);
       // Tell the caller immediately rather than on close: they get ticked in the list behind
       // the sheet, so the result of the tap is visible before any decision about the link.
       onAdded(person.id, person.name);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.home() });
-    },
-    onError: (e: Error) => setNote(e.message),
-  });
+      offline.refresh();
+      offline.sync();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.home() });
+    } catch (e) {
+      setNote((e as Error).message);
+    }
+  };
 
   const invite = useMutation({
     mutationFn: async (mode: 'share' | 'copy') => {
@@ -101,7 +119,7 @@ function AddPersonBody({
       ),
   });
 
-  const ready = name.trim().length > 1 && !create.isPending;
+  const ready = name.trim().length > 1;
 
   if (added) {
     return (
@@ -112,10 +130,18 @@ function AddPersonBody({
         subtitle="Added. Put them on expenses whenever you like."
         footer={
           <View style={styles.actions}>
+            {/* The one part of this that genuinely needs a network. The token IS the link,
+                so there is nothing to queue — it cannot be minted offline and shared later. */}
             <GlassButton
-              label={invite.isPending ? 'Preparing…' : 'Send them the link'}
+              label={
+                !offline.connectivity.isConnected
+                  ? 'Link needs a connection'
+                  : invite.isPending
+                    ? 'Preparing…'
+                    : 'Send them the link'
+              }
               variant="primary"
-              disabled={invite.isPending}
+              disabled={invite.isPending || !offline.connectivity.isConnected}
               onPress={() => invite.mutate('share')}
             />
             <GlassButton label="Done" variant="ghost" onPress={onClose} />
@@ -162,10 +188,10 @@ function AddPersonBody({
       subtitle="They don't need the app for you to start splitting with them."
       footer={
         <GlassButton
-          label={create.isPending ? 'Adding…' : 'Add them'}
+          label="Add them"
           variant="primary"
           disabled={!ready}
-          onPress={() => create.mutate()}
+          onPress={create}
         />
       }
     >
