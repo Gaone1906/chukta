@@ -67,6 +67,10 @@ export function GlassButton({
 const styles = StyleSheet.create({
   primary: {
     height: 54,
+    // Horizontal padding matters only when the button sizes to its own content — every
+    // full-width use hides its absence. Inline in a row, a label with no padding and a pill
+    // radius collapses into an oval barely wider than the text.
+    paddingHorizontal: 22,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -78,6 +82,7 @@ const styles = StyleSheet.create({
   },
   secondary: {
     height: 54,
+    paddingHorizontal: 22,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

@@ -1,7 +1,7 @@
 import { formatAmount, money } from '@hisaab/core';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -41,6 +41,12 @@ export default function GroupDetail() {
     queryFn: () => getGroupDetail(id!),
     enabled: Boolean(id),
   });
+
+  const settleWith = (counterpartyId: string) =>
+    router.push({
+      pathname: '/settle',
+      params: { profileId: counterpartyId, groupId: id!, groupName: data?.group.name ?? '' },
+    });
 
   const ping = (message: string) => {
     setToast(message);
@@ -106,21 +112,28 @@ export default function GroupDetail() {
 
               <View style={styles.breakdown}>
                 {others.map((m) => (
-                    <View key={m.profile_id} style={styles.breakdownRow}>
-                      <Text style={styles.memberName} numberOfLines={1}>
-                        {m.display_name}
-                        {m.is_placeholder ? <Text style={styles.pending}>  not on Hisaab yet</Text> : null}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.memberAmount,
-                          { color: m.net_minor > 0n ? color.creamWarm : color.creamRose },
-                        ]}
-                      >
-                        {m.net_minor > 0n ? 'is owed ' : 'owes '}
-                        {formatAmount(money(m.net_minor, 'INR'), { signed: false })}
-                      </Text>
-                    </View>
+                  <Pressable
+                    key={m.profile_id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Settle up with ${m.display_name}`}
+                    hitSlop={6}
+                    onPress={() => settleWith(m.profile_id)}
+                    style={styles.breakdownRow}
+                  >
+                    <Text style={styles.memberName} numberOfLines={1}>
+                      {m.display_name}
+                      {m.is_placeholder ? <Text style={styles.pending}>  not on Hisaab yet</Text> : null}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.memberAmount,
+                        { color: m.net_minor > 0n ? color.creamWarm : color.creamRose },
+                      ]}
+                    >
+                      {m.net_minor > 0n ? 'is owed ' : 'owes '}
+                      {formatAmount(money(m.net_minor, 'INR'), { signed: false })}
+                    </Text>
+                  </Pressable>
                 ))}
               </View>
 
@@ -128,7 +141,13 @@ export default function GroupDetail() {
                 label="Settle up"
                 variant={myNet === 0n ? 'secondary' : 'primary'}
                 disabled={myNet === 0n}
-                onPress={() => ping('Settle up arrives in Phase 6.')}
+                onPress={() => {
+                  // A group settlement is always with one person. When there is only one
+                  // counterparty, asking which would be a pointless step; when there are
+                  // several, the breakdown above is already the picker.
+                  if (others.length === 1) settleWith(others[0]!.profile_id);
+                  else ping('Tap whoever you want to settle with, above.');
+                }}
                 style={styles.settleButton}
               />
             </GlassSurface>

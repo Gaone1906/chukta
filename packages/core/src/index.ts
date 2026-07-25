@@ -14,6 +14,7 @@ export * from './allocate';
 export * from './split';
 export * from './fx';
 export * from './settle';
+export * from './upi';
 
 // Generated from the live schema by `npm run db:types`. Do not edit by hand.
 export type { Database, Json } from './db-types';

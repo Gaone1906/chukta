@@ -1,7 +1,6 @@
 import { formatAmount, money } from '@hisaab/core';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,7 +9,6 @@ import {
   GlassButton,
   GlassSurface,
   SettledBadge,
-  Toast,
   color,
   font,
   radius,
@@ -39,18 +37,12 @@ export default function PersonDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { rippleTo } = useRippleNav();
-  const [toast, setToast] = useState<string | null>(null);
 
   const { data, isLoading, isRefetching, refetch, error } = useQuery({
     queryKey: queryKeys.person(id!),
     queryFn: () => getPersonDetail(id!),
     enabled: Boolean(id),
   });
-
-  const ping = (message: string) => {
-    setToast(message);
-    setTimeout(() => setToast(null), 2600);
-  };
 
   const net = data?.net_minor ?? 0n;
   const name = data?.person.display_name ?? 'Person';
@@ -151,7 +143,9 @@ export default function PersonDetail() {
                   <GlassButton
                     label="Settle up"
                     variant="primary"
-                    onPress={() => ping('Settle up arrives in Phase 6.')}
+                    onPress={() =>
+                      router.push({ pathname: '/settle', params: { profileId: id! } })
+                    }
                     style={styles.settleButton}
                   />
                 ) : null}
@@ -220,8 +214,6 @@ export default function PersonDetail() {
           )
         }
       />
-
-      <Toast message={toast} />
     </View>
   );
 }
