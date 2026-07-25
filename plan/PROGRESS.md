@@ -1057,192 +1057,167 @@ seconds indefinitely. Caught by watching `attempts` reach 23 inside ninety secon
 
 ---
 
-# NEXT UP — approved plan, not yet started (written 2026-07-26)
+# DONE this round (2026-07-26) — security, motion, rating, phone.ts
 
-Six requests after Phase 8, all approved to ship **before Phase 10**. The full plan is in
-`~/.claude/plans/nifty-strolling-plum.md`; everything load-bearing is repeated here so the
-plan file is not a dependency.
+Commits `4ca1f5f`, `3737ee3`, `15682e9`. All pushed. Gate green throughout:
+**117 pgTAP · 45 mobile · 114 core · typecheck 0 · lint 0.**
 
-## ⚠️ SECURITY — do this first, before any of the six
+## ✅ The placeholder takeover — REPRODUCED, then fixed (`0025_validate_expense_participants.sql`)
 
-**A placeholder takeover appears to exist in shipped code today, needing no guessing at all.**
+It was real. The previous note called it "strongly indicated"; it is now **proven**, executed
+end to end against a local stack before anything was changed. On the unpatched database
+`claim_placeholder` returned `{"merged": true}` and `merge_profiles` absorbed the victim.
 
-Found while pressure-testing the passcode design. Four links, each verified by reading the
-code; the end-to-end exploit was **NOT executed** (the probe failed on my own SQL typos), so
-treat this as strongly indicated rather than proven. **Reproduce it first, then fix.**
+The chain, for the record: `upsert_contact_profile` is an email→UUID oracle → name that id in a
+**one-off** expense (no `group_id`, so `assert_group_member` never runs and nothing else checked
+at all) → that write creates a shared `expense_participants` row → `shares_context_with` is now
+true → `create_invite_link` passes → `claim_placeholder` → `merge_profiles`. Irreversible.
 
-1. `app.upsert_contact_profile` is find-or-create and returns the *existing* `profile_id` for
-   any live `(kind, value_norm)` — so a known email address is an email → UUID oracle, and it
-   is unthrottled. (`0024_client_generated_ids.sql:110-124`)
-2. `app.create_expense` **never validates that the profile ids in `payers` / `splits` /
-   `new_group.member_profile_ids` are anyone the caller knows.** It inserts whatever UUIDs the
-   payload carries. The only auth check is `assert_group_member` when a `group_id` is supplied;
-   a one-off expense has none. (`0011_write_rpcs.sql:87-183`, carried into `0023`)
-3. `auth_ext.shares_context_with` is satisfied by a single `expense_participants` row.
-   (`0009_auth_ext_helpers.sql:115-143`)
-4. So: name a stranger's placeholder in a one-off expense → you now "share context" with them →
-   `create_invite_link` passes its gate → `claim_placeholder` → `merge_profiles` absorbs their
-   history into your account. Irreversible; there is no un-merge anywhere in the schema.
+**The fix is narrower than the first attempt, and the narrowing is the interesting part.**
+`auth_ext.assert_known_profiles` gates **placeholders only**; claimed accounts pass freely.
 
-**The tell that this is real:** `app.create_group` DOES validate exactly this, raising
-`42501 'cannot add a profile you have no shared context with'` (`0016_group_mutations.sql`).
-Its sibling `create_expense` does not. One path was hardened and the other was missed.
+- A placeholder can be absorbed, so naming one you neither created nor share context with is
+  refused (`42501`).
+- A claimed account **cannot** be merged (`merge_profiles` refuses any source with a `user_id`,
+  `0013:207`), so there is no takeover to reach — and gating it would have broken the documented
+  common case: add a friend by email, `upsert_contact_profile` finds they are already on Hisaab
+  and returns THEIR id, split with them immediately (`AddPersonSheet.tsx:68-71`).
+- My first version gated everything, and `sync.test.sql` caught it — that suite bootstraps
+  context between three real accounts with a one-off expense, i.e. it was *relying on the hole*.
+  It now passes **unchanged**, which is the evidence the narrowing is right.
 
-Minimum fix: validate every profile id in `create_expense`'s payload before the inserts —
-`id = v_me OR created_by_profile_id = v_me OR shares_context_with(id) OR (group_id is not null
-AND that id is a member of that group)`. Same shape as `create_group`'s existing check. Note
-this also closes a second hole: today anyone can inject fabricated debts onto a stranger.
+`update_expense` had the same hole (it replaces the split set wholesale) and shares the fix.
+**Residual, accepted:** someone knowing your email can still put you on a one-off expense you
+did not agree to. Spam-shaped, visible, and you can delete it. Closing it needs an accept-step,
+which is a product decision, not a patch.
 
-Also worth doing before adding any low-entropy path: `internal.profile_merges.row_counts`
-records nothing but the two ids it already has as columns (`0013:307`), and `merge_profiles`
-**sums** colliding split rows (`0013:227`), so a merge is mathematically irreversible, not just
-un-implemented. Record enough to reverse one.
+Two test fixtures created placeholders with a **null creator**, which `upsert_contact_profile`
+never produces; made them resemble real rows. Regression tests added for both RPCs.
 
-## 1. Motion (start here — hours, and it is what you see on every tap)
+## ✅ The ripple (`3737ee3`)
 
-### The ripple stalls — three measured defects
+Root cause was one value driving two things that want **opposite** curves. Fixed with three
+independent shared values, one continuous segment each, **no `withSequence` anywhere**:
+`veil` (ease-out, `cover`) · `wave` (**linear**, `cover+hold`) · `dissolve` (delayed).
+Navigation fires from the veil's completion callback, replacing a `useAnimatedReaction` that
+compared on every frame to catch one crossing.
 
-- `Easing.bezier(0.16, 0.6, 0.22, 1)` has terminal slope **exactly 0** (its second control
-  point sits at y=1). **89% of the expand's travel happens in the first 200ms of its 440ms.**
-  Then segment 2 is `Easing.linear`, so speed steps from a dead stop to 0.889 progress/s — a
-  **74× jump across one frame**. That is the stall the user reported, and it is the same
-  front-loading fault as the curve it replaced.
-- `RippleNav.tsx:315` passes `travel` (the leading edge) to `ringOpacity` instead of each ring's
-  own lagged position, so all three run the leader's fade schedule. Ring 3 is invisible from
-  58% of the way out.
-- `maxRadius` measures to the **furthest corner**. For a tap at (201,250) on 402×874, only
-  **13.6%** of a ring's circumference is on screen across the last half of its travel — the
-  fade is scheduled against a destination nobody can see.
+`ringOpacity` was being passed the **leading edge's** progress for all three rings; each now
+fades against its own lagged position. Hold moved 0.66 → 0.75.
 
-**Fix: the veil and the rings want opposite curves and must stop sharing one value.** A filled
-disc covers area ∝ r², so the veil needs an ease-out. A thin ring outline is a travelling
-wavefront and wants **constant radial speed** — near-linear. Three independent shared values,
-one continuous segment each, no `withSequence`:
+Tokens: `expand` → **`cover`**, retimed `320 / 360 / 220` (900).
 
-| value | duration | easing | drives |
-|---|---|---|---|
-| `veil` | `cover` | `Easing.out(Easing.quad)` | veil scale; its completion callback fires navigation |
-| `wave` | `cover + hold` | **linear** | ring radii |
-| `dissolve` | `dissolve`, after `withDelay(cover + hold)` | `Easing.out(Easing.quad)` | veil opacity, `veilDrift`, global ring fade |
+**Verified on device at 20×** (frames in the transcript): veil coverage grows smoothly and
+monotonically with no plateau or cliff, three rings stay distinct and are still visibly moving
+as they sweep off the edge.
 
-Tokens retimed to `cover: 320, hold: 360, dissolve: 220` (total 900). Tune at 20× per trap 20.
+## ✅ Back navigation (`3737ee3`)
 
-### Back navigation — the gesture already works
+`animation: 'none'` hard-codes `transitionDuration` to 0, so the swipe **was** firing and
+popping all along — it just had nothing to interpolate. Now `slide_from_right`,
+`animationDuration: 300`, `gestureEnabled`, `fullScreenGestureEnabled`, `animationMatchesGesture`.
+Verified: a drag from **mid-screen** (x=120) pops. `rippleMath.test.ts` asserts
+`hold >= 300` so the slide can never outlast the veil it hides under.
 
-`gestureEnabled` and `animation` are independent in RNS's native code
-(`RNSScreenStack.mm:1094`); the recognizer fires and pops today. `animation: 'none'` hard-codes
-`transitionDuration` to `0.0` (`RNSScreenStackAnimator.mm:60`), so there is nothing to
-interpolate — you are swiping successfully and seeing an instant cut.
+## ✅ Rate the app + `phone.ts` (`15682e9`)
 
-In `(app)/_layout.tsx`: `animation: 'slide_from_right'`, **`animationDuration: 300`** (the
-default is 500, which would outlast the hold and peek out from under the dissolving veil — the
-exact stutter that made `animation: 'none'` the original choice), `gestureEnabled: true`,
-`fullScreenGestureEnabled: true`, `animationMatchesGesture: true`. The push is invisible under
-the veil, so it only has to finish inside the 360ms hold.
+`expo-store-review` added, **pod install + rebuild done**, real StoreKit sheet verified on the
+simulator. **No success toast on the good path** — `requestReview()` resolves whether or not the
+OS showed anything, so any confirmation would be a lie on most taps.
 
-Android gets the animated pop but **not** the swipe — expo-router hard-codes
-`gestureEnabled: false` there (`NativeStackView.native.js:209`).
+Fixed both bugs next door: `tip.tsx` never branched on `configured`; `purchases.ts` had no
+`purchase()` export.
 
-*Rejected: RNS 4.26.2 ships a Reanimated custom-transition API (`goBackGesture`,
-`transitionAnimation`, `GestureDetectorProvider`) but expo-router 57.0.8 surfaces none of it —
-zero references in its build output. Reaching it means patching expo-router.*
+`packages/core/src/phone.ts` + 14 tests. Resolved ambiguity, asserted: **ten digits starting
+`91` read as national**, not CC+8 — stripping it would mangle the live 91xxxxxxxx mobile series.
 
-## 2. Rate the app
+---
 
-The design has it and the port dropped it — `design-reference/screens/Hisaab Tip Jar.dc.html:94`
-is a gold star pill above Share. Add `expo-store-review@~57.0.1` (rebuild), a `features/tip/
-rate.ts` seam: `requestReview()` → `EXPO_PUBLIC_STORE_URL` → today's honest toast. Point
-`about.tsx`'s existing row at the same handler.
+# NEXT UP — what is left of the six
 
-**Two bugs next door:** `tip.tsx:145` never branches on `configured` (it toasts "not yet" even
-with a RevenueCat key set), and `purchases.ts` has **no `purchase()` export at all** despite its
-own header comment and this file describing it as the ready seam.
+Order: claim codes (migration **0026**, not 0025 — that number is now the security fix) + claim
+UI → phone on profile (**needs a decision, see below**) → contacts. Phase 10 after.
 
-## 3. Claim a person with a passcode
+## 1. Claim a person with a passcode — migration `0026_claim_codes.sql` + UI
 
-**Already built:** `profile_claims` (stores only a hash), `claim_placeholder`, `merge_profiles`,
-and `create_invite_link` which mints 24 random bytes. Missing: a typeable code, somewhere to
-type it, and a throttle — **there is none anywhere on this path today.**
+Everything in the previous plan still stands. The load-bearing points, unchanged:
 
-**Hard limit:** `merge_profiles` refuses a source that already has an account (`0013:207`). A
-claim is always *placeholder → me*, one direction. Two people who each hold a placeholder of
-the other need **two codes**. There is no symmetric handshake and there cannot be one without
-building account merging, which is account takeover.
-
-**Use 8 characters, not 6.** A random guesser attacks the union of all live codes, so expected
-guesses is `S/N` for N live codes. At 32⁶ = 2^30 and no throttle: a *targeted* single code
-falls in ~30 hours at 10k req/s, and 10,000 live codes fall in ~11 seconds. Even with a
-throttle, 6 chars gives a large app roughly a **1-in-10 chance of a takeover in year one**.
-8 chars (2^40) buys 1024× for one extra typed pair — display as `XXXX-XXXX`.
-
-- 32-char Crockford-style alphabet, **exactly 32** so `% 32` on a uniform byte is unbiased.
-- **15-minute expiry** (not the table's 90-day default — that default is right for a 192-bit
-  link and catastrophic for a short code; it is the single biggest free lever on N).
-- **HMAC with an out-of-row pepper**, not the current unsalted SHA-256: a 40-bit input inverts
-  on a consumer GPU in minutes, so plain `digest()` is decorative here. `extensions.hmac` is
-  available (pgcrypto, `0001:9`).
-- Separate table `internal.claim_codes` — one table cannot carry one `expires_at` default for
+- **8 characters, not 6**, from a 32-char Crockford alphabet (exactly 32, so `% 32` on a uniform
+  byte is unbiased). Display `XXXX-XXXX`. A guesser attacks the union of all live codes: 32⁶ is
+  2^30, and even throttled that gives a large app roughly a 1-in-10 chance of a takeover in year
+  one. 8 chars buys 1024× for one extra typed pair.
+- **15-minute expiry**, not the table's 90-day default — that default is right for a 192-bit link
+  and catastrophic for a 40-bit code. It is the single biggest free lever on the live-code count.
+- **HMAC with an out-of-row pepper**, not the current unsalted SHA-256: a 40-bit input inverts on
+  a consumer GPU in minutes, so plain `digest()` is decorative at this length. `extensions.hmac`
+  is available (pgcrypto, `0001:9`).
+- Separate `internal.claim_codes` table — one table cannot carry one `expires_at` default for
   both a 192-bit secret and a 40-bit one. Cron purge.
 - Supersede **all** live claims for the placeholder, not just the caller's (`0020:62-67` scopes
   to `created_by_profile_id = v_me`, so a second inviter's code survives a "regenerate").
 - **Throttle in `internal`, three tiers**: 5/hour/actor, 20/hour/IP, and a **global 500 failures
-  / 5 min circuit breaker** — the tier that actually caps total entropy regardless of how many
-  accounts or IPs the attacker has.
+  / 5 min circuit breaker** — the only tier that caps total entropy regardless of how many
+  accounts or IPs the attacker controls.
 - **Return, don't raise.** PostgREST runs each RPC in one transaction, so inserting the attempt
-  row and then raising **rolls the counter back** — the throttle becomes a no-op that tests
-  green. Return `{ok:false, reason:'invalid'}` with one uniform reason for wrong/expired/used.
+  row and then raising **rolls the counter back** and the throttle becomes a no-op that tests
+  green. Return `{ok:false, reason:'invalid'}`, one uniform reason for wrong/expired/used.
+- **Hard limit:** `merge_profiles` refuses a source that already has an account, so a claim is
+  always *placeholder → me*. Two people each holding a placeholder of the other need **two
+  codes**. There is no symmetric handshake without building account-merging, which is takeover.
 - Notify every counterparty on merge; nothing tells anyone today.
 
 Client: `ClaimCodeSheet` to generate, `(app)/claim.tsx` to redeem, a **Claim a person** sidebar
 row. Online-only, like `claim_placeholder` already is (`outbox.ts:27`).
 
-## 4. Phone on the profile — REVISED, read this
+Also still worth doing before adding any low-entropy path: `internal.profile_merges.row_counts`
+records nothing but the two ids it already has as columns (`0013:307`), and `merge_profiles`
+**sums** colliding split rows (`0013:227`) — a merge is mathematically irreversible, not merely
+un-implemented. Record enough to reverse one.
 
-Approved answer was "error only against real accounts; a placeholder collision offers the claim
-flow". The security review argues that is an **enumeration oracle**: the attacker supplies a
-number they do not own and learns which of three states it is in — unknown, known-to-someone,
-or a real account. "Is this person on a money app" is a real disclosure, and it reintroduces
-exactly what `invite.tsx:22-38` deleted the contacts surface to avoid.
+## 2. ⚠️ Phone on the profile — STILL NEEDS YOUR DECISION
 
-**Its recommendation, which I think is right: verify before you look up.** The pre-verification
-response is identical in all three cases. `(auth)/phone.tsx` and `otp.tsx` are already built and
-flag-gated; GoTrue phone OTP needs an SMS provider (TRAI DLT) — so this may mean phone lands
-later than the rest of the batch. **Decide with the user before building.** If it ships
-unverified, at minimum never reveal the placeholder's display name or creator, and keep the
-response byte-identical across all three states.
+`packages/core/src/phone.ts` is **done**, so the normaliser is no longer a blocker. What is
+blocked is the server behaviour, and it is a genuine fork:
 
-Note `0002:52` states the invariant this would break: `verified_at` is "set only from a verified
-auth identity. Merging on an unverified contact point would be a straightforward
-account-takeover vector."
+- **What you approved:** error only against real accounts; a placeholder collision offers the
+  claim flow.
+- **Why I flagged it:** that is an enumeration oracle. The attacker supplies a number they do
+  not own and learns which of three states it is in — unknown, known-to-someone, or a real
+  account. "Is this person on a money app" is a real disclosure, and it reintroduces exactly
+  what `invite.tsx:22-38` deleted the contacts surface to avoid.
+- **The alternative:** verify before you look up, so the pre-verification response is identical
+  in all three cases. `(auth)/phone.tsx` and `otp.tsx` are already built and flag-gated, but
+  GoTrue phone OTP needs an SMS provider (TRAI DLT) — so this likely lands **after** the rest.
+- `0002:52` states the invariant this would break: `verified_at` is "set only from a verified
+  auth identity. Merging on an unverified contact point would be a straightforward
+  account-takeover vector."
+- If it ships unverified anyway: never reveal the placeholder's display name or creator, and
+  keep the response **byte-identical** across all three states.
+- A *verified* collision with an unclaimed placeholder should merge via `merge_profiles(...,
+  'verified_link')` with no code at all — that enum value exists and is unused (`0002:88`).
 
-Also: a verified collision with an unclaimed placeholder should merge via `merge_profiles(...,
-'verified_link')` with **no code at all** — that reason enum value exists and is unused
-(`0002:88`), which suggests it was always the intended branch.
+## 3. Contacts — pick one, resolve one
 
-Still needed regardless: **`packages/core/src/phone.ts`, an E.164 normaliser — none exists
-anywhere in the repo.** Default region IN. Property-tested; it decides whether two people
-converge on one identity.
+`expo-contacts@~57.0.2`, **system picker only**. Prefills name + phone into `AddPersonSheet`;
+the number goes through the new normaliser then the existing `upsert_contact_profile` dedupe.
 
-## 5. Contacts — pick one, resolve one
+**A promise change in three places that must move together:** `legal/privacy.md:47` lists
+contacts *first* in "we do not collect"; `invite.tsx:89` says on screen "Hisaab never reads your
+contacts"; `plan/phase-07-sidebar-surfaces.md:104` has "No Contacts permission is requested
+anywhere" as a signed-off acceptance criterion. Plus `app.config.ts` usage strings +
+`READ_CONTACTS`, and Phase 11 gains an iOS `PrivacyInfo.xcprivacy` (none exists).
 
-`expo-contacts@~57.0.2`, **system picker only** — no bulk read, no upload. Prefills name +
-phone into `AddPersonSheet`; the number goes through the normaliser then the *existing*
-`upsert_contact_profile` dedupe, which already resolves to a real account if one holds it.
-(`contact_kind` already has `'phone'`; no client has ever passed it.)
+## Local dev note (cost me time, worth writing down)
 
-**This is a promise change in three places that must move together:** `legal/privacy.md:47`
-lists contacts *first* in "we do not collect"; `invite.tsx:89` tells users on screen "Hisaab
-never reads your contacts"; `plan/phase-07-sidebar-surfaces.md:104` has "No Contacts permission
-is requested anywhere" as a signed-off acceptance criterion. Plus `app.config.ts` usage strings
-+ `READ_CONTACTS`, and Phase 11 gains an iOS `PrivacyInfo.xcprivacy` (none exists).
+`npx supabase db reset` wipes **`auth.users`**, not just app tables, so the app comes back
+holding a valid-looking session for a user the server has never heard of and lands on profile
+setup. Recovery: clear `Documents/mmkv/hisaab-auth*` in the simulator container, relaunch, tap
+**Dev sign-in** on the sign-in screen, then re-run `supabase/seed.sql` (it needs a signed-in
+profile to attach fixtures to). Clear `hisaab-query-cache*` too, or the app restores the empty
+result it cached before the seed ran and Home shows "No groups yet" against a populated database.
 
-## Order
+**Simulator taps are in POINTS (402×874), not screenshot pixels (919×2019).** Multiply screenshot
+coordinates by ~0.437. Taps at pixel coordinates silently do nothing.
 
-Security fix → ripple → back-nav → rating → `phone.ts` → migration 0025 + claim UI → phone on
-profile (pending the OTP decision) → contacts. Phase 10 after.
-
-## State at handover
-
-Tree clean at the last commit. Two files were mid-edit for the ripple (retimed `motion.ripple`
-tokens, `ringOpacity` keyed off each ring's own travel, a new `ringTravel`) and were **reverted**
-rather than left half-applied — all of it is specified above and is ~20 lines to redo.
+**Fast Refresh does not repropagate `motion.ripple` into `RippleNav`'s module-level constants** —
+they are destructured at module scope. Retiming the ripple needs a full app relaunch, not a save.
