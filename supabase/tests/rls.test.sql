@@ -9,10 +9,19 @@ select plan(12);
 
 -- ---------------------------------------------------------------- fixtures
 
+-- NOTE: on_auth_user_created auto-creates a profile for every auth.users row. These fixtures
+-- want specific, readable profile ids, so the auto-created rows are swapped out below. The
+-- trigger's own behaviour is covered properly in identity.test.sql.
+
 insert into auth.users (id) values
   ('00000000-0000-0000-0000-0000000000a1'),   -- Ann
   ('00000000-0000-0000-0000-0000000000b1'),   -- Bob (different group entirely)
   ('00000000-0000-0000-0000-0000000000c1');   -- Cy (shares a one-off with Ann, no group)
+
+delete from public.profiles where user_id in (
+  '00000000-0000-0000-0000-0000000000a1',
+  '00000000-0000-0000-0000-0000000000b1',
+  '00000000-0000-0000-0000-0000000000c1');
 
 insert into public.profiles (id, user_id, display_name) values
   ('aaaaaaaa-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a1', 'Ann'),

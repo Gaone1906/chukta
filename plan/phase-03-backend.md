@@ -1,6 +1,6 @@
 # Phase 3 — Supabase backend
 
-**Status:** ⬜ not started · **Estimate:** 2 weeks · **Depends on:** Phase 0
+**Status:** ✅ done (2026-07-25) · 15 migrations, 68 pgTAP tests · **Depends on:** Phase 0
 **Can run in parallel with Phases 1 and 2.**
 
 ## Goal

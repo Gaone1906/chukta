@@ -21,7 +21,7 @@ Use `Phase 0:` for repo-level chores that belong to no feature phase.
 | 0 | Repo & scaffold | [phase-00-repo-scaffold.md](phase-00-repo-scaffold.md) | ✅ done | 2–3 d |
 | 1 | Design system & motion | [phase-01-design-system.md](phase-01-design-system.md) | ✅ done (Android verified; iOS pending toolchain) | 1 wk |
 | 2 | `packages/core` money engine | [phase-02-core-money.md](phase-02-core-money.md) | ✅ done | 0.5 wk |
-| 3 | Supabase backend | [phase-03-backend.md](phase-03-backend.md) | 🟡 core done (schema, RLS, expense RPC, 39 pgTAP) | 2 wk |
+| 3 | Supabase backend | [phase-03-backend.md](phase-03-backend.md) | ✅ done (15 migrations, 68 pgTAP) | 2 wk |
 | 4 | Auth & onboarding | [phase-04-auth-onboarding.md](phase-04-auth-onboarding.md) | ⬜ not started | 1 wk |
 | 5 | Core loop | [phase-05-core-loop.md](phase-05-core-loop.md) | ⬜ not started | 3 wk |
 | 6 | Settle up & UPI | [phase-06-settle-upi.md](phase-06-settle-upi.md) | ⬜ not started | 1 wk |
@@ -215,10 +215,29 @@ balance and emits at most n−1 transfers; and both currency vectors sum exactly
 - A temp table inside a `search_path = ''` SECURITY DEFINER function cannot be resolved
   unqualified; rewrote `rebuild_expense_debts` to use plain aggregates instead.
 
-**Still to do in this phase**
-- `update_expense` / `delete_expense` / `restore_expense` with `expected_revision` conflict
-  handling, and the revision diff.
-- `merge_profiles` and `claim_placeholder` (the signup auth hook).
-- Read RPCs: `get_home_summary`, `get_group_detail`, `get_person_detail`, `simplify_group_debts`.
-- `sync_pull`, storage buckets and policies, recurring templates.
-- A test asserting every `app.*` write function opens with an authorisation assert.
+**Completed in the second pass** — 15 migrations, 68 pgTAP tests.
+- `update_expense` / `delete_expense` / `restore_expense` with `expected_revision`; a stale
+  revision raises `P0409` carrying the server snapshot in DETAIL, so the client renders the
+  conflict without a second round trip. Delete beats a concurrent edit.
+- `expense_diff` precomputes which people's own shares moved — Phase 9's push pipeline uses
+  that so a typo fix in the description notifies nobody.
+- Signup trigger → `claim_or_create_profile`: a placeholder whose verified contact point
+  matches is claimed IN PLACE. Plus `claim_placeholder` (invite token) and `merge_profiles`
+  with collision handling, settlement voiding, and a tombstone.
+- Read RPCs: `get_home_summary` (both tabs and every balance in one call),
+  `get_group_detail`, `get_person_detail`, `simplify_group_debts`.
+- `sync_pull` with a `full_resync` signal when the cursor falls outside retention.
+- Storage buckets: private `receipts` gated on `can_read_expense`, public-read `avatars`
+  writable only by their owner. Recurring rules with the `(rule_id, run_on)` idempotency key.
+- `guardrails.test.sql` inspects the catalogue rather than trusting review: every SECURITY
+  DEFINER function pins `search_path`, every write RPC calls `assert_signed_in()`, clients hold
+  no write grants on any money table, and every public table has RLS with a policy.
+- `packages/core/src/db-types.ts` generated from the live schema.
+
+**Bug the conflict tests caught**
+- `expense_diff` put a `GROUP BY` directly inside a scalar subquery, so it returned one row per
+  person and raised `21000`. Wrapped the grouping in its own subquery.
+
+**Deferred to Phase 9** (they need Edge Functions and cron, not schema)
+- The notification drain, FX refresh (moot for now — INR only), and the recurring-expense
+  runner. Their tables and the `next_recurrence` helper exist.
