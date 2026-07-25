@@ -1,6 +1,13 @@
 # Phase 8 — Offline & realtime
 
-**Status:** ⬜ not started · **Estimate:** 1.5 weeks · **Depends on:** Phases 3, 5
+**Status:** ✅ built and verified on the iOS simulator · **Estimate:** 1.5 weeks · **Depends on:** Phases 3, 5
+
+> **What was actually built differs from this plan in three places.** Read
+> `PROGRESS.md` → "Phase 8" for the deviations and why. In short: reads are a persisted
+> query cache rather than a mirrored SQLite schema, Drizzle is dropped, and the live path is
+> broadcast-from-database rather than Postgres Changes — because `internal.change_events` is
+> deliberately unreachable by a client and undoing that would trade the containment story for
+> a feature.
 
 ## Goal
 

@@ -3,11 +3,11 @@
 Single place to answer "where are we". Update the status table and the log at the end of
 every phase. Each phase has its own file in this directory with the detailed work list.
 
-**Last updated:** 2026-07-25 (Phase 7 done, then a round of fixes from actually using it)
+**Last updated:** 2026-07-26 (Phase 8 built and verified against a dead server)
 
 ## Where we are, in one screen
 
-**8 of 12 phases done.** 22 migrations, 98 pgTAP tests, 120 TypeScript tests, all green. Tree
+**9 of 12 phases done.** 24 migrations, 115 pgTAP tests, 135 TypeScript tests, all green. Tree
 clean, everything pushed.
 
 The whole money loop works and has been walked on a device: sign in → profile → Home → add an
@@ -15,12 +15,21 @@ expense in any of the five split types → see it agree on Home, the group and t
 it → delete it → settle up. Everything behind the profile button works too: Settings, Invite,
 Tip jar, Help, About.
 
+**And it works with no server.** Every write goes through a durable queue, every read comes
+from a persisted cache, and changes made elsewhere arrive live. Verified by stopping Supabase
+under a running app — see the Phase 8 log.
+
 **iOS is the active target.** Both platforms build and run; the Android emulator is deliberately
 shut down (see "Commands that actually work"). Simulator: iPhone 17 Pro,
 `BB49D14F-3053-4A4E-BDB3-A294A8578AFB`.
 
-**Next:** Phase 8, offline & realtime. Get the Apple enrolment moving in parallel — it has the
-longest lead time of anything on the blocked list.
+**Next:** Phase 9, push + recurring + receipts. Get the Apple enrolment moving in parallel — it
+has the longest lead time of anything on the blocked list.
+
+> **One thing Phase 9 must not forget.** Phase 8 removed the actor-exclusion from
+> `internal.emit_change` so a second device on one account can converge. That rule has to be
+> reapplied when the push queue is drained, or everyone gets a notification telling them what
+> they themselves just did.
 
 > **The strongest lesson from this stretch, and it should change how the next phase is
 > verified.** Nearly every real bug found recently came from *using* the app, not from tests —
@@ -45,12 +54,12 @@ Use `Phase 0:` for repo-level chores that belong to no feature phase.
 | 0 | Repo & scaffold | [phase-00-repo-scaffold.md](phase-00-repo-scaffold.md) | ✅ done | 2–3 d |
 | 1 | Design system & motion | [phase-01-design-system.md](phase-01-design-system.md) | ✅ done (verified on Android **and** iOS) | 1 wk |
 | 2 | `packages/core` money engine | [phase-02-core-money.md](phase-02-core-money.md) | ✅ done | 0.5 wk |
-| 3 | Supabase backend | [phase-03-backend.md](phase-03-backend.md) | ✅ done (22 migrations, 98 pgTAP) | 2 wk |
+| 3 | Supabase backend | [phase-03-backend.md](phase-03-backend.md) | ✅ done (24 migrations, 115 pgTAP) | 2 wk |
 | 4 | Auth & onboarding | [phase-04-auth-onboarding.md](phase-04-auth-onboarding.md) | ✅ done (Google verified to the account picker; Apple needs a paid team) | 1 wk |
 | 5 | Core loop | [phase-05-core-loop.md](phase-05-core-loop.md) | ✅ done (5A–5J; whole loop verified on Android) | 3 wk |
 | 6 | Settle up & UPI | [phase-06-settle-upi.md](phase-06-settle-upi.md) | ✅ built (6A–6C); needs a physical device to close | 1 wk |
 | 7 | Sidebar surfaces | [phase-07-sidebar-surfaces.md](phase-07-sidebar-surfaces.md) | ✅ built; tipping blocked on developer accounts | 1.5 wk |
-| 8 | Offline & realtime | [phase-08-offline-realtime.md](phase-08-offline-realtime.md) | ⬜ not started | 1.5 wk |
+| 8 | Offline & realtime | [phase-08-offline-realtime.md](phase-08-offline-realtime.md) | ✅ built; verified against a stopped server | 1.5 wk |
 | 9 | Push, FX, recurring, receipts | [phase-09-push-fx-recurring.md](phase-09-push-fx-recurring.md) | ⬜ not started | 1.5 wk |
 | 10 | States & polish | [phase-10-states-polish.md](phase-10-states-polish.md) | ⬜ not started | 1.5 wk |
 | 11 | Store release | [phase-11-store-release.md](phase-11-store-release.md) | ⬜ not started | 1.5 wk |
@@ -363,12 +372,22 @@ adb exec-out screencap -p > /tmp/s.png                  # screenshot
 adb -s emulator-5554 emu kill; pkill -f "emulator/qemu"; pkill -f netsimd
 
 # Database. `db reset` also wipes auth.users, so seeding is THREE steps, not one — see trap 17.
-npx supabase db reset && npx supabase test db            # local, 98 pgTAP tests
+npx supabase db reset && npx supabase test db            # local, 115 pgTAP tests
 ANON=$(grep EXPO_PUBLIC_SUPABASE_ANON_KEY apps/mobile/.env.local | cut -d= -f2-)
 curl -s -X POST "http://127.0.0.1:54321/auth/v1/signup" -H "apikey: $ANON" \
   -H "Content-Type: application/json" \
   -d '{"email":"dev@hisaab.test","password":"hisaab-dev-password"}' -o /dev/null
 docker exec -i supabase_db_hisaab psql -U postgres -d postgres < supabase/seed.sql
+
+# Simulate "no server" without touching the radio: stop the API gateway, leave Postgres up so
+# you can still inspect it. This is how the whole offline layer was verified.
+docker stop supabase_kong_hisaab      # app can reach nothing
+docker start supabase_kong_hisaab     # and back
+
+# The app's own storage on the simulator (outbox, cursor, cached reads)
+CONT=$(xcrun simctl get_app_container <UDID> com.hisaab.app data)
+sqlite3 "$CONT/Documents/SQLite/hisaab-offline.db" "select * from outbox; select * from sync_state;"
+strings "$CONT/Documents/mmkv/hisaab-query-cache" | grep -c __bigint__   # 0 means the cache never wrote
 
 # Query the local DB directly (the container is lower-case `hisaab`, and psql is not on PATH)
 docker exec supabase_db_hisaab psql -U postgres -d postgres -c "select ..."
@@ -454,6 +473,44 @@ every shell — they are not on the default PATH.
     every screenshot landed after the ripple had finished, which read as "the ripple never
     runs" and cost two wrong diagnoses. To debug motion: raise `motion.ripple.duration` to
     20–30s, paint the moving layer a garish colour, THEN capture. Restore both afterwards.
+
+21. **A persisted cache is worthless if screens prefer `error` to `data`.** TanStack keeps the
+    cached data when a refetch fails — but every screen here rendered the error branch first,
+    so a working offline cache showed a fetch stack trace instead of the ledger. The rule:
+    **an error state is for having nothing to show**, not for a failed refresh of something you
+    already have. `error && !data`.
+
+22. **Nothing may act on `session` before `loading` is false.** It is null for the first render
+    of every cold start, while the persisted session is being read, and code that treats that
+    as "signed out" will do signed-out things — the offline provider wiped the write queue on
+    every single launch. The root navigator has always waited on this flag; anything else that
+    branches on the session must too.
+
+23. **A failed request is not an answer.** `data` is null both when the server says "no such
+    row" and when you never reached the server. Conflating them sent a signed-in user back to
+    onboarding on a cold start with no network. Check `error` before believing a null.
+
+24. **`realtime.send` swallows every exception into a WARNING.** That is what makes it safe to
+    call inside a money-write transaction, and it also means a broadcast that is denied,
+    malformed or lands on a missing partition looks exactly like success. Never assert that it
+    "did not throw" — read `realtime.messages` back.
+
+25. **`realtime.messages` and `realtime.send` are not ours.** The Realtime container installs
+    them, so they are absent wherever Postgres runs alone — including CI, which uses
+    `supabase db start`. Anything touching that schema must be guarded on its existence, or an
+    unguarded trigger raises `undefined_function` on the first expense written and takes every
+    write RPC down with it.
+
+26. **Realtime authorises a subscribe against a synthetic probe row**, not against a real
+    message. That row has `private = false` and null `payload`, `event` and `binary_payload` —
+    so a policy containing `private is true` (the obvious thing to write) fails the probe and
+    blocks every subscription, with an error that points at permissions rather than at the
+    policy. Key off `realtime.topic()` and nothing else.
+
+27. **CocoaPods needs a UTF-8 locale.** `pod install` dies with
+    `Unicode Normalization not appropriate for ASCII-8BIT` unless `LANG=en_US.UTF-8` is set,
+    which makes `expo prebuild` fail at its pod step. Run
+    `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install` from `apps/mobile/ios` afterwards.
 
 ## Testing without real credentials
 
@@ -785,28 +842,168 @@ it to 30 seconds and paint the veil red. **Do that first next time.**
   and scroll only the body. Consistent across the app, so it is a fidelity gap rather than a
   bug — one contained change, since they all share `ScreenHeader`.
 
-### Next: Phase 8 — Offline & realtime
+### Next: Phase 9 — Push, recurring, receipts
 
-`plan/phase-08-offline-realtime.md`.
+`plan/phase-09-push-fx-recurring.md`. FX is moot — INR only.
 
-**What already exists, so none of it needs designing again.** Phase 3 built the entire server
-side of this: `internal.change_events` (one table serving realtime fan-out, the delta-sync
-cursor and the push queue), `app.sync_pull(p_since_event_id, p_limit)` with a `public` wrapper,
-and `internal.mutation_log` with every write RPC already opening with an idempotency check on
-`client_mutation_id`. Every mutation the client makes already passes one. **Nothing on the
-client consumes any of it yet** — that is the whole of Phase 8.
+**What already exists.** Phase 3 built `internal.notification_queue` with its `coalesce_key` and
+45-second delay, `public.device_tokens`, `public.notification_prefs` (read and written by
+Settings since Phase 7, defaults applied client-side in `getNotificationPrefs`),
+`app.expense_diff` for "only notify people whose own share actually moved", and the recurring
+tables plus `app.next_recurrence`. What is missing is the drain: a `pg_cron` schedule, an Edge
+Function, and the Expo Push call.
 
-The conflict half is also already built and verified: `expenses.revision`, the `P0409` error
-with the server snapshot in DETAIL, `ConflictError` in `lib/errors.ts`, and `ConflictSheet`.
-What is missing is the outbox replaying into it.
+**The one thing that must not be forgotten.** Phase 8 removed the actor-exclusion from
+`internal.emit_change` — the actor is now a recipient of their own events, which is what lets a
+second device on one account catch up. That exclusion has to be reapplied **when the queue is
+drained**, which is where it belonged all along. Without it, everyone gets a push telling them
+what they themselves just did. `internal.change_events.actor_profile_id` is the field.
 
-**The pieces to build:** `expo-sqlite` + Drizzle for the read cache, a strictly-FIFO write
-outbox, the reconnect order (drain outbox → pull deltas → resubscribe), and one Realtime
-subscription filtered to the caller's own profile.
+**Also worth knowing:** `notification_prefs` rows are created lazily, so "no row" means *all
+defaults on*, not "everything off". The server drain must apply the same defaults the client
+does.
 
-**The rule that must not be relaxed:** no auto-merge on money. A conflict returns the server
-snapshot and the user chooses. Deletes beat edits. Comments and new expenses are inserts with
-client-generated ids, so they never conflict in the first place.
+
+### Phase 8 — Offline & realtime — ✅ built, 2026-07-26
+
+The app opens and reads with no network, writes queue and flush on reconnect, and changes made
+elsewhere arrive live. Verified by stopping the API gateway under a running app, which is the
+only way most of this can be tested at all.
+
+**What exists**
+
+| Piece | Where |
+|---|---|
+| Realtime broadcast spine | `supabase/migrations/0023_realtime_broadcast.sql` |
+| Client-generated ids | `supabase/migrations/0024_client_generated_ids.sql` |
+| Sync tests | `supabase/tests/sync.test.sql` (17) |
+| Local database | `src/lib/offline/database.ts` — outbox + sync_state, nothing else |
+| Write queue | `src/lib/offline/{outbox,drain,writes}.ts` |
+| Balance overlay | `src/lib/offline/effects.ts` + `people.ts` |
+| Persisted reads | `src/lib/offline/persister.ts`, `serialize.ts` |
+| Connectivity | `src/lib/offline/connectivity.ts`, `OfflineBanner.tsx` |
+| Orchestration | `src/lib/offline/OfflineProvider.tsx` |
+| Conflict inbox | `(app)/pending.tsx` |
+
+#### Three deviations from the phase plan, all deliberate
+
+**Reads are cached, not mirrored — and Drizzle is gone.** The plan called for `expo-sqlite` +
+Drizzle mirroring ten server tables and recomputing balances locally with `@hisaab/core`. But
+every screen here is fed by one RPC that returns the whole screen with its balances already
+computed by the server's views, so persisting those responses verbatim *is* the offline read
+story. The plan's own requirement is that an offline balance must never disagree with an online
+one — and the surest way to guarantee that is not to compute it twice. Mirroring would mean
+reimplementing `v_pair_ledger`, `v_group_balances` and the soft-delete and settlement-voiding
+rules in TypeScript and keeping them in step with the SQL forever. Two tables read by four
+hand-written queries do not need an ORM either.
+
+What the local database *is* for is the half that cannot be a cache: the writes that have not
+happened yet. Those need ordering, durability across a force-quit, and a transaction.
+
+**The live path is broadcast-from-database, not Postgres Changes.** `internal.change_events`
+cannot participate in Postgres Changes at all — the `internal` schema has no USAGE for
+`authenticated`, the table has no grants, no RLS and no publication. Every one of those is
+deliberate and is what stops a client reading other people's fan-out. So a trigger mirrors each
+event onto `sync:<recipient_profile_id>` via `realtime.send`, and a SELECT policy on
+`realtime.messages` authorises exactly one question: is this your own topic. The table stays
+sealed; only a projection leaves.
+
+**Event payloads stay minimal.** The plan said comments and settlements should carry full
+payloads for direct-apply. They do not, because the client invalidates query keys rather than
+hand-patching cache entries — an expense touches six tables and moves balances on Home, its
+group and both people in every pair it creates, and hand-patching that means reimplementing the
+fan-out in TypeScript and eventually being wrong about it. A tick tells you to go and ask, and
+a tick cannot leak: widening the payload would mean re-checking every field against RLS by
+hand, since a broadcast bypasses the read policies that would otherwise gate it.
+
+#### Backend gaps this phase closed
+
+Three of these were invisible until something was actually listening.
+
+- **The actor was excluded from their own events.** `emit_change` ended `where r is distinct
+  from p_actor`, under the comment "never notify the actor about their own action" — a
+  *notification* rule sitting in the *sync* spine. It made a second device on one account
+  permanently unable to catch up, live or through `sync_pull`, since both read that table.
+  **Phase 9 must reapply the exclusion when draining the push queue**, or everyone gets a push
+  telling them what they just did.
+- **Creating a group inline from the expense form emitted no group event.** A member who was on
+  no split was written into `group_members` and told nothing at all — no event, no broadcast,
+  nothing from `sync_pull`. They could not discover the group existed.
+- **`add_group_members` notified only the arrivals**, so everyone already in the group held a
+  silently stale roster.
+- **`upsert_contact_profile` deduped only on an exact contact point**, so a retried add-person
+  with no email created a new stranger with the same name every time. Nothing retried before;
+  an outbox retries by design. It now takes a client profile id and a mutation key.
+
+#### Verified on device, not just written
+
+With `supabase_kong_hisaab` stopped:
+
+- Cold start opens straight onto Home with every group, person and balance from cache.
+- An expense saves instantly and the balance moves by its queued effect: the server's 98083
+  plus a queued 40000 rendered as **₹1,380.83**, and the banner read "1 change waiting to sync".
+- The queued row survives a force-quit.
+- On reconnect it lands **exactly once after six send attempts** — one expense row, one
+  `internal.mutation_log` entry, carrying the client-generated id the outbox chose.
+- Afterwards the overlay clears and the screen matches the server to the paisa (₹1,280.83
+  against 128083).
+
+Separately, a live private-channel subscribe returns `SUBSCRIBED` where it previously returned
+`Unauthorized: You do not have permissions to read from this Channel topic`, and a broadcast
+arrives carrying the same `event_id` that `sync_pull` uses as its cursor.
+
+#### Four bugs found by using it, none of which a test would have caught
+
+Worth reading in full — the shape recurs.
+
+**Every cold start wiped the outbox.** `session` is null for the first render while the
+persisted session is still being read, and the offline provider took that as "signed out" and
+cleared the local database. An expense entered on a plane simply did not exist next launch,
+silently, before a frame was drawn. The root navigator already waits on the same `loading`
+flag — with a comment about bouncing to login and back. Same trap; there it costs a flicker,
+here it cost somebody's money.
+
+**A cold start with no network dropped you into onboarding.** The session is persisted, the
+profile was not, and a *failed* profile fetch was indistinguishable from "this person has no
+profile". So `needsProfileSetup` went true and a signed-in user landed on "Tell us who you
+are". The profile is cached beside the session now, and an error is no longer an answer.
+
+**Every screen threw away its cached data the moment a refetch failed.** The persister was
+restoring the whole ledger correctly, and then each screen rendered `error` in preference to
+`data` — so what the user saw with no network was a fetch stack trace where their groups had
+been. Fixed with `error && !data` across seven screens.
+
+**The retry backoff never grew.** `retryDelayMs` was passed the queue length rather than the
+head row's attempt count; with one stuck write that is always 1, so it retried every two
+seconds indefinitely. Caught by watching `attempts` reach 23 inside ninety seconds.
+
+> The common thread, and it is the same one Phase 7 ended on: **each of these was a gap between
+> two individually correct pieces.** The wipe is correct on sign-out. The loading flag is
+> correct. The error state is correct. Nothing is wrong until you ask what happens when they
+> meet. Reading the code will not find them; running the app without a server will.
+
+#### What is NOT verified
+
+- **Conflict resolution end to end.** `/pending` is built and the drainer parks conflicted rows
+  with the server snapshot, but producing a real `P0409` needs two clients editing one expense,
+  which needs a second account on a second device. The server half is covered by
+  `conflicts.test.sql`; the inbox has been rendered but never fed a real conflict.
+- **Two devices on one account.** The fan-out fix that makes it possible is tested in pgTAP and
+  the broadcast was verified with a Node client, but two simulators against one account has not
+  been run.
+- **A real airplane-mode matrix on hardware.** Stopping the API gateway leaves the radio up, so
+  `onlineManager` still reports online throughout — which exercises the transport-failure path
+  but never the paused-query path or the "Offline" banner state. Those need a physical device.
+
+#### Known, deliberately left
+
+- `add_group_members` has no call site in the app, so it is not an outbox op. If group settings
+  ever ship, design it as one from the start.
+- `create_invite_link`, `claim_placeholder`, `delete_account`, the avatar upload and the
+  settings toggles are online-only, each for its own reason — see the comment on `OutboxOp`.
+- `api.ts` claims to be "the only place the app talks to the database". That was already untrue
+  (the onboarding profile write, the Apple display-name backfill, two Storage uploads) and is
+  worth naming rather than resting the outbox on an invariant that does not hold.
 
 ### Also still open, from earlier phases
 
