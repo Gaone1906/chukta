@@ -63,7 +63,11 @@ function RootNavigator() {
       // Signed in but onboarding is unfinished — send them to finish it rather than into an
       // app where their name is blank.
       router.replace('/profile');
-    } else if (session && !needsProfileSetup && inAuthFlow) {
+    } else if (session && !needsProfileSetup && inAuthFlow && segments[1] !== 'done') {
+      // `done` is excluded deliberately. Saving the profile clears needsProfileSetup, and
+      // without this the guard fires the instant the save lands and redirects straight past
+      // the completion screen — the seal moment never plays. That screen navigates onward
+      // itself once the stamp has landed.
       router.replace('/');
     }
   }, [loading, session, needsProfileSetup, segments, router]);

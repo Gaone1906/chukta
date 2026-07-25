@@ -6,6 +6,7 @@ import Svg, { Path, Rect } from 'react-native-svg';
 
 import { GlassButton, GlassSurface, Seal, Toast, color, font, space } from '@/design';
 import { AuthCancelled, appleAuthAvailable, signInWithApple, signInWithGoogle } from '@/features/auth/providers';
+import { devSignIn, randomDevEmail } from '@/features/auth/devSignIn';
 import { env, googleConfigured } from '@/lib/env';
 
 /**
@@ -127,11 +128,22 @@ export default function AuthEntry() {
         <View style={styles.rule} />
       </View>
 
-      {/* Dev-only door into the kitchen sink; removed before submission. */}
+      {/* Dev-only doors. Both are stripped from release builds by the __DEV__ guard. */}
       {__DEV__ ? (
-        <Pressable onPress={() => router.push('/_dev/kitchen-sink')} hitSlop={12}>
-          <Text style={styles.devLink}>Kitchen sink</Text>
-        </Pressable>
+        <View style={styles.devRow}>
+          <Pressable onPress={() => void attempt('Dev sign-in', () => devSignIn())} hitSlop={12}>
+            <Text style={styles.devLink}>Dev sign-in</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => void attempt('Dev sign-in', () => devSignIn(randomDevEmail()))}
+            hitSlop={12}
+          >
+            <Text style={styles.devLink}>New account</Text>
+          </Pressable>
+          <Pressable onPress={() => router.push('/_dev/kitchen-sink')} hitSlop={12}>
+            <Text style={styles.devLink}>Kitchen sink</Text>
+          </Pressable>
+        </View>
       ) : null}
 
       <Toast message={toast} position="bottom" />
@@ -171,5 +183,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: color.textGhost,
   },
-  devLink: { marginTop: space.lg, fontFamily: font.light, fontSize: 12, color: color.textGhost },
+  devRow: { marginTop: space.lg, flexDirection: 'row', gap: 18 },
+  devLink: { fontFamily: font.light, fontSize: 12, color: color.textGhost },
 });

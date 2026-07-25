@@ -3,7 +3,7 @@
 Single place to answer "where are we". Update the status table and the log at the end of
 every phase. Each phase has its own file in this directory with the detailed work list.
 
-**Last updated:** 2026-07-25 (Phase 3)
+**Last updated:** 2026-07-25 (Phase 4)
 
 ## Conventions
 
@@ -22,7 +22,7 @@ Use `Phase 0:` for repo-level chores that belong to no feature phase.
 | 1 | Design system & motion | [phase-01-design-system.md](phase-01-design-system.md) | ✅ done (Android verified; iOS pending toolchain) | 1 wk |
 | 2 | `packages/core` money engine | [phase-02-core-money.md](phase-02-core-money.md) | ✅ done | 0.5 wk |
 | 3 | Supabase backend | [phase-03-backend.md](phase-03-backend.md) | ✅ done (15 migrations, 68 pgTAP) | 2 wk |
-| 4 | Auth & onboarding | [phase-04-auth-onboarding.md](phase-04-auth-onboarding.md) | ⬜ not started | 1 wk |
+| 4 | Auth & onboarding | [phase-04-auth-onboarding.md](phase-04-auth-onboarding.md) | 🟡 built; needs Google credentials to verify | 1 wk |
 | 5 | Core loop | [phase-05-core-loop.md](phase-05-core-loop.md) | ⬜ not started | 3 wk |
 | 6 | Settle up & UPI | [phase-06-settle-upi.md](phase-06-settle-upi.md) | ⬜ not started | 1 wk |
 | 7 | Sidebar surfaces | [phase-07-sidebar-surfaces.md](phase-07-sidebar-surfaces.md) | ⬜ not started | 1.5 wk |
@@ -63,10 +63,12 @@ Everything from 4 onward is sequential.
 | 1 | Store display name — "Hisaab" is taken. Bundle id settled: `com.hisaab.app` | Phase 11 | name open |
 | 2 | ~~Currency: Help FAQ vs feature spec~~ | — | **resolved: INR only for v1** |
 | 3 | Domain for Universal Links / App Links (invite deep links) | Phase 7 | open |
+| 9 | **Hosted Supabase project** — the local stack is Docker on this Mac, unreachable from a phone | device alpha | **needed from user** |
+| 10 | **Google OAuth client IDs** (web + iOS + Android) — sign-in cannot be verified without them | Phase 4 | **needed from user** |
 | 4 | Sentry for crash reporting — assumed yes | Phase 10 | assumed |
 | 7 | **Android blur** defaults to the opaque fallback — a `BlurView` sampling a `BlurTargetView` SIGSEGVs the emulator's software GPU. Needs a physical device to confirm and flip. | Phase 10 | open |
 | 8 | Whole iOS side is unrun — no Xcode on this machine yet. The Liquid Glass branch is written from the API contract, not tested. | Phase 4 | open |
-| 5 | Apple Developer Program + Google Play enrolment | Phase 4 / 11 | user will do |
+| 5 | Apple Developer Program + Google Play enrolment | Phase 4 / 11 | user will do — see docs/setup-services.md |
 | 6 | Legal review of `legal/terms.md` + `legal/privacy.md` before submission | Phase 11 | drafted, unreviewed |
 
 ---
@@ -241,3 +243,31 @@ balance and emits at most n−1 transfers; and both currency vectors sum exactly
 **Deferred to Phase 9** (they need Edge Functions and cron, not schema)
 - The notification drain, FX refresh (moot for now — INR only), and the recurring-expense
   runner. Their tables and the `next_recurrence` helper exist.
+
+### Phase 4 — Auth & onboarding — 🟡 built and verified as far as possible, 2026-07-25
+
+**Verified on the Android emulator, against the real local schema**
+- Cold start lands on the entry screen; the seal, tagline, glass card and legal line all render.
+- Dev sign-in creates an `auth.users` row → the signup trigger creates a profile → the client
+  reads it back **through RLS** → routing lands in `(app)`. The whole chain works.
+- A profile with no name is forced back into onboarding; profile setup renders, "Get started"
+  is correctly disabled until the name is valid, and saving writes to the database.
+- The completion screen plays its seal and shows the CTA.
+- Google's button degrades to "Google sign-in not configured" instead of failing at the tap.
+
+**Two real bugs found by running it**
+- A route group needs its own `_layout.tsx`. `(app)/index.tsx` registered as `/` but rendered
+  nothing — an entirely black screen with no error anywhere, which looks exactly like a crash.
+- The completion screen was being skipped. Saving the profile clears `needsProfileSetup`, and
+  the root guard then redirected out of `/done` before it could show — so the seal moment, the
+  app's signature brand beat, never played. `done` is now excluded from that guard.
+
+**NOT verified — needs the user**
+- **Google sign-in**: no OAuth client IDs yet. The code path is written but has never run.
+- **Apple sign-in**: needs the Apple Developer Program, and `xcode-select` still points at
+  Command Line Tools.
+- **Phone/OTP**: flag-gated off and needs an SMS provider; the screens render but the round
+  trip is untested.
+
+**Note:** `adb shell input text` lands in the RN TextInput only intermittently on this
+emulator — a tooling quirk, not an app bug. Typed input was confirmed working in one pass.
