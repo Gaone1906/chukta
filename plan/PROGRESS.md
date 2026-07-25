@@ -446,6 +446,19 @@ All three are applied to the hosted project as well as locally.
 - Group members / group settings has no screen; `onMembers` in the prototype was bound to
   nothing and it still needs designing.
 
+### Feedback to act on — empty and error states
+
+Raised by the user, 2026-07-25, after a first run on a fresh hosted account: *"it's not
+handling the empty cases well."* Deliberately deferred, not forgotten.
+
+- The picker renders bare one-line text where Home uses the full `EmptyState` (title, body,
+  action). Two different answers to the same problem in the same flow.
+- A brand-new account is mostly dead space with no first-run guidance.
+- Error states print the raw PostgREST message. Right in dev, wrong in front of a user — it
+  needs a human sentence with the technical detail tucked behind something.
+
+Phase 10 owns states and polish, but the picker/Home inconsistency is worth pulling forward.
+
 ### Next: Phase 6 — Settle up & UPI
 
 `plan/phase-06-settle-upi.md`. `record_settlement` already exists and is tested; the screen,
