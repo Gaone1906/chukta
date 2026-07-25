@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import { useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import { GlassButton, Sheet, color, font } from '@/design';
 import { inviteMessage, personalInviteUrl } from '@/features/invite/inviteLink';
@@ -11,6 +11,7 @@ import { useOffline } from '@/lib/offline/OfflineProvider';
 import { queueContactProfile } from '@/lib/offline/writes';
 import { queryKeys } from '@/lib/queryKeys';
 import { Avatar } from './Avatar';
+import { ClaimCodeSheet } from './ClaimCodeSheet';
 
 /**
  * Add a person who is not on Hisaab — and, if you want, send them the link.
@@ -55,6 +56,7 @@ function AddPersonBody({
   const [email, setEmail] = useState('');
   const [added, setAdded] = useState<{ id: string; name: string } | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [showCode, setShowCode] = useState(false);
 
   /*
    * The person exists as soon as you tap Add.
@@ -175,7 +177,43 @@ function AddPersonBody({
           <Text style={styles.copyLabel}>Copy the link instead</Text>
         </Pressable>
 
+        {/*
+          * The third way in, for when a link is the wrong shape: they are standing next to you,
+          * or you are on the phone to them. Same merge at the other end, just eight characters
+          * instead of a URL. Needs a connection for the same reason the link does — the code is
+          * minted server-side and only its HMAC is stored.
+          */}
+        <Pressable
+          accessibilityRole="button"
+          hitSlop={8}
+          disabled={!offline.connectivity.isConnected}
+          onPress={() => setShowCode(true)}
+          style={styles.copyRow}
+        >
+          <Svg width={14} height={14} viewBox="0 0 14 14" fill="none">
+            <Circle cx={4.4} cy={7} r={2.6} stroke={color.textMuted} strokeWidth={1.3} />
+            <Path
+              d="M7 7h5.2M10.6 7v2.2"
+              stroke={color.textMuted}
+              strokeWidth={1.3}
+              strokeLinecap="round"
+            />
+          </Svg>
+          <Text style={styles.copyLabel}>
+            {offline.connectivity.isConnected
+              ? 'Read them a code instead'
+              : 'A code needs a connection'}
+          </Text>
+        </Pressable>
+
         {note ? <Text style={styles.note}>{note}</Text> : null}
+
+        <ClaimCodeSheet
+          visible={showCode}
+          profileId={added.id}
+          displayName={added.name}
+          onClose={() => setShowCode(false)}
+        />
       </Sheet>
     );
   }

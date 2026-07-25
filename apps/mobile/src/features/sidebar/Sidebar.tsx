@@ -205,6 +205,12 @@ function SidebarContent({
             <View>
               <SidebarRow label="Settings" icon={<SettingsIcon />} onPress={(e) => go(e, '/settings')} />
               <SidebarRow label="Invite friends" icon={<InviteIcon />} onPress={(e) => go(e, '/invite')} />
+              {/*
+                * Next to Invite because they are two ends of the same act — one sends somebody a
+                * way in, the other is the way in. Somebody told "get them to send you a code"
+                * looks for it here, beside the row they were already shown.
+                */}
+              <SidebarRow label="Claim a person" icon={<ClaimIcon />} onPress={(e) => go(e, '/claim')} />
               <SidebarRow
                 label="Help and feedback"
                 icon={<HelpIcon />}
@@ -301,6 +307,26 @@ const InviteIcon = () => (
       strokeLinecap="round"
     />
     <Path d="M16.4 4.6v5M13.9 7.1h5" stroke={color.goldBright} strokeWidth={1.4} strokeLinecap="round" />
+  </Svg>
+);
+
+// A key. The gold bit is the bit that turns, which is the same emphasis the other icons give
+// to whatever part of them is the verb.
+const ClaimIcon = () => (
+  <Svg width={20} height={18} viewBox="0 0 20 18" fill="none">
+    <Circle cx={6.2} cy={9} r={3.6} stroke={ICON} strokeWidth={1.4} />
+    <Path
+      d="M9.8 9h8.4"
+      stroke={color.goldBright}
+      strokeWidth={1.4}
+      strokeLinecap="round"
+    />
+    <Path
+      d="M15.4 9v3.1M18.2 9v2.2"
+      stroke={color.goldBright}
+      strokeWidth={1.4}
+      strokeLinecap="round"
+    />
   </Svg>
 );
 

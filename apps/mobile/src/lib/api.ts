@@ -675,6 +675,44 @@ export async function claimPlaceholder(token: string): Promise<{ profile_id: str
   return rpc('claim_placeholder', { p_token: token });
 }
 
+export interface ClaimCode {
+  /** The raw eight characters. Returned exactly once — only its HMAC is stored (0026). */
+  code: string;
+  /** The same thing as `XXXX-XXXX`, which is the only form a human should ever be shown. */
+  formatted: string;
+  profile_id: string;
+  display_name: string;
+  expires_at: string;
+}
+
+/**
+ * Mint a short code for a placeholder, for someone to type rather than tap.
+ *
+ * Fifteen-minute expiry, unlike the ninety days an invite link gets: at forty bits the live-code
+ * count is the security parameter, and a short window is what keeps it near zero. So the UI must
+ * treat "the code went stale while they were reading it out" as a normal thing that happens, not
+ * an error state.
+ */
+export async function createClaimCode(profileId: string): Promise<ClaimCode> {
+  return rpc<ClaimCode>('create_claim_code', { p_profile_id: profileId });
+}
+
+/**
+ * The result of typing a code in.
+ *
+ * **Failures come back as `ok: false`, not as a thrown error**, and that is deliberate on the
+ * server: PostgREST wraps each RPC in one transaction, so a function that recorded the attempt
+ * and then raised would have its own throttle counter rolled back by the exception. Callers must
+ * therefore branch on `ok` — a `try/catch` alone will silently treat every wrong code as success.
+ */
+export type ClaimRedemption =
+  | { ok: true; merged: boolean; profile_id: string; display_name?: string }
+  | { ok: false; reason: 'invalid' | 'throttled' };
+
+export async function redeemClaimCode(code: string): Promise<ClaimRedemption> {
+  return rpc<ClaimRedemption>('redeem_claim_code', { p_code: code });
+}
+
 /**
  * Delete the account. Anonymises the profile and removes the login — see 0020 for why a hard
  * delete is impossible when your splits are half of somebody else's balance.

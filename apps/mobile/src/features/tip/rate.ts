@@ -1,4 +1,3 @@
-import * as StoreReview from 'expo-store-review';
 import { Linking } from 'react-native';
 
 /**
@@ -40,13 +39,39 @@ export function storeUrl(): string | null {
   return process.env.EXPO_PUBLIC_STORE_URL || null;
 }
 
+/**
+ * `expo-store-review`, or null when this build has no such native module.
+ *
+ * **Required at call time, not imported at module scope, and that is not stylistic.** A
+ * top-level `import * as StoreReview from 'expo-store-review'` throws
+ * `Cannot find native module 'ExpoStoreReview'` the moment the module is evaluated — and
+ * expo-router evaluates every route file eagerly to build its route tree. So on any build
+ * without the module compiled in (Expo Go, a dev client from before it was added, a teammate
+ * who pulled the branch without rebuilding), that one throw takes down **the entire `(app)`
+ * group** and the user gets a blank screen with no route rendered at all.
+ *
+ * Observed, not theorised: the app blanked exactly this way on a stale dev client. A rating
+ * button is the least important thing in the app and must never be able to do that, so the cost
+ * of a missing module is capped at "fall through to the store URL".
+ */
+function storeReview(): typeof import('expo-store-review') | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('expo-store-review') as typeof import('expo-store-review');
+  } catch {
+    return null;
+  }
+}
+
 export async function rateApp(): Promise<RateOutcome> {
-  // `hasAction()` folds in "is there anywhere at all to send them" — on iOS it is true when the
-  // review API is usable, on Android when either that or a store URL exists.
-  if (await StoreReview.isAvailableAsync()) {
+  const review = storeReview();
+
+  if (review !== null) {
     try {
-      await StoreReview.requestReview();
-      return 'requested';
+      if (await review.isAvailableAsync()) {
+        await review.requestReview();
+        return 'requested';
+      }
     } catch {
       // The sheet failed to present. Fall through to the listing rather than dead-ending —
       // this is exactly the case the store URL is a fallback for.

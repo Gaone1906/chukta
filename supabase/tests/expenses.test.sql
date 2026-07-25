@@ -1,7 +1,7 @@
 -- The write path: one RPC, six tables, one transaction, one idempotency key.
 
 begin;
-select plan(15);
+select plan(16);
 
 -- NOTE: on_auth_user_created auto-creates a profile for every auth.users row. These fixtures
 -- want specific, readable profile ids, so the auto-created rows are swapped out below. The
@@ -239,6 +239,30 @@ select throws_ok(
   '42501',
   'cannot include a profile you have no shared context with',
   'nor can they graft a stranger onto an expense they can already edit'
+);
+
+/*
+ * The third door, which 0025 left open and 0027 closed.
+ *
+ * `shares_context_with` is derived from group_members AND expense_participants, so gating the
+ * two expense writers only closed half the class: an attacker could make their own group and
+ * add the victim's placeholder to it, forging exactly the same context. Found by an adversarial
+ * review of the claim-code work and reproduced end to end before the fix.
+ */
+select app.create_group(
+  jsonb_build_object('id', '99999999-0000-0000-0000-000000000001', 'name', 'Mallory''s own group'),
+  'a4a4a4a4-0000-0000-0000-000000000001'
+);
+
+select throws_ok(
+  $$ select app.add_group_members(
+       '99999999-0000-0000-0000-000000000001',
+       array['bbbbbbbb-0000-0000-0000-000000000001']::uuid[],
+       'a5a5a5a5-0000-0000-0000-000000000001'
+     ) $$,
+  '42501',
+  'cannot include a profile you have no shared context with',
+  'and cannot smuggle a stranger into a group they own to manufacture context'
 );
 
 select * from finish();
