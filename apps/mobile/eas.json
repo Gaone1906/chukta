@@ -10,6 +10,7 @@
     },
     "development": {
       "extends": "base",
+      "environment": "development",
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
@@ -21,6 +22,7 @@
     },
     "preview": {
       "extends": "base",
+      "environment": "preview",
       "distribution": "internal",
       "android": {
         "buildType": "apk"
@@ -28,8 +30,9 @@
     },
     "production": {
       "extends": "base",
-      "distribution": "store",
+      "environment": "production",
       "autoIncrement": true,
+      "distribution": "store",
       "android": {
         "buildType": "app-bundle"
       }
