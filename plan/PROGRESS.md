@@ -35,14 +35,53 @@ and `revoke ... from anon` held.
 
 **Next: the rest of Phase C.**
 
-- **C2** — deploy `push-dispatch`; set the Vault secrets (`chukta_functions_url`,
-  `chukta_service_key`); **confirm `pg_net` is enabled on the hosted project.** `0030` created
-  `pg_cron` fine, but `net.http_post` sits inside a plpgsql body so it was never resolved at
-  migration time — the cron jobs are scheduled now and will fail at runtime if `pg_net` is
-  absent. Missing Vault secrets are safe by design (the jobs no-op), a missing extension is not.
+- **C2 — mostly done.** `push-dispatch` deployed; `pg_net` was indeed missing and is now
+  installed by `0037`. Only the **Vault secrets** remain, and they wait on C3 (below).
 - **C3** — **rotate the compromised keys** (open item #11). The DB password is already done.
+  Then set both Vault secrets in one go (below), since the service key is one of them.
 - **C4** — the new Google client ids in Supabase Auth, once the OAuth clients are recreated
   against `com.chukta.app`.
+
+### C2, in detail — and the two bugs that were hiding each other
+
+**`pg_net` was missing on hosted.** `0030` creates `pg_cron` but never created `pg_net`, and that
+went unnoticed for six migrations because the local stack ships it pre-installed. It survived the
+push too: a plpgsql body is parsed for syntax at `create function` time but its object references
+are not resolved until it runs, so `perform net.http_post(...)` was just text. `0030` applied
+cleanly to a database with no `net` schema and scheduled a job that would fail forever. Nothing in
+the push output could have said otherwise. Fixed in **`0037`**, which also grants `usage` on `net`
+to `postgres` only — `anon` or `authenticated` holding execute on `net.http_post` would be a
+server-side request forgery primitive handed out for free.
+
+**The Vault secrets were masking it.** `cron.job_run_details` shows 21 runs, **all succeeded, zero
+failures** — because `dispatch_notifications` returns early at the Vault check, *before* it ever
+reaches `net.http_post`. Two gaps cancelling out, and the safe one hid the fatal one. Worth
+remembering: had the secrets been set first, which is the obvious order, every dispatch would have
+failed instead. `pg_net` is in place before them now, so the ordering is right going forward.
+
+**Verified rather than assumed**, at each step: `pg_extension` before and after; `net.http_post`
+resolving; the deployed function returning **401** unauthenticated and **403 "forbidden"** to a
+valid anon JWT (gateway and the function's own service-key check, both holding); all five
+`chukta-` cron jobs active. Local `db reset` + 206 pgTAP assertions pass with `0037`, and local
+and hosted now agree at **37 of 37**.
+
+### The Vault secrets — left for you, deliberately
+
+Writing them is a production config change and needs the service key, which is being rotated, so
+doing it now would mean doing it twice. After rotation, in the SQL editor:
+
+```sql
+select vault.create_secret('https://khzjdtnagkaecbngjvoa.supabase.co/functions/v1', 'chukta_functions_url');
+select vault.create_secret('<service key>', 'chukta_service_key');
+```
+
+⚠️ **Which service key matters.** `push-dispatch` compares the incoming header against its own
+`SUPABASE_SERVICE_ROLE_KEY` env var, which Supabase injects. The Vault value must be **the same
+key that env var holds** — check it in the dashboard rather than assuming, because the legacy
+`service_role` JWT and a newer `sb_secret_…` key are different strings and a mismatch fails as a
+silent 403 that looks exactly like a delivery problem.
+
+Until both exist the pipeline stays a deliberate no-op, which is the safe state.
 
 The whole money loop works and has been walked on a device: sign in → profile → Home → add an
 expense in any of the five split types → see it agree on Home, the group and the person → edit
