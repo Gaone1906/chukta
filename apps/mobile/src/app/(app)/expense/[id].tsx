@@ -31,6 +31,7 @@ import { describeDate } from '@/features/expenses/DateSheet';
 import { ScreenHeader } from '@/features/expenses/ScreenHeader';
 import { EmptyState } from '@/features/home/EmptyState';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
+import { ReceiptStrip } from '@/features/expenses/ReceiptStrip';
 import { Avatar } from '@/features/people/Avatar';
 import { getExpenseDetail, type ExpenseDetail } from '@/lib/api';
 import { isConflict } from '@/lib/errors';
@@ -267,6 +268,22 @@ export default function ExpenseDetailScreen() {
                 ))}
               </Section>
             ) : null}
+
+            {/* Above the comments, because a receipt is evidence about the expense and a
+                comment is a conversation about it — the evidence should come first. */}
+            <Section title="Receipts">
+              <ReceiptStrip
+                expenseId={id}
+                groupId={data.expense.group_id}
+                profileId={profile?.id ?? ''}
+                receipts={data.receipts}
+                canEdit={data.expense.deleted_at === null && Boolean(profile)}
+                onError={setToast}
+              />
+              {data.receipts.length === 0 ? (
+                <Text style={styles.quiet}>No receipt on this one.</Text>
+              ) : null}
+            </Section>
 
             <Section title="Comments">
               {data.comments.length === 0 ? (

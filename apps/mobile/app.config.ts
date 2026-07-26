@@ -46,6 +46,16 @@ const config: ExpoConfig = {
        * in a picker the OS draws, and the address book is never enumerated or uploaded. On
        * iOS 18+ the picker is out-of-process and this is never even shown.
        */
+      /*
+       * Receipts. Both strings are needed and they are NOT interchangeable: iOS shows the
+       * camera one for taking a photo and the library one for choosing an existing file, and
+       * shipping without whichever the app actually calls is an immediate review rejection.
+       */
+      NSCameraUsageDescription:
+        'Hisaab uses the camera only to photograph a receipt you attach to an expense.',
+      NSPhotoLibraryUsageDescription:
+        'Hisaab reads only the photo you pick, to attach it to an expense as a receipt.',
+
       NSContactsUsageDescription:
         'Hisaab only reads the single contact you choose, to fill in their name and number. Your address book is never uploaded.',
     },
