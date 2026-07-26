@@ -5,7 +5,7 @@
 -- eventually sign up your history is simply there.
 
 begin;
-select plan(11);
+select plan(16);
 
 -- ---------------------------------------------------------------- signup creates a profile
 
@@ -131,6 +131,74 @@ select is(
   'bbbbbbbb-0000-0000-0000-00000000bbbb'::uuid,
   'resolve_profile_id follows the tombstone to the surviving identity'
 );
+
+-- ---------------------------------------------------------------- the undo record
+
+/*
+ * A merge is the only irreversible operation in this schema, and the part that cannot be
+ * reconstructed from anything else is the SUMMING: when one person is on an expense under both
+ * identities, the two share rows become one and the original division is gone forever.
+ *
+ * These assert the record is complete enough to put it back by hand. `Priya S` above was on
+ * "Turf booking" for 30000 and NOT on the first expense, so the simple case is covered by the
+ * capture; the collision case gets its own expense below.
+ */
+select is(
+  (select undo -> 'profile' ->> 'display_name' from internal.profile_merges
+    where source_profile_id = 'cccccccc-0000-0000-0000-00000000cccc'),
+  'Priya S',
+  'the source name survives the tombstone that overwrote it with "Merged account"');
+
+select is(
+  (select jsonb_array_length(undo -> 'expense_splits') from internal.profile_merges
+    where source_profile_id = 'cccccccc-0000-0000-0000-00000000cccc'),
+  1,
+  'the source''s own split rows are captured verbatim');
+
+select is(
+  (select row_counts ->> 'expense_splits' from internal.profile_merges
+    where source_profile_id = 'cccccccc-0000-0000-0000-00000000cccc'),
+  '1',
+  'row_counts holds actual counts now, not the two profile ids it used to duplicate');
+
+-- The collision: one person on one expense under BOTH identities. This is the case where the
+-- database irrecoverably forgets 200+300 was ever anything other than 500.
+insert into public.profiles (id, display_name) values
+  ('dddd0000-0000-0000-0000-00000000dddd', 'Priya again');
+
+insert into public.expenses (id, description, amount_minor, split_type, spent_on, created_by_profile_id)
+values ('eeee0003-0000-0000-0000-000000000003', 'Nets', 50000, 'exact', current_date,
+        'bbbbbbbb-0000-0000-0000-00000000bbbb');
+insert into public.expense_payers (expense_id, profile_id, paid_amount_minor)
+values ('eeee0003-0000-0000-0000-000000000003', 'bbbbbbbb-0000-0000-0000-00000000bbbb', 50000);
+insert into public.expense_splits (expense_id, profile_id, share_amount_minor) values
+  ('eeee0003-0000-0000-0000-000000000003', 'bbbbbbbb-0000-0000-0000-00000000bbbb', 20000),
+  ('eeee0003-0000-0000-0000-000000000003', 'dddd0000-0000-0000-0000-00000000dddd', 30000);
+insert into public.expense_participants (expense_id, profile_id, is_payer, is_ower) values
+  ('eeee0003-0000-0000-0000-000000000003', 'bbbbbbbb-0000-0000-0000-00000000bbbb', true, true),
+  ('eeee0003-0000-0000-0000-000000000003', 'dddd0000-0000-0000-0000-00000000dddd', false, true);
+
+select app.merge_profiles('dddd0000-0000-0000-0000-00000000dddd',
+                          'bbbbbbbb-0000-0000-0000-00000000bbbb', 'manual');
+
+select is(
+  (select share_amount_minor from public.expense_splits
+    where expense_id = 'eeee0003-0000-0000-0000-000000000003'
+      and profile_id = 'bbbbbbbb-0000-0000-0000-00000000bbbb'),
+  50000::bigint,
+  'the colliding shares were summed, and the second row is gone');
+
+/*
+ * The whole point. `target_before = target_after - source`, so the captured source amount is
+ * exactly what a reversal needs — 50000 back to 20000 + 30000. Without this the 30000 would be
+ * unrecoverable from anywhere in the database.
+ */
+select is(
+  (select (undo -> 'expense_splits' -> 0 ->> 'share_amount_minor')::bigint
+     from internal.profile_merges
+    where source_profile_id = 'dddd0000-0000-0000-0000-00000000dddd'),
+  30000::bigint,
+  'and the summed-away amount is recorded, so the original division can be rebuilt');
 
 select * from finish();
 rollback;
