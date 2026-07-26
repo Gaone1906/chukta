@@ -26,6 +26,23 @@ const config: ExpoConfig = {
   orientation: 'portrait',
   scheme: 'chukta',
 
+  /*
+   * The launcher icon. Until now there was NO icon key at all, which does not fail a build —
+   * it silently ships Expo's default, and that is a store rejection on both platforms.
+   *
+   * `assets/icon/` is generated from `assets/brand/chukta-stamp.png`, never from the SVG.
+   * The SVG sets the wordmark in Rozha One, which lives in node_modules rather than in system
+   * fonts, so anything that rasterises it here (QuickLook, a headless browser) silently falls
+   * back to a different serif — an icon whose wordmark does not match the app's own. The
+   * designer's PNG is the only source with the real lettering.
+   *
+   * This one is FLATTENED onto bgBase and carries no alpha channel, which is not cosmetic:
+   * the App Store rejects an icon with transparency outright. It is also square and
+   * un-rounded, because iOS applies its own mask and rounding a source that is about to be
+   * rounded again produces a visibly clipped corner.
+   */
+  icon: './assets/icon/icon.png',
+
   // Dark mode only — a deliberate, permanent decision, not a placeholder. See docs/design-doc.md.
   userInterfaceStyle: 'dark',
   backgroundColor: '#0A0405',
@@ -98,6 +115,25 @@ const config: ExpoConfig = {
   android: {
     package: BUNDLE_ID,
     predictiveBackGestureEnabled: false,
+
+    /*
+     * Adaptive icon: two layers the launcher masks and parallaxes independently, which is why
+     * the foreground keeps its alpha instead of being flattened like the iOS one.
+     *
+     * The artwork sits at 62% of the canvas rather than filling it. An adaptive icon is a
+     * 108dp square of which only the centre 72dp survives EVERY mask shape a launcher might
+     * apply — so art drawn edge to edge gets its rim cropped on any device using a circle.
+     *
+     * `monochromeImage` is the Android 13+ themed-icon layer, a flat white silhouette that the
+     * system recolours to the user's wallpaper palette. Without it a themed launcher falls back
+     * to shrinking the full-colour icon inside a grey blob, which looks broken next to apps
+     * that supplied one.
+     */
+    adaptiveIcon: {
+      foregroundImage: './assets/icon/adaptive-foreground.png',
+      monochromeImage: './assets/icon/adaptive-monochrome.png',
+      backgroundColor: '#0A0405',
+    },
     /*
      * Android has no out-of-process picker equivalent, so the permission is required for the
      * system picker to return anything. It is the only contacts permission requested, and
@@ -111,6 +147,39 @@ const config: ExpoConfig = {
   plugins: [
     'expo-router',
     'expo-font',
+
+    /*
+     * The launch screen. `_layout.tsx` already calls `preventAutoHideAsync` and holds it until
+     * the fonts resolve — but nothing configured what is shown during that hold, so it was the
+     * default WHITE screen. On a dark-only app that is a full-brightness flash on every cold
+     * start, straight into a near-black first frame.
+     *
+     * `backgroundColor` matches `color.bgBase` exactly, so the splash and the first rendered
+     * frame are the same colour and the handover is invisible.
+     */
+    [
+      'expo-splash-screen',
+      {
+        image: './assets/icon/splash-icon.png',
+        imageWidth: 180,
+        resizeMode: 'contain',
+        backgroundColor: '#0A0405',
+      },
+    ],
+
+    /*
+     * Android notification icon. Android draws these as a SILHOUETTE from the alpha channel and
+     * ignores colour entirely — hand it a full-colour icon and every notification shows a solid
+     * grey-white blob. This is the same seal reduced to flat white on transparent, plus the
+     * gold accent Android tints the small icon and header with.
+     */
+    [
+      'expo-notifications',
+      {
+        icon: './assets/icon/notification-icon.png',
+        color: '#B8963C',
+      },
+    ],
     './plugins/withDebugKeystore',
     // Android 11+ package visibility. Without it, UPI app discovery silently finds nothing.
     './plugins/withUpiQueries',
