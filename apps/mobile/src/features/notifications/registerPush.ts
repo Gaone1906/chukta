@@ -71,13 +71,30 @@ function deviceId(): string {
 }
 
 export async function registerForPush(profileId: string): Promise<PushOutcome> {
-  const Notifications = notifications();
+  /*
+   * The device check comes FIRST, and the order is the whole point.
+   *
+   * A simulator cannot receive APNs at all. Asking anyway produces a permission grant that can
+   * never deliver anything, which makes local testing read as working when it is not — that is
+   * why the check exists. It used to run one line too late, after `notifications()` had already
+   * `require`d expo-notifications.
+   *
+   * That require is not free on a simulator: loading the module makes expo-notifications read
+   * its persisted registration out of the iOS keychain, which a simulator has no entitlement
+   * for, and it logs the failure with `console.error` rather than throwing. LogBox turns any
+   * `console.error` into a red panel, so every dev launch showed
+   * `ERR_NOTIFICATIONS_KEYCHAIN_ACCESS` — alarming, harmless, and impossible to catch here
+   * because nothing is thrown to us.
+   *
+   * Checking the device first means a simulator never loads the module, so the keychain is
+   * never touched and there is nothing to log. `expo-device` reads a static property and does
+   * not touch the keychain itself.
+   */
   const Device = device();
-  if (Notifications === null) return 'unsupported';
-
-  // A simulator cannot receive APNs at all. Asking anyway produces a permission grant that can
-  // never deliver anything, which makes local testing read as working when it is not.
   if (Device?.isDevice === false) return 'unsupported';
+
+  const Notifications = notifications();
+  if (Notifications === null) return 'unsupported';
 
   try {
     const existing = await Notifications.getPermissionsAsync();
