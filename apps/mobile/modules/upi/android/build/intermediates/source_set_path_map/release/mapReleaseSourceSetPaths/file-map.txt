@@ -7,10 +7,10 @@ expo.modules.upi-core-runtime-2.2.0-5 /Users/pranav.yarasi/.gradle/caches/9.3.1/
 expo.modules.upi-lifecycle-runtime-2.6.2-6 /Users/pranav.yarasi/.gradle/caches/9.3.1/transforms/dd24cb7d2a85fa1882fc1d8c81048ead/transformed/lifecycle-runtime-2.6.2/res
 expo.modules.upi-startup-runtime-1.1.1-7 /Users/pranav.yarasi/.gradle/caches/9.3.1/transforms/f6855e613df5be64cd3aabcc87f62860/transformed/startup-runtime-1.1.1/res
 expo.modules.upi-core-1.17.0-8 /Users/pranav.yarasi/.gradle/caches/9.3.1/transforms/f7a48abcd884bc4d1d6b634937079ac5/transformed/core-1.17.0/res
-expo.modules.upi-pngs-9 /Users/pranav.yarasi/Desktop/workspace/personal/Hisaab/apps/mobile/modules/upi/android/build/generated/res/pngs/release
-expo.modules.upi-resValues-10 /Users/pranav.yarasi/Desktop/workspace/personal/Hisaab/apps/mobile/modules/upi/android/build/generated/res/resValues/release
-expo.modules.upi-mergeReleaseResources-11 /Users/pranav.yarasi/Desktop/workspace/personal/Hisaab/apps/mobile/modules/upi/android/build/intermediates/incremental/release/mergeReleaseResources/merged.dir
-expo.modules.upi-mergeReleaseResources-12 /Users/pranav.yarasi/Desktop/workspace/personal/Hisaab/apps/mobile/modules/upi/android/build/intermediates/incremental/release/mergeReleaseResources/stripped.dir
-expo.modules.upi-release-13 /Users/pranav.yarasi/Desktop/workspace/personal/Hisaab/apps/mobile/modules/upi/android/build/intermediates/merged_res/release/mergeReleaseResources
-expo.modules.upi-main-14 /Users/pranav.yarasi/Desktop/workspace/personal/Hisaab/apps/mobile/modules/upi/android/src/main/res
-expo.modules.upi-release-15 /Users/pranav.yarasi/Desktop/workspace/personal/Hisaab/apps/mobile/modules/upi/android/src/release/res
+expo.modules.upi-pngs-9 /Users/pranav.yarasi/Desktop/workspace/personal/Chukta/apps/mobile/modules/upi/android/build/generated/res/pngs/release
+expo.modules.upi-resValues-10 /Users/pranav.yarasi/Desktop/workspace/personal/Chukta/apps/mobile/modules/upi/android/build/generated/res/resValues/release
+expo.modules.upi-mergeReleaseResources-11 /Users/pranav.yarasi/Desktop/workspace/personal/Chukta/apps/mobile/modules/upi/android/build/intermediates/incremental/release/mergeReleaseResources/merged.dir
+expo.modules.upi-mergeReleaseResources-12 /Users/pranav.yarasi/Desktop/workspace/personal/Chukta/apps/mobile/modules/upi/android/build/intermediates/incremental/release/mergeReleaseResources/stripped.dir
+expo.modules.upi-release-13 /Users/pranav.yarasi/Desktop/workspace/personal/Chukta/apps/mobile/modules/upi/android/build/intermediates/merged_res/release/mergeReleaseResources
+expo.modules.upi-main-14 /Users/pranav.yarasi/Desktop/workspace/personal/Chukta/apps/mobile/modules/upi/android/src/main/res
+expo.modules.upi-release-15 /Users/pranav.yarasi/Desktop/workspace/personal/Chukta/apps/mobile/modules/upi/android/src/release/res

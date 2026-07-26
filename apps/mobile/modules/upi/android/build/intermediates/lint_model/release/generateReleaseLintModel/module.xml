@@ -1,6 +1,6 @@
 <lint-module
     format="1"
-    dir="/Users/pranav.yarasi/Desktop/workspace/personal/Hisaab/apps/mobile/modules/upi/android"
+    dir="/Users/pranav.yarasi/Desktop/workspace/personal/Chukta/apps/mobile/modules/upi/android"
     name=":upi"
     type="LIBRARY"
     maven="club.hisaab.upi:upi:1.0.0"

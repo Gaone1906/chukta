@@ -318,25 +318,34 @@ const config: ExpoConfig = {
      *
      * A Sentry project now exists and `EXPO_PUBLIC_SENTRY_DSN` is set, so crashes will arrive.
      *
-     * ⚠️ **Source maps will NOT upload yet** — `project` is still missing, so every stack trace
-     * arrives as one line of minified bundle, which is close to useless for the thing a beta
-     * exists to do.
+     * ---------------------------------------------------------------- source maps are OFF, deliberately
      *
-     * `organization` is the slug from the dashboard subdomain (`pranav-yarasi.sentry.io`), NOT
-     * the `o4511802768228352` in the DSN — that is the numeric id, and the plugin wants the
-     * slug. Same trap for the project: the DSN's trailing path is its id, and the slug has to
-     * come from `pranav-yarasi.sentry.io/settings/projects/`.
+     * **A PARTIAL config here breaks the build, and is worse than no config at all.** Setting
+     * `organization` without `project` is exactly what killed the first EAS build:
      *
-     * The upload also needs `SENTRY_AUTH_TOKEN`. That one IS a secret — it belongs in EAS
-     * environment variables and must NEVER be written here, because this file is committed.
+     *     error: A project ID or slug is required (provide with --project)
+     *     Execution failed for task ':app:createBundleReleaseJsAndAssets_SentryUpload_…'
+     *
+     * `sentry.gradle` runs the upload whenever it is not explicitly disabled, and `sentry-cli`
+     * exits non-zero on an incomplete argument set, which fails the whole Gradle build twenty
+     * minutes in. So the plugin takes no options and `SENTRY_DISABLE_AUTO_UPLOAD=true` is set as
+     * an environment variable, which is the only switch that actually gates the task
+     * (`sentry.gradle:11`).
+     *
+     * **Crash capture does not depend on any of this.** The DSN is read at runtime by
+     * `lib/monitoring.ts`; errors are reported either way. What is missing is symbolication, so
+     * traces arrive minified until the upload is switched on.
+     *
+     * Turning it on needs ALL THREE, together — any two of them reproduces the failure above:
+     *   1. `organization` — the dashboard subdomain slug (`pranav-yarasi`), NOT the
+     *      `o4511802768228352` in the DSN, which is the numeric id.
+     *   2. `project` — the slug from `pranav-yarasi.sentry.io/settings/projects/`. The DSN's
+     *      trailing path is the project's id, not its slug.
+     *   3. `SENTRY_AUTH_TOKEN` — a real secret. EAS environment variables only; it must NEVER
+     *      be written here, because this file is committed.
+     * Then drop `SENTRY_DISABLE_AUTO_UPLOAD`.
      */
-    [
-      '@sentry/react-native/expo',
-      {
-        organization: 'pranav-yarasi',
-        // TODO: the project SLUG, from Settings → Projects. Not the id in the DSN.
-      },
-    ],
+    '@sentry/react-native/expo',
   ],
 
   experiments: {
