@@ -1,5 +1,10 @@
 # Chukta — Design Doc
 
+> **Note:** the app was renamed from Hisaab to **Chukta** on 2026-07-26 (see
+> `plan/PROGRESS.md`). This document is the original handover and deliberately keeps the
+> old name, asset filenames and copy — it is a record of what was specified, not of what
+> shipped.
+
 This is the master reference for building Chukta in Claude Code. It explains what
 the app is, why it looks the way it does, every screen and what happens after it,
 and the exact design system to build against. Pair this with the screen images and

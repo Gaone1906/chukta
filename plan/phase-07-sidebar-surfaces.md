@@ -37,7 +37,7 @@ Replace with:
 - A prominent **"Invite a friend"** action opening the OS share sheet (`Share.share()` — the
   native iOS/Android sheet, so WhatsApp, Messages, Telegram, and everything else come free)
   with a deep link carrying a `profile_claims` token, plus **Copy link**.
-- Search for people already on Hisaab by name, backed by `pg_trgm`.
+- Search for people already on Chukta by name, backed by `pg_trgm`.
 - Keep the "invited friends can view a shared expense before installing" note **only if** we
   build that — web share links are **out of v1**, so this copy comes out.
 
@@ -66,7 +66,7 @@ deletion to work.
 ### Tip jar — `Hisaab Tip Jar.dc.html`
 
 "Made free, on purpose." Presets ₹99/₹199/₹499 plus custom, one primary Send, and a visually
-secondary Share Hisaab for people who can't tip but can spread the word. Preset/custom
+secondary Share Chukta for people who can't tip but can spread the word. Preset/custom
 selection logic is already real.
 
 > ⚠️ **The design doc says non-consumable. That's wrong.** A non-consumable can be purchased
@@ -94,7 +94,7 @@ Send validation already exists.
 ### About — `Hisaab About.dc.html`
 
 Seal, name, philosophy, version (read from `expo-constants`, not hardcoded), links to Terms,
-Privacy, Rate Hisaab, Tip jar. Terms and Privacy point at the GitHub Pages URLs from
+Privacy, Rate Chukta, Tip jar. Terms and Privacy point at the GitHub Pages URLs from
 `legal/`. Rate uses `expo-store-review`.
 
 ## Acceptance criteria

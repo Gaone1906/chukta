@@ -20,7 +20,7 @@ so that every later phase has a place to put its files and a CI job that checks 
 - npm workspaces: `apps/mobile` (Expo SDK 57 / RN 0.86), `packages/core`, `supabase/`.
 - GitHub Actions: typecheck, lint, test on push and PR.
 - `legal/terms.md`, `legal/privacy.md` drafted.
-- Private repo `Gaone1906/hisaab`, pushed.
+- Private repo `Gaone1906/chukta`, pushed.
 
 ## Deviations from the original plan
 
@@ -46,7 +46,7 @@ labelled as third-party and never-ported in `design-reference/README.md`.
 ```bash
 npm install && npm run typecheck && npm run test
 npm run design-reference        # then open http://localhost:8080/screens/
-gh repo view Gaone1906/hisaab
+gh repo view Gaone1906/chukta
 git log --oneline
 ```
 

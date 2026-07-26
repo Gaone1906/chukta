@@ -80,7 +80,7 @@ Ported from `design-reference/assets/` — exact specs are in those files.
 - `Seal` — from `hisaab-seal.js`. Spinner (1.05s linear, gold arc) → stamp landing. Exact
   keyframes: `760ms cubic-bezier(.2,.85,.25,1)`, opacity 0→1, scale 1.5→.965→1.014→1,
   rotate −9°→1.5°→−.6°→0, blur 6px→0; concurrent halo ring 900ms ease-out, scale .7→1.5,
-  opacity 0→.55→0. Use `hisaab-stamp.png` for the artwork itself, animate the container.
+  opacity 0→.55→0. Use `chukta-stamp.png` for the artwork itself, animate the container.
 - `Toast` — the prototypes' universal feedback element; becomes the real one.
 
 ### 5. The ripple transition — `apps/mobile/src/design/motion/Ripple.tsx`

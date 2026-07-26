@@ -18,16 +18,16 @@ Apple enrolment also gates Sign in with Apple in Phase 4, so it isn't really a P
 
 ## 1. App identity
 
-> ⚠️ **Open question #1.** "Hisaab" already exists on the stores, so the display name needs
+> ⚠️ **Open question #1.** "Chukta" already exists on the stores, so the display name needs
 > deciding. It's a variable (`APP_DISPLAY_NAME` in `app.config.ts`) precisely so this can be
-> settled late. The bundle id `com.hisaab.app` is already fixed and doesn't need to match the
+> settled late. The bundle id `com.chukta.app` is already fixed and doesn't need to match the
 > display name — users never see it.
 
 Check availability on both stores before committing.
 
 ## 2. Icons
 
-`assets/brand/hisaab-stamp.png` **cannot** be shipped as the icon as-is:
+`assets/brand/chukta-stamp.png` **cannot** be shipped as the icon as-is:
 
 - It has an alpha channel; **iOS rejects icons with transparency**
 - iOS applies its own rounded-square mask, so the source must be square and un-rounded

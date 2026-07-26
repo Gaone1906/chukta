@@ -1,4 +1,4 @@
-# Hisaab — build progress
+# Chukta — build progress
 
 Single place to answer "where are we". Update the status table and the log at the end of
 every phase. Each phase has its own file in this directory with the detailed work list.
@@ -93,7 +93,7 @@ Everything from 4 onward is sequential.
 
 | # | Question | Blocks | Status |
 |---|---|---|---|
-| 1 | Store display name — "Hisaab" is taken. Bundle id settled: `com.hisaab.app` | Phase 11 | name open |
+| 1 | Store display name — "Chukta" is taken. Bundle id settled: `com.chukta.app` | Phase 11 | name open |
 | 2 | ~~Currency: Help FAQ vs feature spec~~ | — | **resolved: INR only for v1** |
 | 3 | Domain for Universal Links / App Links (invite deep links). Links are built and shareable; they open a web page rather than the app until the association files are published. | Phase 11 | open |
 | 9 | **Hosted Supabase project** — the local stack is Docker on this Mac, unreachable from a phone | device alpha | **needed from user** |
@@ -140,7 +140,7 @@ gets switched on when the CHECK comes off.
 - npm workspaces monorepo: `apps/mobile` (Expo SDK 57), `packages/core`, `supabase/`
 - GitHub Actions: typecheck, lint, test
 - `legal/terms.md` and `legal/privacy.md` drafted
-- Private repo `Gaone1906/hisaab` created and pushed; **CI green on first run**
+- Private repo `Gaone1906/chukta` created and pushed; **CI green on first run**
 
 **Deviations from plan**
 - **Stripped web support from the Expo app.** The SDK 57 default template ships a demo app
@@ -148,8 +148,8 @@ gets switched on when the CHECK comes off.
   `react-native-web`, `react-dom`, the web script and the demo screens rather than carrying
   a broken build.
 - **`app.config.ts` replaces `app.json`.** Needed so the store display name can stay a
-  variable (`APP_DISPLAY_NAME`) while the bundle id `com.hisaab.app` is fixed now — open
-  question #1 is about the name, not the identifier. (Initially proposed as `club.uni.hisaab`,
+  variable (`APP_DISPLAY_NAME`) while the bundle id `com.chukta.app` is fixed now — open
+  question #1 is about the name, not the identifier. (Initially proposed as `club.uni.chukta`,
   inferred from an email domain — wrong: this is a personal project with no org affiliation.)
 - **eslint pinned to 9.x.** `eslint-plugin-react` (a transitive dep of `eslint-config-expo`)
   crashes on ESLint 10. Revisit when it ships a compatible release.
@@ -321,7 +321,7 @@ the `AuthCancelled` path behaves.
 finishing the flow would mean entering the user's Google password. That last hop is theirs to
 do — add a Google account to the emulator, or run the APK on a real phone.
 
-**Note for Phase 11:** `hisaab-stamp.png` is 407 KB and visibly pops in over Metro in dev.
+**Note for Phase 11:** `chukta-stamp.png` is 407 KB and visibly pops in over Metro in dev.
 Bundled in release so it is not a runtime bug, but it reinforces that the stamp needs an
 optimised variant.
 
@@ -336,9 +336,9 @@ result of things going wrong and being fixed.
 
 | Thing | Value |
 |---|---|
-| Repo | `~/Desktop/workspace/personal/Hisaab`, remote `Gaone1906/hisaab` (private) |
+| Repo | `~/Desktop/workspace/personal/Chukta`, remote `Gaone1906/chukta` (private) |
 | Android AVD | `Medium_Phone_API_36.1` (data partition raised to 16G — 6G could not fit an 85 MB APK) |
-| App id | `com.hisaab.app` |
+| App id | `com.chukta.app` |
 | Supabase (hosted) | `https://khzjdtnagkaecbngjvoa.supabase.co` — schema **is** deployed |
 | Supabase (local) | `npx supabase start`, Postgres on 54322, API on 54321 |
 | Credentials | `apps/mobile/.env` — **gitignored**, hosted project |
@@ -351,11 +351,11 @@ result of things going wrong and being fixed.
 ```bash
 # iOS. expo run:ios misidentifies a booted simulator as a device under Xcode 26, so drive
 # xcodebuild directly. Simulator: iPhone 17 Pro, BB49D14F-3053-4A4E-BDB3-A294A8578AFB.
-xcodebuild -workspace ios/Hisaab.xcworkspace -scheme Hisaab -configuration Debug \
+xcodebuild -workspace ios/Chukta.xcworkspace -scheme Chukta -configuration Debug \
   -sdk iphonesimulator -destination "platform=iOS Simulator,id=<UDID>" \
   -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO build
-xcrun simctl install <UDID> ios/build/Build/Products/Debug-iphonesimulator/Hisaab.app
-xcrun simctl launch <UDID> com.hisaab.app
+xcrun simctl install <UDID> ios/build/Build/Products/Debug-iphonesimulator/Chukta.app
+xcrun simctl launch <UDID> com.chukta.app
 
 # Watch an animation. It is shorter than a tool round-trip, so raise it FIRST (trap 20) —
 # motion.ripple's beats live in design/tokens.ts. 20x makes each phase observable.
@@ -380,21 +380,21 @@ npx supabase db reset && npx supabase test db            # local, 115 pgTAP test
 ANON=$(grep EXPO_PUBLIC_SUPABASE_ANON_KEY apps/mobile/.env.local | cut -d= -f2-)
 curl -s -X POST "http://127.0.0.1:54321/auth/v1/signup" -H "apikey: $ANON" \
   -H "Content-Type: application/json" \
-  -d '{"email":"dev@hisaab.test","password":"hisaab-dev-password"}' -o /dev/null
-docker exec -i supabase_db_hisaab psql -U postgres -d postgres < supabase/seed.sql
+  -d '{"email":"dev@chukta.test","password":"chukta-dev-password"}' -o /dev/null
+docker exec -i supabase_db_chukta psql -U postgres -d postgres < supabase/seed.sql
 
 # Simulate "no server" without touching the radio: stop the API gateway, leave Postgres up so
 # you can still inspect it. This is how the whole offline layer was verified.
-docker stop supabase_kong_hisaab      # app can reach nothing
-docker start supabase_kong_hisaab     # and back
+docker stop supabase_kong_chukta      # app can reach nothing
+docker start supabase_kong_chukta     # and back
 
 # The app's own storage on the simulator (outbox, cursor, cached reads)
-CONT=$(xcrun simctl get_app_container <UDID> com.hisaab.app data)
-sqlite3 "$CONT/Documents/SQLite/hisaab-offline.db" "select * from outbox; select * from sync_state;"
-strings "$CONT/Documents/mmkv/hisaab-query-cache" | grep -c __bigint__   # 0 means the cache never wrote
+CONT=$(xcrun simctl get_app_container <UDID> com.chukta.app data)
+sqlite3 "$CONT/Documents/SQLite/chukta-offline.db" "select * from outbox; select * from sync_state;"
+strings "$CONT/Documents/mmkv/chukta-query-cache" | grep -c __bigint__   # 0 means the cache never wrote
 
-# Query the local DB directly (the container is lower-case `hisaab`, and psql is not on PATH)
-docker exec supabase_db_hisaab psql -U postgres -d postgres -c "select ..."
+# Query the local DB directly (the container is lower-case `chukta`, and psql is not on PATH)
+docker exec supabase_db_chukta psql -U postgres -d postgres -c "select ..."
 
 # Regenerate the typed schema after ANY migration, or the client will not compile
 npx supabase gen types typescript --local > packages/core/src/db-types.ts
@@ -592,7 +592,7 @@ In the order it bites, not the order it was raised:
 4. **A domain**, for iOS Universal Links / Android App Links. Invite links are built and
    shareable but open a web page rather than the app until the association files are hosted.
 5. **A hosted Supabase project** for anything off this Mac — the local stack is Docker here.
-6. **The store display name** ("Hisaab" is taken). Only blocks Phase 11.
+6. **The store display name** ("Chukta" is taken). Only blocks Phase 11.
 
 ### Phase 5 — done, 2026-07-25
 
@@ -771,10 +771,10 @@ RPC layer. Only three things needed writing: `create_invite_link`, `delete_accou
   body — no screen changes. The button says so rather than failing at the tap.
 - **Invite links do not open the app yet.** They are https URLs pointing at the GitHub Pages
   site (`EXPO_PUBLIC_INVITE_ORIGIN`), and Universal Links / App Links need the association
-  files on a domain we do not own — open question #3. Chosen over a `hisaab://` scheme
+  files on a domain we do not own — open question #3. Chosen over a `chukta://` scheme
   deliberately: a custom scheme fails *silently* when the app is not installed, which is the
   entire audience for an invite. `usePendingInvite` already redeems a token from either form.
-- **Rate Hisaab** says "once Hisaab is on the store" rather than being a dead button.
+- **Rate Chukta** says "once Chukta is on the store" rather than being a dead button.
   `expo-store-review` is a native module and there is no listing to link to. Phase 11.
 
 **Bug found and fixed while verifying, worth remembering**
@@ -977,7 +977,7 @@ Three of these were invisible until something was actually listening.
 
 #### Verified on device, not just written
 
-With `supabase_kong_hisaab` stopped:
+With `supabase_kong_chukta` stopped:
 
 - Cold start opens straight onto Home with every group, person and balance from cache.
 - An expense saves instantly and the balance moves by its queued effect: the server's 98083
@@ -1080,7 +1080,7 @@ true → `create_invite_link` passes → `claim_placeholder` → `merge_profiles
   refused (`42501`).
 - A claimed account **cannot** be merged (`merge_profiles` refuses any source with a `user_id`,
   `0013:207`), so there is no takeover to reach — and gating it would have broken the documented
-  common case: add a friend by email, `upsert_contact_profile` finds they are already on Hisaab
+  common case: add a friend by email, `upsert_contact_profile` finds they are already on Chukta
   and returns THEIR id, split with them immediately (`AddPersonSheet.tsx:68-71`).
 - My first version gated everything, and `sync.test.sql` caught it — that suite bootstraps
   context between three real accounts with a one-off expense, i.e. it was *relying on the hole*.
@@ -1180,7 +1180,7 @@ now", and Home showed "dev ₹1,500 YOU OWE". Placeholder tombstoned, split row 
 
 `Contact.presentPicker()` (the legacy `presentContactPickerAsync` is deprecated in SDK 57 and
 **throws at runtime** — the plan predicted this needed checking). iOS's own UI states the
-guarantee: "Hisaab can only access the contacts you select" / "Allow access to 1 contact?".
+guarantee: "Chukta can only access the contacts you select" / "Allow access to 1 contact?".
 
 The three promises moved together, as they had to: `legal/privacy.md`, `invite.tsx`'s on-screen
 copy, and the phase-07 acceptance criterion. **Keep them in step** — the app contradicts its own
@@ -1415,8 +1415,8 @@ same reasoning that put every glass surface behind one switch. The bottom edge o
 ## To deploy the dispatcher (nothing committed contains these)
 
 ```
-select vault.create_secret('https://<ref>.supabase.co/functions/v1', 'hisaab_functions_url');
-select vault.create_secret('<service key>', 'hisaab_service_key');
+select vault.create_secret('https://<ref>.supabase.co/functions/v1', 'chukta_functions_url');
+select vault.create_secret('<service key>', 'chukta_service_key');
 supabase functions deploy push-dispatch
 ```
 
@@ -1595,7 +1595,7 @@ intensity, curve, softness) has not been tuned by eye. Do that on a long screen 
 - Gradle needs `ANDROID_HOME` exported; it is set in the interactive shell but not in a
   non-interactive one. `export ANDROID_HOME="$HOME/Library/Android/sdk"`.
 - `supabase db reset` wipes `auth.users`, and `seed.sql` attaches its fixtures to the most
-  recently created profile — so stray `dev-*@hisaab.test` accounts from the "New account" button
-  steal the seed. Delete them first: `delete from auth.users where email like 'dev-%@hisaab.test';`
+  recently created profile — so stray `dev-*@chukta.test` accounts from the "New account" button
+  steal the seed. Delete them first: `delete from auth.users where email like 'dev-%@chukta.test';`
 - The dev sign-in row on the sign-in screen used to sit exactly under LogBox's warning banner,
   which made it untappable. Moved above the footnote in `ce2e709`.

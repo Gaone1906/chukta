@@ -70,8 +70,8 @@ Free. Three OAuth client IDs, because Google treats each platform separately.
    | Type | What to enter |
    |---|---|
    | **Web application** | No redirect URIs needed. This is the one Supabase wants. |
-   | **Android** | Package name `com.hisaab.app`, plus the SHA-1 below |
-   | **iOS** | Bundle ID `com.hisaab.app` |
+   | **Android** | Package name `com.chukta.app`, plus the SHA-1 below |
+   | **iOS** | Bundle ID `com.chukta.app` |
 
    **Your Android debug SHA-1:**
 
@@ -81,7 +81,7 @@ Free. Three OAuth client IDs, because Google treats each platform separately.
 
    > **Why this changed.** The first fingerprint came from the debug keystore Expo's prebuild
    > ships — which is the *same file in every Expo project*. Google enforces global uniqueness
-   > on (package name + fingerprint), so registering `com.hisaab.app` against a fingerprint
+   > on (package name + fingerprint), so registering `com.chukta.app` against a fingerprint
    > thousands of projects share fails with **"Ownership verification failed — the Android
    > package name and fingerprint are already in use."** Somebody else registered it first.
    >
@@ -169,7 +169,7 @@ Enrolment can take a few days, so worth starting before Phase 4 finishes.
 
 1. **https://developer.apple.com/programs/enroll/** — enrol as an individual.
 2. Once active: **Certificates, Identifiers & Profiles → Identifiers** → register
-   `com.hisaab.app` with the **Sign in with Apple** capability enabled.
+   `com.chukta.app` with the **Sign in with Apple** capability enabled.
 3. **Keys → new key** with Sign in with Apple enabled. Download the `.p8` — **you can only
    download it once**, and it must never be committed (`.gitignore` already blocks `*.p8`).
 4. Supabase dashboard → **Authentication → Providers → Apple**: enter your Team ID, the Key ID,
@@ -218,7 +218,7 @@ it. Exposure is not undone by deleting the message.
 
 ## Still undecided
 
-- **Store display name** — "Chukta" is taken on the stores. The bundle id `com.hisaab.app` is
+- **Store display name** — "Chukta" is taken on the stores. The bundle id `com.chukta.app` is
   fixed and users never see it, so only the display name needs choosing, before Phase 11.
 - **A domain**, for iOS Universal Links / Android App Links so invite links resolve when the
   app isn't installed. Also where the Terms and Privacy pages get hosted.
