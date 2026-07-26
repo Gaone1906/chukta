@@ -1,6 +1,7 @@
 import { formatAmount, money } from '@chukta/core';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -16,6 +17,7 @@ import {
 } from '@/design';
 import { BackChevron } from '@/features/onboarding/BackChevron';
 import { EmptyState } from '@/features/home/EmptyState';
+import { InviteMethodSheet } from '@/features/invite/InviteMethodSheet';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
 import { ExpenseRow } from '@/features/expenses/ExpenseRow';
 import { Avatar } from '@/features/people/Avatar';
@@ -47,6 +49,12 @@ export default function PersonDetail() {
   const net = data?.net_minor ?? 0n;
   const name = data?.person.display_name ?? 'Person';
   const groupCount = data?.by_group.filter((g) => g.group_id !== null).length ?? 0;
+
+  /*
+   * Shown only for a placeholder. Somebody already on Chukta has nothing to be invited to, and
+   * a dead "Invite" on their screen would read as the app not knowing who has joined.
+   */
+  const [inviting, setInviting] = useState(false);
 
   return (
     <View style={styles.root}>
@@ -87,6 +95,19 @@ export default function PersonDetail() {
             </Text>
           ) : null}
         </View>
+
+        {/*
+          * Above the balance, deliberately. This is the answer to "how do I get them on here",
+          * and that question is asked before scrolling — under the expense list it would only be
+          * found by someone who already knew it existed.
+          */}
+        {data?.person.is_placeholder ? (
+          <GlassButton
+            label="Invite to Chukta"
+            onPress={() => setInviting(true)}
+            style={styles.inviteButton}
+          />
+        ) : null}
 
         {error && !data ? (
           <EmptyState
@@ -220,6 +241,13 @@ export default function PersonDetail() {
           )
         }
       />
+
+      {data ? (
+        <InviteMethodSheet
+          person={inviting ? { id: data.person.id, display_name: data.person.display_name } : null}
+          onClose={() => setInviting(false)}
+        />
+      ) : null}
     </View>
   );
 }
@@ -267,6 +295,7 @@ const styles = StyleSheet.create({
   amount: { fontFamily: font.semibold, fontSize: 25 },
   settledRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   settledText: { flex: 1, fontFamily: font.light, fontSize: 13.5, color: color.textMuted },
+  inviteButton: { marginTop: 18 },
   settleButton: { flexShrink: 0 },
   breakdown: {
     paddingTop: 13,

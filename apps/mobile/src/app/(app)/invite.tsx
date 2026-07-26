@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import { useState } from 'react';
 import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
@@ -9,14 +9,11 @@ import { GlassButton, GlassSurface, Toast, color, font, radius } from '@/design'
 import { ScreenHeader } from '@/features/expenses/ScreenHeader';
 import { EmptyState } from '@/features/home/EmptyState';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
-import {
-  inviteMessage,
-  personalInviteUrl,
-  plainInviteUrl,
-} from '@/features/invite/inviteLink';
+import { inviteMessage, plainInviteUrl } from '@/features/invite/inviteLink';
+import { InviteMethodSheet } from '@/features/invite/InviteMethodSheet';
 import { AddPersonSheet } from '@/features/people/AddPersonSheet';
 import { Avatar } from '@/features/people/Avatar';
-import { createInviteLink, getHomeSummary, type HomePerson } from '@/lib/api';
+import { getHomeSummary, type HomePerson } from '@/lib/api';
 import { queryKeys } from '@/lib/queryKeys';
 
 /**
@@ -41,6 +38,14 @@ export default function Invite() {
   const [toast, setToast] = useState<string | null>(null);
   const [addingPerson, setAddingPerson] = useState(false);
 
+  /*
+   * Tapping Invite used to share a link immediately, which made the claim code unreachable from
+   * here — it existed, worked for any profile, and was mounted only inside AddPersonSheet. The
+   * chooser and both methods live in InviteMethodSheet so this screen and a person's own screen
+   * ask the question identically.
+   */
+  const [inviting, setInviting] = useState<HomePerson | null>(null);
+
   const ping = (message: string) => {
     setToast(message);
     setTimeout(() => setToast(null), 2600);
@@ -50,16 +55,6 @@ export default function Invite() {
 
   // Only people who have not signed up. Everyone else has nothing to be invited to.
   const waiting = (homeQuery.data?.people ?? []).filter((p) => p.is_placeholder);
-
-  const sharePersonal = useMutation({
-    mutationFn: async (person: HomePerson) => {
-      const link = await createInviteLink(person.id);
-      const url = personalInviteUrl(link.token);
-      await Share.share({ message: inviteMessage(url, person.display_name) });
-      return url;
-    },
-    onError: (e: Error) => ping(e.message),
-  });
 
   const shareGeneral = async () => {
     try {
@@ -163,21 +158,20 @@ export default function Invite() {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`Invite ${person.display_name}`}
-                  disabled={sharePersonal.isPending}
-                  onPress={() => sharePersonal.mutate(person)}
+                  onPress={() => setInviting(person)}
                   style={({ pressed }) => [styles.invitePill, pressed ? styles.invitePressed : null]}
                 >
-                  <Text style={styles.inviteLabel}>
-                    {sharePersonal.isPending && sharePersonal.variables?.id === person.id
-                      ? 'Sharing…'
-                      : 'Invite'}
-                  </Text>
+                  {/* No pending state: the tap opens a chooser, it does not start work. The
+                      share sheet's own spinner covers the part that takes time. */}
+                  <Text style={styles.inviteLabel}>Invite</Text>
                 </Pressable>
               </GlassSurface>
             ))}
           </View>
         )}
       </ScrollView>
+
+      <InviteMethodSheet person={inviting} onClose={() => setInviting(null)} onError={ping} />
 
       <AddPersonSheet
         visible={addingPerson}
