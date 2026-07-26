@@ -105,6 +105,17 @@ export function effectsOfDelete(me: string, expense: ExpenseShape): PendingEffec
 }
 
 /**
+ * Putting one back. The inverse of the inverse, which is to say the original.
+ *
+ * Worth spelling out rather than reusing `effectsOfCreate` at the call site: a restore is not a
+ * create, it just happens to move the balances by the same amounts. Naming it separately keeps
+ * the queued row's intent readable in the outbox, where the op name is all anyone sees.
+ */
+export function effectsOfRestore(me: string, expense: ExpenseShape): PendingEffect[] {
+  return effectsOfCreate(me, expense);
+}
+
+/**
  * Editing one: the new position minus the old.
  *
  * Not `effectsOfCreate(next)` alone — the server does not add the edit on top of the original,

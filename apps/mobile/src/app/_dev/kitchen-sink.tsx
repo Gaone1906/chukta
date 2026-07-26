@@ -29,6 +29,19 @@ import {
  * Replaced by the real Home screen in Phase 5.
  */
 export default function KitchenSink() {
+  /*
+   * Second gate, deliberately redundant with the `__DEV__` check in the root layout.
+   *
+   * That one stops the route bypassing auth; this one stops the screen rendering at all in a
+   * release build, whatever routing decides. Two independent guards because this file is
+   * reachable by deep link and neither of them is expensive.
+   */
+  if (!__DEV__) return null;
+
+  return <KitchenSinkBody />;
+}
+
+function KitchenSinkBody() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<'groups' | 'people'>('groups');
   const [toast, setToast] = useState<string | null>(null);

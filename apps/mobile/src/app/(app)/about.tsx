@@ -1,6 +1,5 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import {
   Pressable,
@@ -16,6 +15,7 @@ import Svg, { Path } from 'react-native-svg';
 import { GlassSurface, Seal, Toast, color, font, radius, useRippleNav } from '@/design';
 import { ScreenHeader } from '@/features/expenses/ScreenHeader';
 import { rateApp } from '@/features/tip/rate';
+import { openLegal } from '@/lib/urls';
 
 /**
  * About.
@@ -25,11 +25,6 @@ import { rateApp } from '@/features/tip/rate';
  * is why the Sidebar says v1.0.3 and this screen says v1.0.0 — a mismatch that survived all the
  * way to handover and is the argument for reading it.
  */
-
-// Published from legal/ via GitHub Pages. The stores require both to be reachable URLs that
-// work without the app installed, which rules out anything served from inside it.
-const LEGAL_BASE = 'https://gaone1906.github.io/chukta';
-
 export default function About() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -38,18 +33,8 @@ export default function About() {
 
   const version = Constants.expoConfig?.version ?? '0.0.0';
 
-  const openLegal = async (path: string) => {
-    try {
-      // An in-app browser rather than leaving for Safari: reading the terms should not lose
-      // the user's place in the app.
-      await WebBrowser.openBrowserAsync(`${LEGAL_BASE}/${path}`, {
-        toolbarColor: color.bgBase,
-        controlsColor: color.goldBright,
-      });
-    } catch {
-      setToast("Couldn't open that page.");
-      setTimeout(() => setToast(null), 2600);
-    }
+  const showLegal = async (page: 'terms' | 'privacy') => {
+    if (!(await openLegal(page))) setToast("Couldn't open that page.");
   };
 
   /*
@@ -101,9 +86,9 @@ export default function About() {
         </View>
 
         <GlassSurface radius={radius.card} elevation="glass" style={styles.links}>
-          <LinkRow label="Terms of Service" onPress={() => void openLegal('terms')} />
+          <LinkRow label="Terms of Service" onPress={() => void showLegal('terms')} />
           <Rule />
-          <LinkRow label="Privacy Policy" onPress={() => void openLegal('privacy')} />
+          <LinkRow label="Privacy Policy" onPress={() => void showLegal('privacy')} />
           <Rule />
           <LinkRow label="Rate Chukta" onPress={() => void rate()} />
           <Rule />

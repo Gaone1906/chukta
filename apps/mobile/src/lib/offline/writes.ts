@@ -5,6 +5,7 @@ import type { ExpenseDetail, ExpenseDraft } from '@/lib/api';
 import {
   effectsOfCreate,
   effectsOfDelete,
+  effectsOfRestore,
   effectsOfSettlement,
   effectsOfUpdate,
   type ExpenseShape,
@@ -128,6 +129,28 @@ export function queueDeleteExpense(
     entityId: expenseId,
     groupId: before.groupId,
     baseRevision: expectedRevision,
+  });
+}
+
+/**
+ * Put a deleted expense back.
+ *
+ * No `baseRevision`, deliberately: the server's precondition is "this expense is deleted", not
+ * "this expense is at revision N". Sending one would invent a conflict that cannot happen and
+ * push the row into the pending inbox for a reason the user could not act on.
+ */
+export function queueRestoreExpense(
+  me: string,
+  expenseId: string,
+  before: ExpenseShape,
+): void {
+  enqueue({
+    clientMutationId: newId(),
+    op: 'restore_expense',
+    payload: { expenseId },
+    effects: effectsOfRestore(me, before),
+    entityId: expenseId,
+    groupId: before.groupId,
   });
 }
 

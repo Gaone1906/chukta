@@ -163,6 +163,8 @@ function describe(row: OutboxRow): string {
       return `Editing “${payload.description ?? 'an expense'}”`;
     case 'delete_expense':
       return 'Deleting an expense';
+    case 'restore_expense':
+      return 'Restoring an expense';
     case 'add_comment':
       return 'Posting a comment';
     case 'record_settlement':

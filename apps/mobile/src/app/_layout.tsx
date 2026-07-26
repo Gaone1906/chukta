@@ -136,8 +136,17 @@ function RootNavigator() {
     // cold start.
     if (loading) return;
 
-    // The kitchen sink is reachable regardless of auth state.
-    if (pathname.startsWith('/_dev')) return;
+    /*
+     * The kitchen sink is reachable regardless of auth state — **in dev builds only**.
+     *
+     * Without the `__DEV__` guard this was an unauthenticated route in a shipped bundle: the
+     * early return fires before the session check, and only the LINK to it on the sign-in
+     * screen was guarded, not the route itself. expo-router registers every file under `app/`,
+     * so a deep link to `/_dev/kitchen-sink` reached it with no session at all. The screen
+     * exposes `forceGlassBackend`, so the exposure is small — but "small" is not the standard
+     * for a door that should not exist.
+     */
+    if (__DEV__ && pathname.startsWith('/_dev')) return;
 
     const inAuthFlow = AUTH_PATHS.includes(pathname);
 

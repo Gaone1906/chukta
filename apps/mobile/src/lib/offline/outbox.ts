@@ -41,6 +41,7 @@ export type OutboxOp =
   | 'create_expense'
   | 'update_expense'
   | 'delete_expense'
+  | 'restore_expense'
   | 'add_comment'
   | 'record_settlement'
   | 'create_group'

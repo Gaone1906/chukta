@@ -4,6 +4,7 @@ import {
   createGroup,
   deleteExpense,
   recordSettlement,
+  restoreExpense,
   updateExpense,
   upsertContactProfile,
   type ExpenseDraft,
@@ -154,6 +155,11 @@ async function send(row: OutboxRow): Promise<void> {
 
     case 'delete_expense': {
       await deleteExpense(row.entityId!, row.baseRevision ?? 1, row.clientMutationId);
+      return;
+    }
+
+    case 'restore_expense': {
+      await restoreExpense(row.entityId!, row.clientMutationId);
       return;
     }
 

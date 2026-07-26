@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Rect } from 'react-native-svg';
 
@@ -8,6 +8,7 @@ import { GlassButton, GlassSurface, Seal, Toast, color, font, space } from '@/de
 import { AuthCancelled, appleAuthAvailable, signInWithApple, signInWithGoogle } from '@/features/auth/providers';
 import { devSignIn, randomDevEmail } from '@/features/auth/devSignIn';
 import { env, googleConfigured } from '@/lib/env';
+import { openLegal } from '@/lib/urls';
 
 /**
  * Onboarding entry. Ported from design-reference/screens/Hisaab Login.dc.html.
@@ -109,13 +110,19 @@ export default function AuthEntry() {
           ) : null}
         </View>
 
+        {/*
+          * These pointed at `https://example.com/terms` and `/privacy` — the one pair of links
+          * in the app that HAD to work, on the screen where the user agrees to them, going
+          * nowhere real. Both now resolve through `lib/urls.ts`, which is also the single place
+          * to change when the domain is bought.
+          */}
         <Text style={styles.legal}>
           By continuing you agree to our{' '}
-          <Text style={styles.link} onPress={() => void Linking.openURL('https://example.com/terms')}>
+          <Text style={styles.link} onPress={() => void openLegal('terms')}>
             Terms
           </Text>{' '}
           and{' '}
-          <Text style={styles.link} onPress={() => void Linking.openURL('https://example.com/privacy')}>
+          <Text style={styles.link} onPress={() => void openLegal('privacy')}>
             Privacy Policy
           </Text>
           .

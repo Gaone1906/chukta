@@ -172,7 +172,11 @@ export default function TipJar() {
           label={
             configured
               ? `Send ${formatAmount(money(amountMinor, 'INR'))}`
-              : 'Tipping opens at launch'
+              // Was "Tipping opens at launch", which stops being true the moment we launch
+              // without it — and v1 ships with tipping off deliberately (see purchases.ts:
+              // the iap-verify Edge Function that must write these rows does not exist yet).
+              // This wording stays honest whenever it is read.
+              : 'Tipping isn’t open yet'
           }
           variant="primary"
           disabled={!configured || amountMinor <= 0n}

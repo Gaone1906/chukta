@@ -482,6 +482,25 @@ export async function deleteExpense(
   });
 }
 
+/**
+ * Put a deleted expense back.
+ *
+ * Deliberately takes no expected revision, unlike `deleteExpense` and `updateExpense`. Those
+ * guard against editing a stale copy; this one's precondition is simply that the expense IS
+ * deleted, which `app.restore_expense` checks itself and refuses with `P0002` if not. So there
+ * is no revision to be stale about — a second restore of the same expense is a refusal, not a
+ * conflict, and the idempotency key handles the retried-first-restore case.
+ */
+export async function restoreExpense(
+  expenseId: string,
+  mutationId: string,
+): Promise<{ expense_id: string; revision: number }> {
+  return rpc('restore_expense', {
+    p_expense_id: expenseId,
+    p_client_mutation_id: mutationId,
+  });
+}
+
 export async function addComment(
   expenseId: string,
   body: string,

@@ -36,7 +36,12 @@ import { Avatar } from '@/features/people/Avatar';
 import { getExpenseDetail, type ExpenseDetail } from '@/lib/api';
 import { isConflict } from '@/lib/errors';
 import { useOffline } from '@/lib/offline/OfflineProvider';
-import { queueComment, queueDeleteExpense, shapeFromDetail } from '@/lib/offline/writes';
+import {
+  queueComment,
+  queueDeleteExpense,
+  queueRestoreExpense,
+  shapeFromDetail,
+} from '@/lib/offline/writes';
 import { afterExpenseChange, queryKeys } from '@/lib/queryKeys';
 
 const SPLIT_LABEL: Record<ExpenseDetail['expense']['split_type'], string> = {
@@ -69,6 +74,7 @@ export default function ExpenseDetailScreen() {
 
   const [comment, setComment] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const { data, isLoading, isRefetching, refetch, error } = useQuery({
@@ -126,6 +132,28 @@ export default function ExpenseDetailScreen() {
     } catch (err) {
       setConfirmDelete(false);
       if (!isConflict(err)) setToast((err as Error).message);
+    }
+  };
+
+  /*
+   * Restore, queued like every other write.
+   *
+   * Stays on this screen rather than navigating: the user is looking at the expense they just
+   * brought back, and the banner above disappearing is the confirmation. `remove` goes back
+   * because the thing it acted on is gone; this one's subject is still here.
+   */
+  const restore = () => {
+    if (!data || !profile) return;
+    setRestoring(true);
+    try {
+      queueRestoreExpense(profile.id, id!, shapeFromDetail(data));
+      offline.refresh();
+      offline.sync();
+      void invalidate();
+    } catch (err) {
+      setToast((err as Error).message);
+    } finally {
+      setRestoring(false);
     }
   };
 
@@ -354,7 +382,24 @@ export default function ExpenseDetailScreen() {
                 onPress={() => setConfirmDelete(true)}
                 style={styles.delete}
               />
-            ) : null}
+            ) : (
+              /*
+               * The way back.
+               *
+               * `restore_expense` has existed on the server since Phase 3 and nothing in the app
+               * ever called it, so deleting was one-way from the UI — on a screen where the
+               * thing being deleted is somebody's money. No confirmation sheet: undoing a delete
+               * is the safe direction, and putting a dialog in front of it would make recovering
+               * from a mistake harder than making one.
+               */
+              <GlassButton
+                label={restoring ? 'Putting it back…' : 'Restore this expense'}
+                variant="primary"
+                disabled={restoring}
+                onPress={restore}
+                style={styles.delete}
+              />
+            )}
           </>
         )}
       </ScrollView>
