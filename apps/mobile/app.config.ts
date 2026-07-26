@@ -86,18 +86,22 @@ const config: ExpoConfig = {
        * Google's iOS SDK redirects back into the app through the reversed client id. Without
        * this URL scheme the sheet opens and then has nowhere to return to.
        *
-       * ⚠️ **STALE UNTIL A NEW iOS OAUTH CLIENT EXISTS.** A Google iOS client is bound to the
-       * bundle id, and the bundle id just changed to `com.chukta.app`. The id below was issued
-       * for the OLD bundle id, so iOS Google sign-in will fail until a new client is
-       * created in Google Cloud for the new bundle id and BOTH this scheme and
-       * `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` are updated to match it. The new client id must
-       * also be added to Supabase Auth's comma-separated audience list, or the token is
-       * rejected with `Unacceptable audience in id_token`.
+       * Reissued against the **Chukta** Google Cloud project (`153443409774`) for the
+       * `com.chukta.app` bundle id. The previous one was bound to `com.hisaab.app` and could
+       * not survive the rename — an iOS OAuth client is tied to its bundle id.
+       *
+       * **This string is the iOS client id with its two halves swapped**, so it must always
+       * match `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`. Changing one without the other opens the
+       * sign-in sheet and then strands it with nowhere to return to, which presents as the
+       * sheet hanging rather than as a configuration error.
+       *
+       * The same client id also has to be in Supabase Auth's comma-separated audience list, or
+       * the token comes back rejected with `Unacceptable audience in id_token`.
        */
       CFBundleURLTypes: [
         {
           CFBundleURLSchemes: [
-            'com.googleusercontent.apps.36711202265-bp0smtoeibrkofpsvf9gfnv1u1cs9am5',
+            'com.googleusercontent.apps.153443409774-emqnjh34eccsj5vekudlsgvm23ufi82i',
           ],
         },
       ],
