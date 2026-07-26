@@ -1177,11 +1177,31 @@ export type Database = {
         Args: { p_limit?: number; p_profile_id: string }
         Returns: Json
       }
+      leave_group: {
+        Args: { p_client_mutation_id: string; p_group_id: string }
+        Returns: Json
+      }
       record_settlement: {
         Args: { p_client_mutation_id: string; p_payload: Json }
         Returns: Json
       }
       redeem_claim_code: { Args: { p_code: string }; Returns: Json }
+      remove_group_member: {
+        Args: {
+          p_client_mutation_id: string
+          p_group_id: string
+          p_profile_id: string
+        }
+        Returns: Json
+      }
+      rename_group: {
+        Args: {
+          p_client_mutation_id: string
+          p_group_id: string
+          p_name: string
+        }
+        Returns: Json
+      }
       restore_expense: {
         Args: { p_client_mutation_id: string; p_expense_id: string }
         Returns: Json
