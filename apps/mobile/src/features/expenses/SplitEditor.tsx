@@ -53,6 +53,20 @@ export function SplitEditor({
 
   return (
     <View style={styles.root}>
+      {/*
+        * Separates "who paid" from "how it splits".
+        *
+        * Those are two different questions and the form ran them together — a stack of
+        * identically-weighted rows followed immediately by the tab strip, with nothing to say
+        * the subject had changed. The rule is doing structural work, not decoration.
+        *
+        * It lives here rather than in the two screens that render this: `new` and `edit` both
+        * place the editor directly under the payer row, so putting it in either one means
+        * keeping them in sync by hand. Anything that renders SplitEditor wants this line above
+        * it, which makes it the component's own top edge.
+        */}
+      <View style={styles.topRule} />
+
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -420,6 +434,10 @@ const KIND_LABEL: Record<DraftItem['kind'], string> = {
 
 const styles = StyleSheet.create({
   root: { gap: 14 },
+  // Same weight as the rules inside SettingsGroup and About, so the app has one divider rather
+  // than four subtly different ones. `marginTop` on top of the root's gap: the rule wants more
+  // air above it, where the previous section ends, than below it where its own tabs begin.
+  topRule: { height: 1, marginTop: 8, backgroundColor: 'rgba(255,255,255,.08)' },
   tabs: { gap: 8, paddingRight: 22 },
   tab: {
     paddingHorizontal: 15,

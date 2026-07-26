@@ -346,7 +346,7 @@ export default function NewExpense() {
         onChange={form.setPayers}
       />
 
-      <Toast message={toast} />
+      <Toast message={toast} onDismiss={() => setToast(null)} />
     </KeyboardAvoidingView>
   );
 }

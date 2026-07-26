@@ -417,7 +417,7 @@ export default function ExpenseDetailScreen() {
         }
       />
 
-      <Toast message={toast} />
+      <Toast message={toast} onDismiss={() => setToast(null)} />
     </KeyboardAvoidingView>
   );
 }

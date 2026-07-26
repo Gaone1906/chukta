@@ -223,7 +223,7 @@ export default function NewGroup() {
         onAdded={onPersonAdded}
       />
 
-      <Toast message={toast} />
+      <Toast message={toast} onDismiss={() => setToast(null)} />
     </KeyboardAvoidingView>
   );
 }
