@@ -98,7 +98,8 @@ function EditFieldBody({
 
 const styles = StyleSheet.create({
   input: {
-    height: 52,
+    minHeight: 52,
+    paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 16,
     borderWidth: 1,

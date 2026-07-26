@@ -258,7 +258,8 @@ const styles = StyleSheet.create({
     color: color.textGhost,
   },
   input: {
-    height: 52,
+    minHeight: 52,
+    paddingVertical: 10,
     borderRadius: 16,
     paddingHorizontal: 16,
     borderWidth: 1,

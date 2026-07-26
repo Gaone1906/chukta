@@ -53,7 +53,21 @@ export function BalanceChip({ balance, compact = false, showCaption = true }: Ba
           },
         ]}
       >
+        {/*
+          * Capped, and only this one element.
+          *
+          * At the largest accessibility text size the chip grew in step with everything else
+          * and, being in a row with a `flex: 1` name beside it, took the width the name needed
+          * — "Flat 302" rendered as "F..". The amount is already the most prominent thing in
+          * the row at 15pt semibold on a filled pill, so it is the element that can afford to
+          * stop growing first. The name, which was the casualty, is left uncapped.
+          *
+          * 1.4 rather than 1.0: capping it outright would leave the amount visibly smaller
+          * than the text around it at large sizes, which reads as a bug rather than a choice.
+          * The screen-reader label is unaffected either way — it is a string, not a layout.
+          */}
         <Text
+          maxFontSizeMultiplier={1.4}
           style={[
             styles.amount,
             compact ? styles.amountCompact : null,

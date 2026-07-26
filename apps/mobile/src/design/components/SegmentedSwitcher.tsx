@@ -55,7 +55,24 @@ export function SegmentedSwitcher<T extends string>({
               style={styles.segment}
               onPress={() => onChange(option.value)}
             >
-              <Text style={[styles.label, active ? styles.labelActive : null]}>{option.label}</Text>
+              {/*
+                * Capped, because this control cannot grow sideways.
+                *
+                * The track splits the available width evenly between its options, so at large
+                * accessibility sizes the labels ran past the pill they are meant to sit inside
+                * and collided with each other. Unlike a list row there is nowhere to reflow to:
+                * two side-by-side tabs are the whole idea.
+                *
+                * 1.3 on a 13.5pt label is ~17.5pt, comfortably readable, and these are two
+                * short words the user has already learned by the second launch.
+                */}
+              <Text
+                maxFontSizeMultiplier={1.3}
+                numberOfLines={1}
+                style={[styles.label, active ? styles.labelActive : null]}
+              >
+                {option.label}
+              </Text>
             </Pressable>
           );
         })}
@@ -67,7 +84,7 @@ export function SegmentedSwitcher<T extends string>({
 const PADDING = 5;
 
 const styles = StyleSheet.create({
-  shell: { height: 48 },
+  shell: { minHeight: 48 },
   content: { flex: 1 },
   track: { flex: 1, flexDirection: 'row', padding: PADDING },
   thumb: {

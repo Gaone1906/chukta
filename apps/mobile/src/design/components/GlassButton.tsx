@@ -94,7 +94,8 @@ export function GlassButton({
 
 const styles = StyleSheet.create({
   primary: {
-    height: 54,
+    minHeight: 54,
+    paddingVertical: 10,
     // Horizontal padding matters only when the button sizes to its own content — every
     // full-width use hides its absence. Inline in a row, a label with no padding and a pill
     // radius collapses into an oval barely wider than the text.
@@ -109,7 +110,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(184,150,60,0.30)',
   },
   secondary: {
-    height: 54,
+    minHeight: 54,
+    paddingVertical: 10,
     paddingHorizontal: 22,
     flexDirection: 'row',
     alignItems: 'center',
@@ -118,7 +120,8 @@ const styles = StyleSheet.create({
   },
   danger: { borderColor: color.oweBorder, backgroundColor: color.oweFill },
   ghost: {
-    height: 50,
+    minHeight: 50,
+    paddingVertical: 9,
     paddingHorizontal: 22,
     flexDirection: 'row',
     alignItems: 'center',

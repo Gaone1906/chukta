@@ -128,7 +128,8 @@ const styles = StyleSheet.create({
     color: color.textFaint,
   },
   input: {
-    height: 52,
+    minHeight: 52,
+    paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 16,
     borderWidth: 1,

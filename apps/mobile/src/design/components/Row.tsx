@@ -1,5 +1,5 @@
 import type { Money } from '@chukta/core';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { PixelRatio, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 
@@ -56,6 +56,16 @@ export function Row({
     transform: [{ scale: 1 - pressed.value * 0.01 }],
   }));
 
+  /*
+   * How much the OS has been asked to scale text by. 1 is the default; iOS's accessibility
+   * sizes go past 3.
+   *
+   * Read per render rather than cached in a hook: it changes only when the user changes it in
+   * Settings, at which point the whole app re-renders anyway, and `PixelRatio.getFontScale()`
+   * is a synchronous property read rather than a bridge call.
+   */
+  const largeText = PixelRatio.getFontScale() >= 1.5;
+
   const settled = balance != null && balance.minor === 0n;
   const chevron = showChevron && !settled;
   const avatarSize = compact ? 36 : 42;
@@ -74,7 +84,13 @@ export function Row({
         onPress={(e) => onPress?.({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
       >
         <GlassSurface radius={compact ? radius.cardCompact : radius.card}>
-          <View style={[styles.inner, compact ? styles.innerCompact : null]}>
+          <View
+            style={[
+              styles.inner,
+              compact ? styles.innerCompact : null,
+              largeText ? styles.innerStacked : null,
+            ]}
+          >
             {avatar ? (
               <View
                 style={[
@@ -94,14 +110,26 @@ export function Row({
             ) : null}
 
             <View style={styles.text}>
+              {/*
+                * `numberOfLines={1}` until the text is large, then unlimited.
+                *
+                * At the largest accessibility size a one-line cap turned "Flat 302" into "Fl…"
+                * — the row simply has no horizontal room left once every element in it has
+                * grown. Truncating a group's NAME is the worst thing this row can do, because
+                * the name is the only thing that identifies which money it is about. Wrapping
+                * is the honest trade: the row gets taller, which costs nothing but scrolling.
+                */}
               <Text
-                numberOfLines={1}
+                numberOfLines={largeText ? undefined : 1}
                 style={[styles.name, compact ? styles.nameCompact : null]}
               >
                 {name}
               </Text>
               {meta ? (
-                <Text numberOfLines={1} style={[styles.meta, compact ? styles.metaCompact : null]}>
+                <Text
+                  numberOfLines={largeText ? undefined : 1}
+                  style={[styles.meta, compact ? styles.metaCompact : null]}
+                >
                   {meta}
                 </Text>
               ) : null}
@@ -109,7 +137,7 @@ export function Row({
 
             {balance ? <BalanceChip balance={balance} compact={compact} /> : null}
 
-            {chevron ? (
+            {chevron && !largeText ? (
               <Svg width={7} height={12} viewBox="0 0 7 12" fill="none" style={styles.chevron}>
                 <Path
                   d="M1.5 1l4 5-4 5"
@@ -137,6 +165,19 @@ const styles = StyleSheet.create({
     paddingLeft: 18,
     paddingRight: 16,
   },
+  /*
+   * At large accessibility sizes the row stops being a row.
+   *
+   * Letting the name wrap was not enough: the text column is `flex: 1` against an avatar, a
+   * balance chip and a chevron, so at AX5 it had so little width left that "Flat 302" wrapped
+   * to "Fla / t / 302" — technically not truncated, and completely unreadable. Stacking gives
+   * the name the full width of the card, which is the only way it gets to be one word.
+   *
+   * The chevron is dropped in this mode rather than stacked. It is decoration — the row is a
+   * Pressable with `accessibilityRole="button"` and its own label, so nothing is lost — and a
+   * lone arrow on its own line below the amount would read as another item.
+   */
+  innerStacked: { flexDirection: 'column', alignItems: 'flex-start', gap: 10 },
   innerCompact: { gap: 12, paddingVertical: 13, paddingHorizontal: 14 },
   avatar: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' },
   avatarText: { fontFamily: font.medium, fontSize: 15, color: color.cream },

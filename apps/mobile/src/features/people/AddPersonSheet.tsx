@@ -400,7 +400,8 @@ const styles = StyleSheet.create({
   pickLabel: { fontFamily: font.medium, fontSize: 14, color: color.goldBright },
 
   input: {
-    height: 52,
+    minHeight: 52,
+    paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 16,
     borderWidth: 1,

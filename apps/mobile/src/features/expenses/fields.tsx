@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     color: color.textHighlight,
   },
   error: { fontFamily: font.light, fontSize: 12.5, color: color.creamRose },
-  textField: { paddingHorizontal: 16, height: 50, justifyContent: 'center' },
+  textField: { paddingHorizontal: 16, minHeight: 50, paddingVertical: 8, justifyContent: 'center' },
   textInput: { padding: 0, fontFamily: font.regular, fontSize: 15.5, color: color.cream },
   disclosure: {
     flexDirection: 'row',
