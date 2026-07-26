@@ -1533,3 +1533,69 @@ confirm only one reaches the split.
 **Priority: ahead of the remaining Phase 9 items.** It is on the app's primary path — name a
 friend, split something with them — it is 100% reproducible, and it is visible on the screen
 where the money is decided.
+
+---
+
+# 🚀 DEFINITION OF DONE FOR THE BETA (2026-07-26)
+
+**Decision: the Android beta ships only when everything is finished.** It is a dress rehearsal
+for the real release, not a preview — its job is to catch last-minute errors, which it can only
+do if it is the actual thing. So nothing on this list is deferred "until after beta".
+
+Target: release the following weekend. Apple developer enrolment is applied for and awaiting
+approval; iOS beta starts when it lands. Android is not blocked on that.
+
+## Code — done
+
+| | |
+|---|---|
+| Phases 0–9 | ✅ built and green: 33 migrations, 187 pgTAP, 159 TS tests |
+| Task 69 — nameless participant | ✅ `bf9e4d3` |
+| Task 70 — edge blur vignette | ✅ `ce2e709` (aesthetic pass still wanted, see below) |
+
+## Blocking the beta
+
+| # | Item | Needs |
+|---|---|---|
+| 71 | Push migrations 0025–0033 to the hosted project, deploy the Edge Function, set the two Vault secrets | **DB password** |
+| 72 | Rotate the compromised keys (open item #11) | **User, in dashboards** |
+| 73 | Real Play upload keystore + SHA-1 registered with Google | **User** (Google Cloud console) |
+| 74 | Publish Terms/Privacy to public URLs; add `PrivacyInfo.xcprivacy`; Play data-safety entry | domain or GitHub Pages |
+| 75 | Verify the whole app on Android hardware | **A physical Android phone** |
+| 54 | Airplane-mode matrix | same phone |
+| — | Phase 10 remainder: a11y pass, Android blur perf | nothing — can proceed |
+| — | Deep-link domain for invite links (Universal Links / App Links) | **a domain** |
+
+## The one that will actually bite
+
+**`.env` points at the hosted project; `.env.local` overrides it with a LAN address and blank
+Google client ids.** Expo loads `.env.local` last, so any build made without moving it aside
+ships pointing at a laptop. The APK script in `scratchpad/apk.sh` moves it and restores it in a
+`trap` — and note the trap must use ABSOLUTE paths, because the script `cd`s into `android/`
+before Gradle runs and a relative restore silently fails, leaving `.env.local` deleted.
+
+## Known and deliberately not fixed
+
+**A sub-second flicker to "Someone".** Between the outbox row being deleted and the roster
+refetch landing, a just-named person is briefly in neither source. The 60-second version of this
+is fixed (`bf9e4d3`); the residual is a few hundred milliseconds and self-correcting. Two React
+Compiler lint rules rejected both implementations of a name cache that would have covered it
+(ref written during render; setState synchronously in an effect), and on re-reading, the
+ordering fix already closes the window it was guarding. Recorded rather than papered over.
+
+**The vignette has not been judged against text scrolling under it.** It renders, and a tap
+inside its band still reaches the control beneath it, so `pointerEvents` is right. But no seeded
+screen is tall enough to scroll, so the ramp (`vignette` in `design/tokens.ts` — layers,
+intensity, curve, softness) has not been tuned by eye. Do that on a long screen before the beta.
+
+## Local gotchas found today
+
+- `pod install` fails with `Unicode Normalization not appropriate for ASCII-8BIT` unless the
+  shell has a UTF-8 locale: `LANG=en_US.UTF-8 pod install`.
+- Gradle needs `ANDROID_HOME` exported; it is set in the interactive shell but not in a
+  non-interactive one. `export ANDROID_HOME="$HOME/Library/Android/sdk"`.
+- `supabase db reset` wipes `auth.users`, and `seed.sql` attaches its fixtures to the most
+  recently created profile — so stray `dev-*@hisaab.test` accounts from the "New account" button
+  steal the seed. Delete them first: `delete from auth.users where email like 'dev-%@hisaab.test';`
+- The dev sign-in row on the sign-in screen used to sit exactly under LogBox's warning banner,
+  which made it untappable. Moved above the footnote in `ce2e709`.
