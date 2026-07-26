@@ -26,7 +26,7 @@
 -- ---------------------------------------------------------------- two new states
 
 /*
- * Phase 3 allowed `pending / sent / skipped / failed`. The drain needs two more.
+ * Phase 3 allowed `pending / sent / skipped / failed`. The drain needs one more.
  *
  * **`sending`** is the in-flight marker. `for update skip locked` stops two overlapping cron
  * ticks claiming the same row *within* a transaction, but the dispatch happens after that
@@ -34,13 +34,20 @@
  * durable claim, the next tick 30 seconds later re-reads the same pending row and sends the
  * notification twice.
  *
- * **`digest`** is the rate-limit overflow. A row past the hourly cap is marked rather than
- * dropped, so it can be rolled into a summary later: being late with a notification is a much
- * smaller failure than silently losing one, and a drop is indistinguishable from a bug.
+ * **There is deliberately no `digest` status**, and that is a correction rather than an
+ * omission. Rate-limit overflow was first written as its own status so it could be "rolled into
+ * a summary later" — but nothing drains a status the claim query does not select, so every
+ * overflow notification would have been lost forever behind a comment claiming it had not been.
+ * A status nothing reads is a drop with extra steps.
+ *
+ * Overflow is expressed in `not_before` instead: the row stays `pending` and is simply held
+ * back. The drain already collapses by `coalesce_key`, so the held-back backlog surfaces as one
+ * message per conversation when it comes due — which is the digest that was wanted, built out
+ * of machinery that already exists and is already tested.
  */
 alter table internal.notification_queue drop constraint if exists notification_queue_status_check;
 alter table internal.notification_queue add constraint notification_queue_status_check
-  check (status in ('pending','sending','sent','skipped','failed','digest'));
+  check (status in ('pending','sending','sent','skipped','failed'));
 
 -- ---------------------------------------------------------------- receipts from Expo
 
@@ -67,6 +74,20 @@ create table if not exists internal.push_receipts (
 
 create index if not exists push_receipts_pending_idx
   on internal.push_receipts (created_at) where status = 'pending';
+
+/*
+ * The hourly cap scans by recipient over a time window, and `notification_queue` is append-only
+ * — nothing deletes from it, ever. Without this index that check degrades from an index probe
+ * to a full scan that gets slower every day the app is alive, on the hot path of every single
+ * write. The existing `notification_queue_due_idx` cannot serve it: that one is partial on
+ * `status = 'pending'` and keyed on `not_before`.
+ */
+create index if not exists notification_queue_recipient_idx
+  on internal.notification_queue (recipient_profile_id, created_at desc);
+
+-- Set when a row is claimed for dispatch. The sweep needs to know how long THIS attempt has
+-- been in flight, which `created_at` cannot answer — see internal.requeue_stuck_notifications.
+alter table internal.notification_queue add column if not exists claimed_at timestamptz;
 
 -- ---------------------------------------------------------------- quiet hours
 
@@ -160,6 +181,7 @@ as $$
        when 'expense_added'   then p.new_expenses
        when 'expense_edited'  then p.expense_edits
        when 'expense_deleted' then p.new_expenses
+       when 'expense_restored' then p.new_expenses
        when 'comment'         then p.comments
        when 'settlement'      then p.settlements
        when 'group_added'     then p.new_expenses
@@ -209,11 +231,12 @@ declare
   v_body     text;
   v_actor    text;
   v_changed  jsonb;
+  v_action   text;
   v_existing bigint;
   v_recent   int;
   v_hourly   int;
   v_when     timestamptz;
-  v_status   text := 'pending';
+  v_hold     interval := interval '45 seconds';
 begin
   -- (4) Never the actor. Their own device already knows; this is the only place that rule lives
   -- now that the sync spine deliberately keeps the actor's events.
@@ -236,16 +259,52 @@ begin
     return null;
   end if;
 
-  -- The edit rule: silent unless this recipient's own share actually moved.
+  /*
+   * The edit rule: silent unless this recipient's own share actually moved.
+   *
+   * **A NULL diff is not "nothing changed".** `app.restore_expense` writes a revision with no
+   * `diff` at all, so reading `shares_changed` off it yields NULL — and treating that as "no
+   * shares moved" would make un-deleting an expense the one change nobody is ever told about,
+   * which is precisely the change people most need to hear. Any revision without a diff is
+   * therefore assumed to affect everyone.
+   */
   if v_kind = 'expense_edited' then
-    select r.diff -> 'shares_changed' into v_changed
+    select r.diff -> 'shares_changed', r.action into v_changed, v_action
     from public.expense_revisions r
     where r.expense_id = new.entity_id
     order by r.revision desc
     limit 1;
 
-    if v_changed is null
-       or not (v_changed @> to_jsonb(new.recipient_profile_id::text)) then
+    if v_changed is not null
+       and not (v_changed @> to_jsonb(new.recipient_profile_id::text)) then
+      return null;
+    end if;
+
+    if v_action = 'restored' then
+      v_kind := 'expense_restored';
+    end if;
+  end if;
+
+  /*
+   * One action, one notification.
+   *
+   * `create_expense` with an inline `new_group` emits TWO events to anyone who is both a member
+   * and a participant — `group/insert` then `expense/insert` — because the sync spine genuinely
+   * needs both: a member who is not on the expense would otherwise never learn the group exists.
+   * That is right for sync and wrong for a person's phone, which would buzz twice for one tap.
+   *
+   * Fixed here rather than in `create_expense`, because thinning the emit would put a
+   * notification rule back into the sync spine — the exact mistake 0023 was written to undo.
+   * "Added you to a group" is the more informative of the two and already implies the expense.
+   */
+  if v_kind = 'expense_added' and new.group_id is not null then
+    perform 1 from internal.notification_queue q
+     where q.recipient_profile_id = new.recipient_profile_id
+       and q.kind = 'group_added'
+       and q.status = 'pending'
+       and q.data ->> 'group_id' = new.group_id::text
+       and q.created_at > now() - interval '60 seconds';
+    if found then
       return null;
     end if;
   end if;
@@ -268,6 +327,7 @@ begin
     when 'expense_added'   then 'New expense'
     when 'expense_edited'  then 'Expense updated'
     when 'expense_deleted' then 'Expense removed'
+    when 'expense_restored' then 'Expense restored'
     when 'comment'         then 'New comment'
     when 'settlement'      then 'Settled up'
     when 'group_added'     then 'Added to a group'
@@ -278,6 +338,7 @@ begin
     when 'expense_added'   then v_actor || ' added an expense'
     when 'expense_edited'  then v_actor || ' changed your share'
     when 'expense_deleted' then v_actor || ' removed an expense'
+    when 'expense_restored' then v_actor || ' restored an expense'
     when 'comment'         then v_actor || ' commented'
     when 'settlement'      then v_actor || ' recorded a settlement'
     when 'group_added'     then v_actor || ' added you to a group'
@@ -296,10 +357,21 @@ begin
     limit 1;
 
     if v_existing is not null then
+      /*
+       * **Only an edit may rewrite an edit.** The lookup matches on entity id, and a pending
+       * `expense_added` for the same expense satisfies every one of its predicates — so without
+       * this the debounce would reach across kinds and rewrite the BODY of an undelivered "Ann
+       * added an expense" while leaving its kind and title saying "New expense". The recipient
+       * would then get one notification titled "New expense" whose text described an edit, and
+       * would never be told the expense existed at all.
+       */
       update internal.notification_queue
          set body = v_body, event_id = new.id
-       where id = v_existing;
-      return null;
+       where id = v_existing and kind = 'expense_edited';
+
+      if found then
+        return null;
+      end if;
     end if;
   end if;
 
@@ -328,13 +400,14 @@ begin
   where q.recipient_profile_id = new.recipient_profile_id
     and q.created_at > now() - interval '1 hour';
 
-  -- Marked, not dropped. A digest is late; a drop is a lie.
+  -- Held, not dropped, and not parked in a status nothing drains. An hour out puts it in the
+  -- next window, where the coalescing that already exists turns the backlog into one message.
   if v_hourly >= 20 then
-    v_status := 'digest';
+    v_hold := interval '1 hour';
   end if;
 
   -- (5b) Quiet hours.
-  v_when := internal.next_sendable_at(new.recipient_profile_id, now() + interval '45 seconds');
+  v_when := internal.next_sendable_at(new.recipient_profile_id, now() + v_hold);
 
   insert into internal.notification_queue
     (recipient_profile_id, event_id, kind, coalesce_key, title, body, data, not_before, status)
@@ -344,7 +417,7 @@ begin
        'entity_type', new.entity_type,
        'entity_id', new.entity_id,
        'group_id', new.group_id),
-     v_when, v_status);
+     v_when, 'pending');
 
   return null;
 end;
@@ -381,12 +454,29 @@ set search_path = ''
 as $$
 begin
   return query
-  with due as (
-    select q.id, q.recipient_profile_id, q.coalesce_key, q.title, q.body, q.data
+  /*
+   * `p_limit` bounds MESSAGES, not rows — and that distinction is the whole correctness of the
+   * batch boundary.
+   *
+   * Limiting rows first lets one coalesce group straddle the cut: five of its rows go out on
+   * this tick as "(+4 more)" and the rest go out on the next one as another "(+4 more)". The
+   * user gets the storm the coalescing exists to prevent, and only under load, which is exactly
+   * when nobody is looking. So the groups are chosen first and then every row belonging to them
+   * is claimed, whatever the count.
+   */
+  with keys as (
+    select q.recipient_profile_id as pid, q.coalesce_key as ck, min(q.not_before) as due_at
     from internal.notification_queue q
     where q.status = 'pending' and q.not_before <= now()
-    order by q.not_before
+    group by q.recipient_profile_id, q.coalesce_key
+    order by min(q.not_before)
     limit p_limit
+  ),
+  due as (
+    select q.id, q.recipient_profile_id, q.coalesce_key, q.title, q.body, q.data
+    from internal.notification_queue q
+    join keys k on k.pid = q.recipient_profile_id and k.ck = q.coalesce_key
+    where q.status = 'pending' and q.not_before <= now()
     for update skip locked
   ),
   grouped as (
@@ -405,7 +495,7 @@ begin
   ),
   marked as (
     update internal.notification_queue q
-       set status = 'sending', attempts = q.attempts + 1
+       set status = 'sending', attempts = q.attempts + 1, claimed_at = now()
       from grouped g
      where q.id = any(g.ids)
     returning q.id

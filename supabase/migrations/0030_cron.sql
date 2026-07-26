@@ -94,9 +94,16 @@ $$;
  * recycled, the deploy happens mid-flight. Those rows sit in `sending` forever otherwise, which
  * is the silent-failure end of this pipeline and the one nobody notices.
  *
+ * **Swept on `claimed_at`, not `created_at`.** They answer different questions: `created_at` is
+ * when the event happened, `claimed_at` is when THIS attempt started. A row held back an hour by
+ * the rate limit, or overnight by quiet hours, is already older than any sweep window by the
+ * time it is claimed — so sweeping on `created_at` would tear it back out of the dispatcher
+ * within seconds, every time, and the notification would loop until `attempts` hit five and it
+ * was marked failed. Exactly the rows that waited longest would be the ones that never arrived.
+ *
  * Ten minutes is comfortably longer than any legitimate dispatch and short enough that a
- * genuinely lost notification is still worth delivering. `attempts` is already incremented by
- * the claim, so a row that keeps dying is visible in the table rather than looping unbounded.
+ * genuinely lost notification is still worth delivering. `attempts` is incremented by the claim,
+ * so a row that keeps dying is visible in the table rather than looping unbounded.
  */
 create or replace function internal.requeue_stuck_notifications()
 returns void
@@ -108,7 +115,7 @@ as $$
      set status = case when attempts >= 5 then 'failed' else 'pending' end,
          error  = case when attempts >= 5 then 'dispatch never completed' else error end
    where status = 'sending'
-     and created_at < now() - interval '10 minutes';
+     and coalesce(claimed_at, created_at) < now() - interval '10 minutes';
 $$;
 
 revoke all on function

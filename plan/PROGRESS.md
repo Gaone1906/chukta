@@ -1253,3 +1253,104 @@ writes permanently.
 
 Rotate the Supabase secret key, the DB password and the Google client secret. They were pasted
 in plain text and are compromised.
+
+---
+
+# PHASE 9 — IN PROGRESS, stopped mid-fix (2026-07-26)
+
+**State: 4 commits made, NOT pushed. Working tree has uncommitted fixes. ONE test failing.**
+Everything below is reproducible from the repo; nothing here depends on remembering a session.
+
+Commits made (unpushed): `21b98d6` 9A+9B · `cc23ff1` 9C · `31e2b99` push registration ·
+`cb16bd4` receipts. Uncommitted on top: fixes to `0028`, `0030`, new `0031`, and test edits.
+
+## ⛔ START HERE — the one failing test
+
+```
+supabase/tests/notifications.test.sql
+# Failed test 22: "the person just added to a group is told so"  have: NULL  want: group_added
+```
+
+**Diagnosed, not guessed.** Cy has `notification_prefs.new_expenses = false` set earlier in the
+same test (line ~154), and `internal.wants_notification` maps `group_added` → `new_expenses`
+(`0028:187`). So the notification is correctly suppressed by Cy's own preference — the fixture
+picked the wrong person.
+
+**But do not just swap the fixture to Bo.** The mapping itself is questionable and is the real
+decision to make first: *being added to a group is not a new expense.* `notification_prefs` has
+five booleans (`new_expenses`, `expense_edits`, `comments`, `settlements`, `reminders`) and no
+membership category, so `group_added` was mapped onto the nearest one. Either add a column, or
+map `group_added` to something the user would recognise as covering it, then fix the fixture.
+Everything else in that file passes (22/23).
+
+## What Phase 9 contains now
+
+| Piece | State |
+|---|---|
+| `0028_notifications.sql` | enqueue trigger, coalescing drain, quiet hours, `push_receipts` |
+| `0029_recurring_runner.sql` | `app.run_due_recurring_expenses()` |
+| `0030_cron.sql` | 4 pg_cron jobs, Vault-backed dispatch, service-role wrappers |
+| `0031_diff_and_membership_events.sql` | fixes `expense_diff` + `add_group_members` |
+| `supabase/functions/push-dispatch/index.ts` | Edge Function (written, never deployed) |
+| `features/notifications/registerPush.ts` | client token registration |
+| `features/expenses/receipts.ts` + `ReceiptStrip.tsx` | receipts |
+
+**FX is deliberately NOT built.** v1 is INR-only by CHECK constraint, so there is nothing to
+convert. That is a scope decision already recorded, not an omission.
+
+## ⚠️ An adversarial review found 12 confirmed defects. 10 are fixed; 2 are NOT.
+
+Every one was reproduced against the live database by the verifier. **Not yet addressed:**
+
+1. **Per-key coalescing vs the hourly hold.** The per-key check (`0028`, `v_recent`) filters
+   `status = 'pending'` and a 60-second `created_at` window. Rows held back an hour by the rate
+   limit are still `pending`, so they *are* visible now — but the 60-second window means a burst
+   arriving after the hold still queues a second row for the same key. Worth re-testing against
+   the reworked hold before deciding it is real.
+2. **Nothing purges `internal.notification_queue` or `internal.change_events`.** Both are
+   append-only forever. `0030` schedules a claim-code purge but nothing for these. Add one.
+
+**Fixed in the uncommitted work** (each with the reasoning in the migration comments): the
+kind-blind debounce rewriting a pending `expense_added`; `p_limit` bounding rows instead of
+coalesce groups so a group could straddle a tick; the double notification when `create_expense`
+creates a group inline; `digest` being a status nothing drained (**this was the worst — my own
+comment said "marked, not dropped" while the row was lost forever**; replaced with a
+`not_before` hold); the sweep using `created_at` instead of `claimed_at`, which would have torn
+held-back rows out of dispatch on every tick; a missing index on `(recipient_profile_id,
+created_at)`; `restore_expense` writing a NULL diff so restores notified nobody; and in `0031`,
+`expense_diff.shares_changed` missing people ADDED to or REMOVED from an expense — the two whose
+share moved most — plus `add_group_members` never emitting an event the notification layer reads.
+
+## Next steps, in order
+
+1. Decide the `group_added` preference mapping, fix the fixture, get to 23/23.
+2. `npx supabase db reset && npx supabase test db` — expect **179** once green.
+3. `npm run typecheck && npm run lint && npm run test` (both workspaces).
+4. Commit the uncommitted fixes, then **push all five commits** (nothing is pushed yet).
+5. Address the two open review findings above.
+6. Optional: re-run the audit workflow against the fixed migrations.
+
+## Cannot be done without hardware
+
+- **Push delivery itself.** Simulators cannot receive APNs. `registerForPush` returns
+  `'unsupported'` on a simulator deliberately, so this genuinely needs a physical device plus an
+  EAS project id.
+- Airplane-mode matrix (task 54) and the UPI picker — unchanged.
+
+## To deploy the dispatcher (nothing committed contains these)
+
+```
+select vault.create_secret('https://<ref>.supabase.co/functions/v1', 'hisaab_functions_url');
+select vault.create_secret('<service key>', 'hisaab_service_key');
+supabase functions deploy push-dispatch
+```
+
+Until both secrets exist, every cron job no-ops silently by design — verified: 11 dispatch runs
+on an unconfigured database, all succeeded.
+
+## Local gotcha that cost time tonight
+
+`ALTER TABLE` on `internal.notification_queue` **deadlocks against the running cron job**. Run
+`update cron.job set active = false;` before applying migrations by hand, or just use
+`npx supabase db reset`. Also: `cron.job_run_details` keys on `jobid`, not `jobname` — join to
+`cron.job` to read outcomes.

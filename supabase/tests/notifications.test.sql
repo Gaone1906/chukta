@@ -8,7 +8,7 @@
 -- control pass so long as the dispatcher happened to filter it.
 
 begin;
-select plan(19);
+select plan(23);
 
 -- ---------------------------------------------------------------- fixtures
 
@@ -29,6 +29,9 @@ insert into public.profiles (id, user_id, display_name) values
 
 insert into public.groups (id, name, created_by_profile_id) values
   ('e0000000-0000-0000-0000-000000000001', 'Goa', 'eeee1111-0000-0000-0000-000000000001');
+-- Creating a group does not by itself make you a member; add_group_members asserts membership.
+insert into public.group_members (group_id, profile_id, role) values
+  ('e0000000-0000-0000-0000-000000000001', 'eeee1111-0000-0000-0000-000000000001', 'owner');
 
 -- A helper: emit one change event as if a write RPC had.
 create or replace function pg_temp.emit(
@@ -264,6 +267,73 @@ select is(
    where recipient_profile_id = 'eeee1111-0000-0000-0000-000000000003' and status <> 'sent'),
   0,
   'and a participant whose own share did not move hears nothing about the same edit');
+
+-- ---------------------------------------------------------------- added and removed people
+--
+-- The case `app.expense_diff` used to get exactly backwards. Its `union ... having count(*) > 1`
+-- caught anyone whose amount CHANGED but silently dropped anyone who appeared on only one side —
+-- so the two people whose share moved most, from nothing to something or the reverse, were the
+-- two it reported as unaffected. 0031 replaced it with a full outer join.
+
+select is(
+  (app.expense_diff(
+     jsonb_build_object('expense', '{}'::jsonb,
+       'splits', jsonb_build_array(
+         jsonb_build_object('profile_id','eeee1111-0000-0000-0000-000000000001','share_amount_minor','5000'))),
+     jsonb_build_object('expense', '{}'::jsonb,
+       'splits', jsonb_build_array(
+         jsonb_build_object('profile_id','eeee1111-0000-0000-0000-000000000001','share_amount_minor','5000'),
+         jsonb_build_object('profile_id','eeee1111-0000-0000-0000-000000000002','share_amount_minor','5000')))
+   ) -> 'shares_changed'),
+  jsonb_build_array('eeee1111-0000-0000-0000-000000000002'),
+  'somebody ADDED to an expense is in shares_changed — they went from nothing to owing');
+
+select is(
+  (app.expense_diff(
+     jsonb_build_object('expense', '{}'::jsonb,
+       'splits', jsonb_build_array(
+         jsonb_build_object('profile_id','eeee1111-0000-0000-0000-000000000001','share_amount_minor','5000'),
+         jsonb_build_object('profile_id','eeee1111-0000-0000-0000-000000000003','share_amount_minor','5000'))),
+     jsonb_build_object('expense', '{}'::jsonb,
+       'splits', jsonb_build_array(
+         jsonb_build_object('profile_id','eeee1111-0000-0000-0000-000000000001','share_amount_minor','5000')))
+   ) -> 'shares_changed'),
+  jsonb_build_array('eeee1111-0000-0000-0000-000000000003'),
+  'and somebody REMOVED is too — they stopped owing, which they should hear about');
+
+select is(
+  (app.expense_diff(
+     jsonb_build_object('expense', '{}'::jsonb,
+       'splits', jsonb_build_array(
+         jsonb_build_object('profile_id','eeee1111-0000-0000-0000-000000000001','share_amount_minor','5000'))),
+     jsonb_build_object('expense', jsonb_build_object('description','new'),
+       'splits', jsonb_build_array(
+         jsonb_build_object('profile_id','eeee1111-0000-0000-0000-000000000001','share_amount_minor','5000')))
+   ) -> 'shares_changed'),
+  '[]'::jsonb,
+  'but an unchanged split set still reports nobody — the typo-fix case still holds');
+
+-- ---------------------------------------------------------------- being added to a group
+
+/*
+ * `add_group_members` used to emit one `group`/`update` to everybody, and 0028 maps only
+ * `group`/`insert` to `group_added` — so the person just added got the same "something changed"
+ * event as the people who were already there, and was never actually told the group exists.
+ */
+update internal.notification_queue set status = 'sent';
+
+select app.add_group_members(
+  'e0000000-0000-0000-0000-000000000001',
+  array['eeee1111-0000-0000-0000-000000000003']::uuid[],
+  'ee999999-0000-0000-0000-000000000001'
+) from (select set_config('request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-0000000000e1","role":"authenticated"}', true)) _;
+
+select is(
+  (select kind from internal.notification_queue
+   where recipient_profile_id = 'eeee1111-0000-0000-0000-000000000003' and status <> 'sent'),
+  'group_added',
+  'the person just added to a group is told so');
 
 -- ---------------------------------------------------------------- dead tokens
 
