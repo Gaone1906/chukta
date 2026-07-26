@@ -22,6 +22,18 @@ const BUNDLE_ID = 'com.chukta.app';
 const config: ExpoConfig = {
   name: DISPLAY_NAME,
   slug: 'chukta',
+
+  /*
+   * Which Expo account owns the EAS project.
+   *
+   * Required rather than optional here: this login has access to two accounts — `pranavyarasi`
+   * and the `pranavyarasis-team` organisation Expo creates automatically at signup — and EAS
+   * refuses to guess between them. The personal one, to match the personal Play account.
+   *
+   * Moving a project between accounts later is a support request, not a config change.
+   */
+  owner: 'pranavyarasi',
+
   version: '1.0.0',
   orientation: 'portrait',
   scheme: 'chukta',
@@ -291,10 +303,18 @@ const config: ExpoConfig = {
      * Crash reporting. The plugin wires the native SDK and, on a release build, uploads source
      * maps so a stack trace names our files instead of one line of minified bundle.
      *
-     * `organization` and `project` are deliberately absent until a Sentry project exists — the
-     * plugin tolerates that, and adding them is a config change rather than a code one. The
-     * auth token for map upload is an env var (SENTRY_AUTH_TOKEN) and must NEVER be written
-     * here: this file is committed.
+     * A Sentry project now exists and `EXPO_PUBLIC_SENTRY_DSN` is set, so crashes will arrive.
+     *
+     * ⚠️ **Source maps will NOT upload yet.** That needs `organization` and `project` — the
+     * SLUGS, which are not derivable from the DSN (it carries numeric ids: the `o…` host is the
+     * org id, the trailing path the project id). Find them in the Sentry URL,
+     * `sentry.io/organizations/<org-slug>/projects/<project-slug>/`, and add them here.
+     *
+     * Until then every stack trace arrives as one line of minified bundle, which is close to
+     * useless for the thing a beta exists to do.
+     *
+     * The upload also needs `SENTRY_AUTH_TOKEN`. That one IS a secret — it belongs in EAS
+     * environment variables and must NEVER be written here, because this file is committed.
      */
     '@sentry/react-native/expo',
   ],
@@ -302,6 +322,22 @@ const config: ExpoConfig = {
   experiments: {
     typedRoutes: true,
     reactCompiler: true,
+  },
+
+  /*
+   * The EAS project this app builds under.
+   *
+   * Written by hand because `eas init` cannot edit a dynamic config — it creates the project,
+   * prints the id, and stops. Not a secret: it identifies a project, and every build already
+   * requires an authenticated account to touch it.
+   *
+   * It must match `owner` above. If either changes without the other, builds fail with an
+   * ownership error rather than anything that names the real cause.
+   */
+  extra: {
+    eas: {
+      projectId: '26bd5f99-4c68-41a9-828c-59b316decf36',
+    },
   },
 };
 
