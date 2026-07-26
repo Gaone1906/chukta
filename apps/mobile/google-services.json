@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "522412396487",
+    "project_id": "chukta-4bf3e",
+    "storage_bucket": "chukta-4bf3e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:522412396487:android:d2c53c3184a33c1d7d53e2",
+        "android_client_info": {
+          "package_name": "com.chukta.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAaNNODcwEkLihC7SbAVxtMeUR-zmpJQoQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

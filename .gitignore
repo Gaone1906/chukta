@@ -48,6 +48,22 @@ web-build/
 !.env.example
 google-services.json
 GoogleService-Info.plist
+# ...except the Android one, which is NOT a secret and has to be committed.
+#
+# It holds a project id, a project number, the package name and an Android API key — every one
+# of which is already extractable from any installed APK, because this file is compiled into the
+# binary. Firebase's own guidance is that it is safe to check in.
+#
+# It has to be, in fact: EAS uploads the git repo, so a gitignored config is simply absent from
+# the build, and Android push then fails at runtime with nothing to point at.
+#
+# Verified before committing that ours carries **zero `oauth_client` entries** — the Android app
+# was registered in Firebase with no SHA-1 on purpose. That matters: a SHA-1 there would mint a
+# competing OAuth client for `com.chukta.app` in the Firebase project (522412396487), while
+# Google sign-in is registered in a different project (153443409774), and two owners for one
+# package is the usual cause of DEVELOPER_ERROR. If a SHA-1 is ever added in Firebase, re-check
+# this file before trusting sign-in.
+!apps/mobile/google-services.json
 supabase/.env
 supabase/.branches/
 supabase/.temp/

@@ -239,6 +239,22 @@ const config: ExpoConfig = {
     predictiveBackGestureEnabled: false,
 
     /*
+     * Firebase, for push. Android has no equivalent of APNs' certificate-free path: Expo's push
+     * service hands off to FCM, and FCM will not issue a token without this file. Its absence is
+     * why `device_tokens` stayed empty on the first Android build — `getExpoPushTokenAsync`
+     * failed and `registerForPush` swallowed it, which is deliberate but means the symptom is
+     * silence rather than an error.
+     *
+     * ⚠️ This lives in a DIFFERENT Google project (`522412396487`) from Google sign-in
+     * (`153443409774`), because the Firebase console would not attach to the existing one. That
+     * is fine — FCM and Sign-In are independent — and it is safe specifically because the
+     * Android app was registered in Firebase with NO SHA-1, so this file carries zero
+     * `oauth_client` entries and cannot compete for ownership of `com.chukta.app`. Adding a
+     * SHA-1 in the Firebase console later would break sign-in with DEVELOPER_ERROR.
+     */
+    googleServicesFile: './google-services.json',
+
+    /*
      * Adaptive icon: two layers the launcher masks and parallaxes independently, which is why
      * the foreground keeps its alpha instead of being flattened like the iOS one.
      *
