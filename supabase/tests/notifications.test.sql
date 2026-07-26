@@ -8,7 +8,7 @@
 -- control pass so long as the dispatcher happened to filter it.
 
 begin;
-select plan(23);
+select plan(29);
 
 -- ---------------------------------------------------------------- fixtures
 
@@ -329,11 +329,116 @@ select app.add_group_members(
 ) from (select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-0000-0000-0000000000e1","role":"authenticated"}', true)) _;
 
+/*
+ * Cy is the right person to assert this on, and not by accident: he turned `new_expenses` off
+ * at line ~154. Before 0032, `group_added` was mapped onto that same column, so this assertion
+ * failed — he was never told the group existed, and expenses then started appearing in it from
+ * an app that had never mentioned it. Muting the chatter must not hide the room.
+ */
 select is(
   (select kind from internal.notification_queue
    where recipient_profile_id = 'eeee1111-0000-0000-0000-000000000003' and status <> 'sent'),
   'group_added',
-  'the person just added to a group is told so');
+  'the person just added to a group is told so, even with new expenses switched off');
+
+select is(
+  internal.wants_notification('eeee1111-0000-0000-0000-000000000003', 'expense_added'),
+  false,
+  'and the switch he DID set still holds — this is independence, not a blanket override');
+
+-- The column is genuinely wired, rather than `group_added` having quietly become unconditional.
+-- An un-refusable category is how people end up turning the OS permission off, which silences
+-- all six.
+update public.notification_prefs
+   set group_adds = false
+ where profile_id = 'eeee1111-0000-0000-0000-000000000003';
+
+select is(
+  internal.wants_notification('eeee1111-0000-0000-0000-000000000003', 'group_added'),
+  false,
+  'and somebody who does not want to hear about group adds can say so');
+
+-- ---------------------------------------------------------------- the held row still absorbs
+--
+-- The storm the rate limit was supposed to stop, and used to reproduce an hour late.
+--
+-- The per-key check filtered on `created_at > now() - 60 seconds`. Anything held longer than
+-- that — by the hourly cap, by quiet hours, by a requeue — aged out of its own coalescing
+-- window while still sitting undelivered in the queue, so the next event queued a SECOND row
+-- with a later `not_before`. Two rows under one key that come due at different times are two
+-- pushes, because the drain can only collapse what is due together. 0033 tests `not_before`
+-- instead: a row that has not gone out cannot have gone out, whatever its age.
+
+update internal.notification_queue set status = 'sent';
+
+select pg_temp.emit('eeee1111-0000-0000-0000-000000000002', 'eeee1111-0000-0000-0000-000000000001',
+                    'e0000000-0000-0000-0000-000000000001', 'expense',
+                    'e1000000-0000-0000-0000-00000000001a', 'insert');
+
+-- Old enough to have fallen out of the wall-clock window, still undelivered. This is exactly
+-- the state the hourly cap puts a row in, without having to queue twenty to get there.
+update internal.notification_queue
+   set created_at = now() - interval '10 minutes',
+       not_before = now() + interval '30 minutes'
+ where recipient_profile_id = 'eeee1111-0000-0000-0000-000000000002' and status = 'pending';
+
+select pg_temp.emit('eeee1111-0000-0000-0000-000000000002', 'eeee1111-0000-0000-0000-000000000001',
+                    'e0000000-0000-0000-0000-000000000001', 'expense',
+                    'e1000000-0000-0000-0000-00000000001b', 'insert');
+
+select is(
+  (select count(*)::int from internal.notification_queue
+   where recipient_profile_id = 'eeee1111-0000-0000-0000-000000000002' and status = 'pending'),
+  1,
+  'an event arriving while a row for the same key is still held joins it, however old it is');
+
+-- ---------------------------------------------------------------- the purge
+--
+-- Four append-only tables, none of which deleted anything before 0033.
+
+update internal.notification_queue set status = 'sent';
+
+-- A settled notification and the change event behind it, both a month past.
+select pg_temp.emit('eeee1111-0000-0000-0000-000000000002', 'eeee1111-0000-0000-0000-000000000001',
+                    'e0000000-0000-0000-0000-000000000001', 'comment',
+                    'e1000000-0000-0000-0000-0000000000c1', 'insert');
+
+update internal.notification_queue
+   set status = 'sent', created_at = now() - interval '40 days'
+ where status = 'pending';
+update internal.change_events
+   set created_at = now() - interval '40 days'
+ where entity_id = 'e1000000-0000-0000-0000-0000000000c1';
+
+-- And one that was never delivered, equally old. `notification_queue.event_id` cascades on
+-- delete, so purging its change event would take the undelivered notification with it —
+-- silently, which is the failure mode this phase already shipped once as `digest`.
+select pg_temp.emit('eeee1111-0000-0000-0000-000000000002', 'eeee1111-0000-0000-0000-000000000001',
+                    'e0000000-0000-0000-0000-000000000002', 'comment',
+                    'e1000000-0000-0000-0000-0000000000c2', 'insert');
+
+update internal.change_events
+   set created_at = now() - interval '40 days'
+ where entity_id = 'e1000000-0000-0000-0000-0000000000c2';
+
+select internal.purge_sync_spine();
+
+select is(
+  (select count(*)::int from internal.change_events
+   where entity_id = 'e1000000-0000-0000-0000-0000000000c1'),
+  0,
+  'a change event past retention, with nothing undelivered behind it, is purged');
+
+select is(
+  (select count(*)::int from internal.change_events
+   where entity_id = 'e1000000-0000-0000-0000-0000000000c2'),
+  1,
+  'but one still pinned by an undelivered notification is held back, cascade and all');
+
+select is(
+  (select count(*)::int from internal.notification_queue where status = 'pending'),
+  1,
+  'and the undelivered notification itself survives — a purge must never be a silent drop');
 
 -- ---------------------------------------------------------------- dead tokens
 

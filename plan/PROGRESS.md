@@ -1258,30 +1258,31 @@ in plain text and are compromised.
 
 # PHASE 9 — IN PROGRESS, stopped mid-fix (2026-07-26)
 
-**State: 4 commits made, NOT pushed. Working tree has uncommitted fixes. ONE test failing.**
+**State: all committed and pushed through `5e070c1`; tree clean. ONE test failing.**
 Everything below is reproducible from the repo; nothing here depends on remembering a session.
 
-Commits made (unpushed): `21b98d6` 9A+9B · `cc23ff1` 9C · `31e2b99` push registration ·
-`cb16bd4` receipts. Uncommitted on top: fixes to `0028`, `0030`, new `0031`, and test edits.
+Commits: `21b98d6` 9A+9B · `cc23ff1` 9C · `31e2b99` push registration · `cb16bd4` receipts ·
+`5e070c1` review fixes (`0028`, `0030`, new `0031`, test edits). Step 4 below is done.
 
-## ⛔ START HERE — the one failing test
+## ✅ The failing test — resolved by fixing the mapping, not the fixture (`0032`)
 
-```
-supabase/tests/notifications.test.sql
-# Failed test 22: "the person just added to a group is told so"  have: NULL  want: group_added
-```
+`internal.wants_notification` mapped `group_added` → `new_expenses`, so Cy — who had turned new
+expenses off — was never told a group existed, and then expenses started appearing in it from an
+app that had never mentioned it. **Muting the chatter must not hide the room.**
 
-**Diagnosed, not guessed.** Cy has `notification_prefs.new_expenses = false` set earlier in the
-same test (line ~154), and `internal.wants_notification` maps `group_added` → `new_expenses`
-(`0028:187`). So the notification is correctly suppressed by Cy's own preference — the fixture
-picked the wrong person.
+Swapping the fixture to Bo would have made the test pass and left that behaviour in place. So
+`group_added` got its own column instead: `notification_prefs.group_adds`, default true,
+back-filled true, with its own Settings row ("Added to a group"). Membership is a different kind
+of event from money moving — rare, high-signal, and the one notification that explains all the
+others.
 
-**But do not just swap the fixture to Bo.** The mapping itself is questionable and is the real
-decision to make first: *being added to a group is not a new expense.* `notification_prefs` has
-five booleans (`new_expenses`, `expense_edits`, `comments`, `settlements`, `reminders`) and no
-membership category, so `group_added` was mapped onto the nearest one. Either add a column, or
-map `group_added` to something the user would recognise as covering it, then fix the fixture.
-Everything else in that file passes (22/23).
+Making it unconditional was the other option and was rejected: an un-refusable category is how
+people end up switching the OS permission off, which silences all six.
+
+The test now asserts the property rather than the outcome — Cy, with `new_expenses = false`,
+**is** told he was added, his own switch still holds, and turning `group_adds` off does suppress
+it. Client side: `NotificationPrefs`, `DEFAULT_PREFS`, the `select`, the Settings toggle, and
+regenerated `db-types.ts`.
 
 ## What Phase 9 contains now
 
@@ -1291,6 +1292,8 @@ Everything else in that file passes (22/23).
 | `0029_recurring_runner.sql` | `app.run_due_recurring_expenses()` |
 | `0030_cron.sql` | 4 pg_cron jobs, Vault-backed dispatch, service-role wrappers |
 | `0031_diff_and_membership_events.sql` | fixes `expense_diff` + `add_group_members` |
+| `0032_group_added_pref.sql` | `notification_prefs.group_adds` + remapped `wants_notification` |
+| `0033_coalesce_window_and_purge.sql` | coalesce on `not_before`; `purge_sync_spine()` + its cron job |
 | `supabase/functions/push-dispatch/index.ts` | Edge Function (written, never deployed) |
 | `features/notifications/registerPush.ts` | client token registration |
 | `features/expenses/receipts.ts` + `ReceiptStrip.tsx` | receipts |
@@ -1298,19 +1301,40 @@ Everything else in that file passes (22/23).
 **FX is deliberately NOT built.** v1 is INR-only by CHECK constraint, so there is nothing to
 convert. That is a scope decision already recorded, not an omission.
 
-## ⚠️ An adversarial review found 12 confirmed defects. 10 are fixed; 2 are NOT.
+## ✅ An adversarial review found 12 confirmed defects. All 12 are now fixed.
 
-Every one was reproduced against the live database by the verifier. **Not yet addressed:**
+Every one was reproduced against the live database. The last two are closed by `0033`, and the
+first of them was **worse than the review described**:
 
-1. **Per-key coalescing vs the hourly hold.** The per-key check (`0028`, `v_recent`) filters
-   `status = 'pending'` and a 60-second `created_at` window. Rows held back an hour by the rate
-   limit are still `pending`, so they *are* visible now — but the 60-second window means a burst
-   arriving after the hold still queues a second row for the same key. Worth re-testing against
-   the reworked hold before deciding it is real.
-2. **Nothing purges `internal.notification_queue` or `internal.change_events`.** Both are
-   append-only forever. `0030` schedules a claim-code purge but nothing for these. Add one.
+1. **The rate limit did not actually limit anything.** The review called the 60-second
+   `created_at` window a storage concern, since the drain groups by `(recipient, coalesce_key)`.
+   It is not — two rows under one key only collapse if they come due *together*, and under the
+   hourly cap they never do. Walked through: `t=0` row A held an hour; `t=90s` a same-key event
+   misses the 60-second window and queues row B, held an hour from *then*; the two fire 90
+   seconds apart. **Twenty-one events in an hour became twenty-one pushes an hour later** — the
+   one control whose whole job is to stop a storm reproduced it, just late enough that nobody is
+   looking at the screen that would explain it.
 
-**Fixed in the uncommitted work** (each with the reasoning in the migration comments): the
+   Fixed by asking the question that matters — *has this row gone out yet?* — i.e.
+   `not_before > now()` instead of a wall-clock window. A pending row that is not yet due cannot
+   have been delivered, so merging into it loses nothing. Two events genuinely 90s apart with
+   nothing holding them back still produce two pushes; only the held case changes.
+
+   **Reproduced both directions** before and after: old trigger → 2 pending rows, 2 distinct due
+   times; new trigger → 1 and 1.
+
+2. **Nothing purged anything.** `internal.purge_sync_spine()`, nightly at 03:43. Terminal
+   notifications and `mutation_log` at 30 days, resolved `push_receipts` at 7, `change_events`
+   at 30 — except those still pinned by an undelivered notification.
+
+   That exception is load-bearing and was verified, not assumed:
+   `notification_queue.event_id` is `on delete cascade`, so purging a change event **silently
+   deletes any pending notification behind it** — proved by deleting one and watching the queue
+   row vanish with no status change. Same shape as the `digest` bug this phase already shipped
+   once. 30 days is safe by construction: `sync_pull` derives retention from `min(id)` rather
+   than a constant (`0015:30`), and the client's own cache expires at 14 days.
+
+**The other ten** (each with the reasoning in the migration comments): the
 kind-blind debounce rewriting a pending `expense_added`; `p_limit` bounding rows instead of
 coalesce groups so a group could straddle a tick; the double notification when `create_expense`
 creates a group inline; `digest` being a status nothing drained (**this was the worst — my own
@@ -1321,14 +1345,31 @@ created_at)`; `restore_expense` writing a NULL diff so restores notified nobody;
 `expense_diff.shares_changed` missing people ADDED to or REMOVED from an expense — the two whose
 share moved most — plus `add_group_members` never emitting an event the notification layer reads.
 
-## Next steps, in order
+## ✅ Phase 9 is green — everything above is done
 
-1. Decide the `group_added` preference mapping, fix the fixture, get to 23/23.
-2. `npx supabase db reset && npx supabase test db` — expect **179** once green.
-3. `npm run typecheck && npm run lint && npm run test` (both workspaces).
-4. Commit the uncommitted fixes, then **push all five commits** (nothing is pushed yet).
-5. Address the two open review findings above.
-6. Optional: re-run the audit workflow against the fixed migrations.
+```
+npx supabase db reset && npx supabase test db   →  Files=12, Tests=187, PASS
+npm run typecheck && npm run lint && npm run test →  clean; 45 + 114 tests pass
+```
+
+(The earlier estimate of "179 once green" was low — the mapping fix and the two new review
+fixes added assertions rather than just repairing one.)
+
+`npm run db:types` had to be re-run after `0032`: the generated `packages/core/src/db-types.ts`
+rejects an unknown column on upsert, so a schema change that touches a table the client writes
+to is always a two-step.
+
+**What is left for Phase 9 needs hardware, not code** — see below. Everything that can be
+verified on this machine has been.
+
+## Next, once Phase 9 is signed off
+
+1. **Task 69 — the `Someone` bug.** Diagnosed at the end of this file; on the app's primary
+   path and 100% reproducible. Ahead of Phase 10.
+2. Phase 10 remainder: a11y pass, Android blur perf.
+3. Phase 11: store submission, `PrivacyInfo.xcprivacy`, and **open item #11 — rotate the
+   compromised keys**.
+4. Optional: re-run the audit workflow against `0032`/`0033`.
 
 ## Cannot be done without hardware
 
@@ -1354,3 +1395,107 @@ on an unconfigured database, all succeeded.
 `update cron.job set active = false;` before applying migrations by hand, or just use
 `npx supabase db reset`. Also: `cron.job_run_details` keys on `jobid`, not `jobname` — join to
 `cron.job` to read outcomes.
+
+---
+
+# 🐞 "Someone" on the expense form — DIAGNOSED, not yet fixed (2026-07-26)
+
+**Reported:** *"When I create a new person and make an expense with them for the first time, I
+can see an extra person in the splitting called Someone. It's me, them and someone always."*
+
+**Not a server bug.** The database is correct: two placeholders, both owned by the reporter,
+both with their real names, and `internal.mutation_log` shows two clean
+`upsert_contact_profile` calls that returned the client-supplied ids. `expenses` and
+`groups` are empty — this is happening on the form, before anything is saved. `Someone` here
+is the client-side fallback at `apps/mobile/src/app/(app)/expense/new.tsx:110`, **not** the
+`display_name` the signup trigger writes (`0013:57`). Nothing in `public.profiles` is named
+`Someone`.
+
+## The cause — a race that is lost by ~850ms, every time
+
+`AddPersonSheet.create()` (`features/people/AddPersonSheet.tsx:109-111`) does three things in
+this order, and the order is the bug:
+
+```ts
+offline.refresh();
+offline.sync();                                                   // deferred 900ms
+void queryClient.invalidateQueries({ queryKey: queryKeys.home() }); // fires NOW
+```
+
+1. `t=0` — the person is a row in the outbox. `pendingPeople` has them, so the picker shows
+   them and `new.tsx` can name them. Correct so far.
+2. `t=0` — `invalidateQueries(home)` refetches immediately, because the picker is holding an
+   active observer of that key.
+3. `t≈50ms` — **the server answers without the new person, because the server has not been
+   told yet.** That answer is written into the cache and marked fresh for `staleTime: 60_000`
+   (`app/_layout.tsx:28`).
+4. `t=900ms` — `sync` is deliberately deferred by `SYNC_AFTER_TRANSITION_MS =
+   motion.ripple.duration` (`OfflineProvider.tsx:89`) so the drain does not land on the
+   ripple's opening frames. Only now does the drain create the profile server-side and
+   **delete the outbox row** — which removes them from `pendingPeople`.
+
+From `t≈900ms` the person is in **neither** source for up to a minute:
+
+| source | has them? | why not |
+|---|---|---|
+| `homeQuery.data.people` | no | refetched at step 3, before the server knew |
+| `offline.pendingPeople` | no | the outbox row was deleted when the drain succeeded |
+
+`new.tsx:110` falls through `person?.display_name ?? queued?.displayName ?? 'Someone'` to the
+literal. Navigating to the form does not rescue it — the home data is <60s old, so mounting a
+second observer refetches nothing.
+
+**Nothing closes the hole afterwards.** `upsert_contact_profile` never calls
+`internal.emit_change` (read `0024:51-140` — there is no emit anywhere in it), so `sync_pull`
+carries no event for it and the realtime path never invalidates `queryKeys.home()`. The only
+invalidation that ever fires for this write is the one at step 2, which is guaranteed to be
+too early. `offline.refresh()` bumps the SQLite-derived `version`, not react-query.
+
+This is the same failure migration `0022` fixed for the online case, arriving through a new
+door — and the header comment on `lib/offline/people.ts` already warns about exactly this
+shape: *a person you have created who does not appear anywhere is not a person you can split
+anything with.*
+
+## Why there are three rows and not two
+
+The name hole above explains `Someone`; it does not explain the count. That is a second,
+independent defect in the picker:
+
+`who.tsx:69-74` — `onPersonAdded` **appends and never replaces**, and the sheet can be
+reopened. Add "Harshi Kadali", notice the typo, add "Harshi Kadalo" — and both are ticked.
+The footer only says "2 people", the wrong one is never shown as removable, and the first
+mistake rides all the way onto the expense.
+
+The DB corroborates this: two placeholders with near-identical names, created 19 seconds
+apart (`09:49:56` and `09:50:15`). It also explains why one name resolves and one does not —
+the second `create()`'s refetch returned a roster that already contained the first person
+(drained 19s earlier) but not the second. Hence exactly *"me, them, and Someone"*.
+
+The count half is inferred from the DB state rather than reproduced on device; the name half
+is proven from the code path and the empty `expenses` table.
+
+## The fix, when it is scheduled
+
+Three parts, smallest first. **Do part 1 even if the others are deferred** — it is the one
+that produces a nameless stranger on a money screen.
+
+1. **Do not refetch a roster the server cannot answer yet.** Drop the eager
+   `invalidateQueries(home)` from `AddPersonSheet.create()`; it can only ever return a list
+   that predates the write. Invalidate `queryKeys.home()` **after** the drain reports the row
+   sent instead — the drainer already has an `onChange` hook (`drain.ts`, `complete(row.id)`).
+   The cleanest seam is for `runSync` to invalidate the keys touched by the ops it drained,
+   which also fixes this class of bug for every future write that emits no change event.
+2. **Belt and braces on the form.** Keep a name for an id once one has been seen, so a roster
+   that momentarily forgets somebody cannot rename them mid-form. `Someone` should be
+   unreachable for an id the user themselves just typed a name for.
+3. **Let the picker take a person back off.** `onPersonAdded` should surface what is selected
+   with a way to untick it — a correction should replace a mistake, not accompany it.
+
+**Verify by:** add a person from the picker, tap Continue within ten seconds, and confirm the
+form names them. Then repeat with airplane mode on (the drain never runs, `pendingPeople`
+keeps them — this path already works and must keep working). Then add two people, untick one,
+confirm only one reaches the split.
+
+**Priority: ahead of the remaining Phase 9 items.** It is on the app's primary path — name a
+friend, split something with them — it is 100% reproducible, and it is visible on the screen
+where the money is decided.

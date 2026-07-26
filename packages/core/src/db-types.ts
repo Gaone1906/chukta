@@ -663,6 +663,7 @@ export type Database = {
         Row: {
           comments: boolean
           expense_edits: boolean
+          group_adds: boolean
           new_expenses: boolean
           profile_id: string
           quiet_hours_end: string | null
@@ -673,6 +674,7 @@ export type Database = {
         Insert: {
           comments?: boolean
           expense_edits?: boolean
+          group_adds?: boolean
           new_expenses?: boolean
           profile_id: string
           quiet_hours_end?: string | null
@@ -683,6 +685,7 @@ export type Database = {
         Update: {
           comments?: boolean
           expense_edits?: boolean
+          group_adds?: boolean
           new_expenses?: boolean
           profile_id?: string
           quiet_hours_end?: string | null
@@ -1137,6 +1140,11 @@ export type Database = {
         Returns: Json
       }
       claim_placeholder: { Args: { p_token: string }; Returns: Json }
+      complete_notifications: {
+        Args: { p_error?: string; p_ids: number[] }
+        Returns: undefined
+      }
+      create_claim_code: { Args: { p_profile_id: string }; Returns: Json }
       create_expense: {
         Args: { p_client_mutation_id: string; p_payload: Json }
         Returns: Json
@@ -1155,6 +1163,10 @@ export type Database = {
         }
         Returns: Json
       }
+      disable_push_token: {
+        Args: { p_reason: string; p_token: string }
+        Returns: undefined
+      }
       get_expense_detail: { Args: { p_expense_id: string }; Returns: Json }
       get_group_detail: {
         Args: { p_before?: string; p_group_id: string; p_limit?: number }
@@ -1169,6 +1181,7 @@ export type Database = {
         Args: { p_client_mutation_id: string; p_payload: Json }
         Returns: Json
       }
+      redeem_claim_code: { Args: { p_code: string }; Returns: Json }
       restore_expense: {
         Args: { p_client_mutation_id: string; p_expense_id: string }
         Returns: Json

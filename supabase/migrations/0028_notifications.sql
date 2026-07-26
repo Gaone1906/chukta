@@ -206,9 +206,10 @@ $$;
  * 2. **Edit debounce.** A second edit to the SAME expense inside five minutes updates the row
  *    already queued instead of adding another — someone fixing a typo three times is one event.
  * 3. **Rate limits.** At most one per (recipient, group) per 60 seconds, and 20 per recipient
- *    per hour. Over the hourly limit the row is still written, marked `digest`, so it is rolled
- *    into a summary rather than dropped — losing a notification silently is worse than being
- *    late with it.
+ *    per hour. Over the hourly limit the row is still written and still `pending`, with
+ *    `not_before` pushed out an hour — late, but delivered. It is deliberately NOT given a
+ *    status of its own: see the header, where a `digest` status that nothing drained turned
+ *    "held back" into "lost forever".
  * 4. **Never the actor.** Enforced here, at the door.
  * 5. **Prefs and quiet hours.** Category gate, then `not_before` pushed past the quiet window.
  *

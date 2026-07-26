@@ -178,6 +178,16 @@ export default function Settings() {
               disabled={!prefs}
               onChange={setPref('expense_edits')}
             />
+            {/* Its own row, not folded into "New expenses". Being put in a group is the
+                notification that explains all the others, so it stays reachable even for
+                somebody who has muted the expense chatter. Migration 0032. */}
+            <SettingsToggle
+              label="Added to a group"
+              hint="When someone puts you in one"
+              value={prefs?.group_adds ?? true}
+              disabled={!prefs}
+              onChange={setPref('group_adds')}
+            />
             <SettingsToggle
               label="Comments"
               hint="Replies on an expense you're part of"

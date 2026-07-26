@@ -595,6 +595,8 @@ export interface NotificationPrefs {
   comments: boolean;
   settlements: boolean;
   reminders: boolean;
+  /** Deliberately its own switch and not part of `new_expenses` — see migration 0032. */
+  group_adds: boolean;
 }
 
 const DEFAULT_PREFS: NotificationPrefs = {
@@ -603,6 +605,7 @@ const DEFAULT_PREFS: NotificationPrefs = {
   comments: true,
   settlements: true,
   reminders: true,
+  group_adds: true,
 };
 
 /**
@@ -615,7 +618,7 @@ const DEFAULT_PREFS: NotificationPrefs = {
 export async function getNotificationPrefs(profileId: string): Promise<NotificationPrefs> {
   const { data, error } = await supabase
     .from('notification_prefs')
-    .select('new_expenses, expense_edits, comments, settlements, reminders')
+    .select('new_expenses, expense_edits, comments, settlements, reminders, group_adds')
     .eq('profile_id', profileId)
     .maybeSingle();
 
