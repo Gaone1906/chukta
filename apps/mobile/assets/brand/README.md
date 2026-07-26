@@ -1,13 +1,13 @@
 # Brand assets
 
-- `hisaab-stamp.png` — 1024×1024 RGBA circular seal. Used for brand moments only (onboarding,
+- `chukta-stamp.png` — 1024×1024 RGBA circular seal. Used for brand moments only (onboarding,
   the completion screen, About). **Not** the settled indicator on list rows — that's a plain
   gold checkmark badge, deliberately, to keep the stamp special.
-- `hisaab-mark.png` — 1280×416 RGBA wordmark. The everyday logo (Home header, Sidebar).
+- `chukta-mark.png` — 1280×416 RGBA wordmark. The everyday logo (Home header, Sidebar).
 
 ## Still needed (Phase 11)
 
-The App Store icon **cannot** be `hisaab-stamp.png` as-is:
+The App Store icon **cannot** be `chukta-stamp.png` as-is:
 
 - iOS rejects icons with an alpha channel — needs compositing onto the dark background
 - iOS applies its own rounded-square mask, so the source must be square and un-rounded

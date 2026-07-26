@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { normalisePhone } from '@hisaab/core';
+import { normalisePhone } from '@chukta/core';
 
 import { GlassButton, Sheet, color, font } from '@/design';
 import { inviteMessage, personalInviteUrl } from '@/features/invite/inviteLink';
@@ -16,7 +16,7 @@ import { ClaimCodeSheet } from './ClaimCodeSheet';
 import { contactPickerAvailable, pickContact } from './pickContact';
 
 /**
- * Add a person who is not on Hisaab — and, if you want, send them the link.
+ * Add a person who is not on Chukta — and, if you want, send them the link.
  *
  * The thing worth understanding here: **you do not wait for anyone to join.** Naming someone
  * makes them a real participant immediately, so you can put them on expenses tonight and send
@@ -169,7 +169,7 @@ function AddPersonBody({
       // claim — saying so is more use than the raw error.
       setNote(
         e.message.includes('already has an account')
-          ? `${added?.name} is already on Hisaab — nothing to invite them to. They're added.`
+          ? `${added?.name} is already on Chukta — nothing to invite them to. They're added.`
           : e.message,
       ),
   });
@@ -344,7 +344,7 @@ function AddPersonBody({
           land on one identity instead of two that need merging later, and what lets the app
           recognise them the moment they sign up with that address. */}
       <Text style={styles.hint}>
-        Lets Hisaab recognise them when they sign up, and stops two of you accidentally
+        Lets Chukta recognise them when they sign up, and stops two of you accidentally
         creating two of the same person.
       </Text>
 
@@ -365,7 +365,7 @@ function AddPersonBody({
         style={styles.input}
       />
       {/*
-        * Deliberately NOT "find friends already on Hisaab". Nothing writes a phone contact
+        * Deliberately NOT "find friends already on Chukta". Nothing writes a phone contact
         * point for a signed-up account — `set_my_phone` was the only thing that would have,
         * and phone was cut from v1 — so a number can only ever match a placeholder somebody
         * else made. That is still worth having, and it is all this claims.

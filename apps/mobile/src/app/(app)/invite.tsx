@@ -28,10 +28,10 @@ import { queryKeys } from '@/lib/queryKeys';
  * review-sensitive permission on both stores, needs a privacy manifest and a Play data-safety
  * declaration, and uploads your friends' phone numbers to a server so it can tell you which of
  * them are already users. The share sheet does the same job with none of that: you pick who to
- * send it to in the app you were going to message them in anyway, and Hisaab never learns who
+ * send it to in the app you were going to message them in anyway, and Chukta never learns who
  * is in your contacts. See PROGRESS.md — no Contacts permission is requested anywhere.
  *
- * The design plan also called for a `pg_trgm` name search over everyone on Hisaab. Also
+ * The design plan also called for a `pg_trgm` name search over everyone on Chukta. Also
  * dropped: a fuzzy search over all users is a user-enumeration API. Finding a specific
  * existing person is already handled by the expense picker, which matches on an exact contact
  * point — you have to know their email, not guess at their name.
@@ -87,14 +87,14 @@ export default function Invite() {
           contentStyle={styles.hero}
         >
           {/*
-            * This line used to end "and Hisaab never reads your contacts", which stopped being
+            * This line used to end "and Chukta never reads your contacts", which stopped being
             * true when the contact picker landed. The replacement keeps the promise that
             * actually matters and is still kept: we never read the BOOK. See
             * features/people/pickContact.ts.
             */}
           <Text style={styles.heroBody}>
-            Send anyone a link. It opens Hisaab if they have it, and the store if they
-            don&rsquo;t — and Hisaab never reads your address book.
+            Send anyone a link. It opens Chukta if they have it, and the store if they
+            don&rsquo;t — and Chukta never reads your address book.
           </Text>
 
           <GlassButton label="Share a link" variant="primary" onPress={() => void shareGeneral()} />
@@ -141,7 +141,7 @@ export default function Invite() {
           />
         ) : waiting.length === 0 ? (
           <Text style={styles.emptyNote}>
-            Nobody. Everyone you share expenses with is already on Hisaab — people appear here
+            Nobody. Everyone you share expenses with is already on Chukta — people appear here
             once you add them to an expense before they&rsquo;ve signed up.
           </Text>
         ) : (

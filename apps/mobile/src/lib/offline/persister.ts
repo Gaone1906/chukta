@@ -22,7 +22,7 @@ import { parse, stringify } from './serialize';
  * per-row updates and a transaction, and losing it loses somebody's money.
  */
 
-const storage = createMMKV({ id: 'hisaab-query-cache' });
+const storage = createMMKV({ id: 'chukta-query-cache' });
 
 const mmkvAsyncStorage = {
   getItem: async (key: string) => storage.getString(key) ?? null,
@@ -53,7 +53,7 @@ export const CACHE_MAX_AGE = 14 * 24 * 60 * 60 * 1000;
 
 export const queryPersister = createAsyncStoragePersister({
   storage: mmkvAsyncStorage,
-  key: 'hisaab-query-cache',
+  key: 'chukta-query-cache',
   // The default is 1s. Writes here are a full re-serialisation of every cached screen, and
   // they happen on every query settle, so throttling matters more than freshness — nothing
   // reads this file until the next cold start.

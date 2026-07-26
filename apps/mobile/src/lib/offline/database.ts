@@ -6,7 +6,7 @@ import * as SQLite from 'expo-sqlite';
  * The phase plan called for `expo-sqlite` + Drizzle mirroring ten server tables — profiles,
  * groups, group_members, expenses, expense_payers, expense_splits, expense_debts,
  * expense_participants, settlements, expense_comments — and recomputing balances locally with
- * `@hisaab/core`. That is not what this is, and the difference is worth stating plainly
+ * `@chukta/core`. That is not what this is, and the difference is worth stating plainly
  * because it is the single largest deviation in Phase 8.
  *
  * **Reads are cached, not mirrored.** Every screen in this app is fed by one RPC that returns
@@ -31,7 +31,7 @@ import * as SQLite from 'expo-sqlite';
  * migration directory to CI for no gain.
  */
 
-const DB_NAME = 'hisaab-offline.db';
+const DB_NAME = 'chukta-offline.db';
 
 /**
  * Schema version, bumped by hand. `user_version` is a single integer SQLite keeps in the file

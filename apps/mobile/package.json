@@ -1,11 +1,11 @@
 {
-  "name": "@hisaab/mobile",
+  "name": "@chukta/mobile",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
     "@expo-google-fonts/hind": "^0.4.1",
     "@expo-google-fonts/rozha-one": "^0.4.1",
-    "@hisaab/core": "*",
+    "@chukta/core": "*",
     "@react-native-google-signin/google-signin": "^16.1.2",
     "@react-native-masked-view/masked-view": "0.3.2",
     "@supabase/supabase-js": "^2.110.8",

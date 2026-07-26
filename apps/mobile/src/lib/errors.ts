@@ -85,7 +85,7 @@ export class ServerError extends Error {
  */
 export class NetworkError extends Error {
   constructor(cause: string) {
-    super("Couldn't reach Hisaab. Check your connection — nothing was lost.");
+    super("Couldn't reach Chukta. Check your connection — nothing was lost.");
     this.name = 'NetworkError';
     this.cause = cause;
   }

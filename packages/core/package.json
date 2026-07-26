@@ -1,5 +1,5 @@
 {
-  "name": "@hisaab/core",
+  "name": "@chukta/core",
   "version": "0.0.0",
   "private": true,
   "description": "Pure money logic: split allocation, debt simplification, FX, formatting. No React Native, no I/O.",

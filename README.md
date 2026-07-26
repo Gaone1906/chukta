@@ -1,10 +1,11 @@
-# Hisaab
+# Chukta
 
 Split shared expenses with friends. Track who owes whom, settle up through UPI, Venmo or
 PayPal. **Every feature free, forever** — no tiers, no paywalls, no ads. The only monetization
 is an optional one-time tip jar.
 
-*Hisaab* (हिसाब, from *hisab-kitab*) means "accounts" or "reckoning".
+*Chukta* (चुकता) means "settled" or "paid off" — as in *hisaab chukta*, the accounts are
+square. Which is what the seal has always said: SQUARED · SETTLED.
 
 ## Status
 

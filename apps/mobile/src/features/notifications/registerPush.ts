@@ -66,7 +66,7 @@ export type PushOutcome =
 function deviceId(): string {
   return (
     Constants.sessionId ??
-    `${Platform.OS}-${Constants.expoConfig?.slug ?? 'hisaab'}`
+    `${Platform.OS}-${Constants.expoConfig?.slug ?? 'chukta'}`
   );
 }
 

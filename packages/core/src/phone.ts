@@ -12,7 +12,7 @@
  *
  * This is NOT a general-purpose phone library, and it must not grow into one by accretion.
  * libphonenumber is 300kB+ and carries a metadata table that goes stale; the scope here is
- * "the numbers Hisaab's users actually type", which is India by default plus anything already
+ * "the numbers Chukta's users actually type", which is India by default plus anything already
  * written in full international form.
  *
  * What it will NOT do, on purpose:

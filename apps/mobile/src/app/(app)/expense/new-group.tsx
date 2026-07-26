@@ -145,7 +145,7 @@ export default function NewGroup() {
                 key={p.id}
                 name={p.display_name}
                 avatarUrl={p.avatar_url}
-                meta={p.is_placeholder ? 'Not on Hisaab yet' : undefined}
+                meta={p.is_placeholder ? 'Not on Chukta yet' : undefined}
                 selected={members.includes(p.id)}
                 onPress={() =>
                   setMembers((prev) =>
@@ -159,7 +159,7 @@ export default function NewGroup() {
                 matching nobody, so there was no visible way to add a person at all. */}
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Add someone who is not on Hisaab"
+              accessibilityLabel="Add someone who is not on Chukta"
               onPress={() => setAddingPerson(true)}
             >
               <GlassSurface radius={radius.cardCompact} contentStyle={styles.inventRow}>

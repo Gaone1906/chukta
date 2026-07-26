@@ -33,8 +33,13 @@ export default function Done() {
 
       {settled ? (
         <Animated.View entering={FadeIn.duration(420).delay(120)} style={styles.ctaWrap}>
+          {/*
+            * Was "Go to your hisaab-kitaab". That was a Hindi idiom rather than the app's name,
+            * so the rename could not just substitute the word — "chukta-kitaab" is not a
+            * phrase anyone says. Kept the register, dropped the pun.
+            */}
           <GlassButton
-            label="Go to your hisaab-kitaab"
+            label="Open your ledger"
             variant="primary"
             onPress={() => router.replace('/')}
           />

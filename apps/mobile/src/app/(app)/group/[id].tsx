@@ -1,4 +1,4 @@
-import { formatAmount, money } from '@hisaab/core';
+import { formatAmount, money } from '@chukta/core';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -122,7 +122,7 @@ export default function GroupDetail() {
                   >
                     <Text style={styles.memberName} numberOfLines={1}>
                       {m.display_name}
-                      {m.is_placeholder ? <Text style={styles.pending}>  not on Hisaab yet</Text> : null}
+                      {m.is_placeholder ? <Text style={styles.pending}>  not on Chukta yet</Text> : null}
                     </Text>
                     <Text
                       style={[

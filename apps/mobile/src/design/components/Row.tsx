@@ -1,4 +1,4 @@
-import type { Money } from '@hisaab/core';
+import type { Money } from '@chukta/core';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';

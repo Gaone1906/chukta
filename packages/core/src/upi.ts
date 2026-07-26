@@ -129,7 +129,7 @@ export function parseUpiUri(uri: string): Record<string, string> {
  * it in free text is how a note ends up disagreeing with the payment after an edit.
  */
 export function settlementNote(payerName: string, groupName?: string | null): string {
-  const base = groupName ? `Hisaab · ${groupName}` : 'Hisaab settle up';
+  const base = groupName ? `Chukta · ${groupName}` : 'Chukta settle up';
   const withWho = `${base} · ${payerName}`;
   return (withWho.length <= MAX_NOTE_LENGTH ? withWho : base).slice(0, MAX_NOTE_LENGTH);
 }

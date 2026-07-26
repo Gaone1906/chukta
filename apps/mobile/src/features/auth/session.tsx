@@ -23,7 +23,7 @@ export interface Profile {
  * and dropped you on "Tell us who you are" — with your name gone from the field. Found by
  * launching the app with the server pulled out from under it.
  */
-const profileStore = createMMKV({ id: 'hisaab-auth' });
+const profileStore = createMMKV({ id: 'chukta-auth' });
 const PROFILE_KEY = 'cached-profile';
 
 function readCachedProfile(): Profile | null {

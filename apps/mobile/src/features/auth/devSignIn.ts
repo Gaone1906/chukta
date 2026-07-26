@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabase';
  * works where email signup needs no confirmation, which is the local stack's default and not
  * how the hosted project is configured.
  */
-export async function devSignIn(email = 'dev@hisaab.test', password = 'hisaab-dev-password'): Promise<void> {
+export async function devSignIn(email = 'dev@chukta.test', password = 'chukta-dev-password'): Promise<void> {
   const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
   if (!signInError) return;
 
@@ -26,5 +26,5 @@ export async function devSignIn(email = 'dev@hisaab.test', password = 'hisaab-de
 
 /** A throwaway address, so each tap starts a genuinely new account. */
 export function randomDevEmail(): string {
-  return `dev-${Math.random().toString(36).slice(2, 9)}@hisaab.test`;
+  return `dev-${Math.random().toString(36).slice(2, 9)}@chukta.test`;
 }

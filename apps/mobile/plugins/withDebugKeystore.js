@@ -8,7 +8,7 @@ const { withDangerousMod } = require('expo/config-plugins');
  * Expo templates ship a single shared `debug.keystore`, so every project generated from them
  * has the same SHA-1 fingerprint. Google enforces global uniqueness on
  * (package name + fingerprint) for Android OAuth clients, which means registering
- * `com.hisaab.app` against that shared fingerprint fails with:
+ * `com.chukta.app` against that shared fingerprint fails with:
  *
  *     Ownership verification failed — the Android package name and fingerprint
  *     are already in use

@@ -1,4 +1,4 @@
-// @hisaab/core — pure money logic shared by the app and (via Deno) the Edge Functions.
+// @chukta/core — pure money logic shared by the app and (via Deno) the Edge Functions.
 //
 // Nothing in this package may import React Native, Node built-ins, or perform I/O.
 // Everything here is a pure function so it can be property-tested exhaustively and so the

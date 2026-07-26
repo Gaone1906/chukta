@@ -209,7 +209,7 @@ export default function WhoPicker() {
                 <Text style={styles.sectionTitle}>Or pick people</Text>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Add someone who is not on Hisaab"
+                  accessibilityLabel="Add someone who is not on Chukta"
                   hitSlop={8}
                   onPress={() => setAddingPerson(true)}
                   style={styles.newGroup}
@@ -232,7 +232,7 @@ export default function WhoPicker() {
                     key={p.id}
                     name={p.display_name}
                     avatarUrl={p.avatar_url}
-                    meta={p.is_placeholder ? 'Not on Hisaab yet' : undefined}
+                    meta={p.is_placeholder ? 'Not on Chukta yet' : undefined}
                     selected={people.includes(p.id)}
                     onPress={() => togglePerson(p.id)}
                   />
@@ -243,7 +243,7 @@ export default function WhoPicker() {
                     capability with no visible door, which is exactly how it went unnoticed. */}
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Add someone who is not on Hisaab"
+                  accessibilityLabel="Add someone who is not on Chukta"
                   onPress={() => setAddingPerson(true)}
                 >
                   <GlassSurface radius={radius.cardCompact} contentStyle={styles.inventRow}>

@@ -61,8 +61,8 @@ alpha needs a hosted project. Free tier is plenty.
 
 Free. Three OAuth client IDs, because Google treats each platform separately.
 
-1. **https://console.cloud.google.com** → create a project called `Hisaab`.
-2. **APIs & Services → OAuth consent screen**: External, app name `Hisaab`, your email as
+1. **https://console.cloud.google.com** → create a project called `Chukta`.
+2. **APIs & Services → OAuth consent screen**: External, app name `Chukta`, your email as
    support and developer contact. Save. Leave it in Testing mode and add your own Google
    account under **Test users** — that's enough for alpha.
 3. **APIs & Services → Credentials → Create credentials → OAuth client ID**, three times:
@@ -218,7 +218,7 @@ it. Exposure is not undone by deleting the message.
 
 ## Still undecided
 
-- **Store display name** — "Hisaab" is taken on the stores. The bundle id `com.hisaab.app` is
+- **Store display name** — "Chukta" is taken on the stores. The bundle id `com.hisaab.app` is
   fixed and users never see it, so only the display name needs choosing, before Phase 11.
 - **A domain**, for iOS Universal Links / Android App Links so invite links resolve when the
   app isn't installed. Also where the Terms and Privacy pages get hosted.

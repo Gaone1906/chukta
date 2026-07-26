@@ -66,7 +66,7 @@ begin
    *
    * `assert_known_profiles` gates placeholders only: a claimed account cannot be merged
    * (`merge_profiles` refuses any source with a `user_id`), so there is no takeover to reach
-   * through one, and gating it would break adding a friend who is already on Hisaab.
+   * through one, and gating it would break adding a friend who is already on Chukta.
    */
   perform auth_ext.assert_known_profiles(v_me, p_profile_ids);
 

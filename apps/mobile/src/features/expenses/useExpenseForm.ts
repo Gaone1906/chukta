@@ -1,4 +1,4 @@
-import { formatAmount, money, parseAmount, toAmountInput, type SplitType } from '@hisaab/core';
+import { formatAmount, money, parseAmount, toAmountInput, type SplitType } from '@chukta/core';
 import { useMemo, useState } from 'react';
 
 import type { ExpenseDraft } from '@/lib/api';

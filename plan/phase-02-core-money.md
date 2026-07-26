@@ -109,7 +109,7 @@ preview can be checked against something.
 ## Verification
 
 ```bash
-npm run test --workspace @hisaab/core
+npm run test --workspace @chukta/core
 ```
 
 Later, in Phase 3, the same fixtures run against the plpgsql `app.allocate_minor` via pgTAP

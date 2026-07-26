@@ -140,13 +140,13 @@ describe('buildUpiUri', () => {
 
 describe('settlementNote', () => {
   it('names the group when there is one', () => {
-    expect(settlementNote('Dev', 'Goa, finally')).toBe('Hisaab · Goa, finally · Dev');
-    expect(settlementNote('Dev')).toBe('Hisaab settle up · Dev');
+    expect(settlementNote('Dev', 'Goa, finally')).toBe('Chukta · Goa, finally · Dev');
+    expect(settlementNote('Dev')).toBe('Chukta settle up · Dev');
   });
 
   it('drops the name rather than truncating mid-word, and never exceeds the cap', () => {
     const note = settlementNote('Somebody With A Very Long Name Indeed', 'A Group Name');
-    expect(note).toBe('Hisaab · A Group Name');
+    expect(note).toBe('Chukta · A Group Name');
     expect(note.length).toBeLessThanOrEqual(MAX_NOTE_LENGTH);
   });
 

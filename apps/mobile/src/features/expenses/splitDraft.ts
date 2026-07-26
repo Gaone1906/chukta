@@ -5,11 +5,11 @@ import {
   type LineItem,
   type SplitInput,
   type SplitType,
-} from '@hisaab/core';
+} from '@chukta/core';
 
 /**
  * The editable shape of a split, and its reduction to the pure `SplitInput` that
- * `@hisaab/core` — and therefore the server — understands.
+ * `@chukta/core` — and therefore the server — understands.
  *
  * Everything the user types stays as TEXT here. "50." and "" are both legitimate mid-typing
  * states, and coercing them to numbers on every keystroke either fights the keyboard or

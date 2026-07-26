@@ -36,7 +36,7 @@ import { submitFeedback } from '@/lib/api';
 const FAQS: { q: string; a: string }[] = [
   {
     q: 'How does settling up work?',
-    a: 'You pay through your own UPI app, then confirm it here. Hisaab records the settlement — it never touches the money, and nobody here can check your bank.',
+    a: 'You pay through your own UPI app, then confirm it here. Chukta records the settlement — it never touches the money, and nobody here can check your bank.',
   },
   {
     q: 'Can I use another currency?',
@@ -52,7 +52,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: 'Does anyone get nagged about money?',
-    a: 'Only if you send a reminder yourself. Hisaab never messages your friends on its own.',
+    a: 'Only if you send a reminder yourself. Chukta never messages your friends on its own.',
   },
   {
     q: 'What happens to my expenses if I delete my account?',

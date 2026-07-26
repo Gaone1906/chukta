@@ -1,4 +1,4 @@
-import { normalisePhone } from '@hisaab/core';
+import { normalisePhone } from '@chukta/core';
 
 /**
  * Pick exactly one contact, and read exactly that one contact.
@@ -10,7 +10,7 @@ import { normalisePhone } from '@hisaab/core';
  *
  * **What was rejected, and still is:** reading the address book. `getAll()` exists in this
  * package and is never called here. Nothing is enumerated, nothing is hashed and uploaded to
- * ask the server "which of these numbers are users", and Hisaab never learns who is in your
+ * ask the server "which of these numbers are users", and Chukta never learns who is in your
  * contacts. That upload is the thing that makes contact-matching a privacy problem, and it is
  * the thing we are still not doing.
  *
@@ -24,10 +24,10 @@ import { normalisePhone } from '@hisaab/core';
  *
  * ---------------------------------------------------------------- and what it can resolve to
  *
- * **A picked number can only ever match a placeholder, never a real Hisaab account.** Nothing
+ * **A picked number can only ever match a placeholder, never a real Chukta account.** Nothing
  * writes a `kind='phone'` contact point for a signed-up user — `set_my_phone` was the only
  * thing that would have, and phone was dropped from v1. So this is not "find your friends who
- * are already on Hisaab", and the copy around it must not suggest it is.
+ * are already on Chukta", and the copy around it must not suggest it is.
  *
  * It is still worth having: two friends who each add the same person by phone converge on ONE
  * placeholder instead of two, which is the duplicate-identity problem `normalisePhone` exists

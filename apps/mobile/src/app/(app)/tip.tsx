@@ -1,4 +1,4 @@
-import { formatAmount, money } from '@hisaab/core';
+import { formatAmount, money } from '@chukta/core';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
@@ -94,7 +94,7 @@ export default function TipJar() {
   const rate = async () => {
     try {
       if ((await rateApp()) === 'unavailable') {
-        ping('Once Hisaab is on the store, this is where you rate it.');
+        ping('Once Chukta is on the store, this is where you rate it.');
       }
     } catch (e) {
       ping((e as Error).message);
@@ -119,7 +119,7 @@ export default function TipJar() {
         <Text style={styles.headline}>Made free, on purpose.</Text>
 
         <Text style={styles.body}>
-          One developer, tired of ad-filled apps charging for basic features, built Hisaab to
+          One developer, tired of ad-filled apps charging for basic features, built Chukta to
           stay free — funded only by people who genuinely enjoy using it. A tip is entirely
           optional. Can&rsquo;t spare one? Rating it, or sharing it with a friend, helps just as
           much.
@@ -204,7 +204,7 @@ export default function TipJar() {
             <Pressable
               onPress={() => void rate()}
               accessibilityRole="button"
-              accessibilityLabel="Rate Hisaab"
+              accessibilityLabel="Rate Chukta"
               style={({ pressed }) => [
                 styles.pill,
                 styles.ratePill,
@@ -218,7 +218,7 @@ export default function TipJar() {
             <Pressable
               onPress={() => void share()}
               accessibilityRole="button"
-              accessibilityLabel="Share Hisaab"
+              accessibilityLabel="Share Chukta"
               style={({ pressed }) => [
                 styles.pill,
                 styles.sharePill,

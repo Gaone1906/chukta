@@ -1,4 +1,4 @@
-import { money } from '@hisaab/core';
+import { money } from '@chukta/core';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

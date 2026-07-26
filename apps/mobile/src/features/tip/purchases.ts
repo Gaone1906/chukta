@@ -67,7 +67,7 @@ export class TipUnavailableError extends Error {
 export async function purchase(productId: string): Promise<void> {
   if (!isTipJarConfigured()) {
     throw new TipUnavailableError(
-      "Tips go through the App Store and Play, and Hisaab isn't on either one yet.",
+      "Tips go through the App Store and Play, and Chukta isn't on either one yet.",
     );
   }
 

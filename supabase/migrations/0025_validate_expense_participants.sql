@@ -47,7 +47,7 @@ begin
   -- A claimed account cannot be absorbed at all — `merge_profiles` refuses any source with a
   -- `user_id` (0013:207), and `create_invite_link` refuses to mint a token for one (0020:46).
   -- There is no takeover to reach. And naming one is the *documented* product flow: you add a
-  -- friend by email, `upsert_contact_profile` finds they are already on Hisaab and hands back
+  -- friend by email, `upsert_contact_profile` finds they are already on Chukta and hands back
   -- THEIR real id, and you split with them straight away (AddPersonSheet.tsx:68-71). Gating that
   -- would break adding anyone who already has an account — the common case, not the edge.
   --

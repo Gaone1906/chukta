@@ -42,7 +42,7 @@ begin
 
   -- Already has an account: there is nothing to claim, and minting a token that could fold
   -- their profile into someone else's would be an account-takeover vector rather than an
-  -- invite. Callers show "they are already on Hisaab" instead.
+  -- invite. Callers show "they are already on Chukta" instead.
   if v_target.user_id is not null then
     raise exception 'that person already has an account' using errcode = 'P0001';
   end if;

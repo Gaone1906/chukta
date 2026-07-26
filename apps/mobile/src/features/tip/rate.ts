@@ -1,7 +1,7 @@
 import { Linking } from 'react-native';
 
 /**
- * "Rate Hisaab" — the same three-step ladder the tip jar uses for its RevenueCat seam, so this
+ * "Rate Chukta" — the same three-step ladder the tip jar uses for its RevenueCat seam, so this
  * lights up at launch with no code change.
  *
  * 1. **The in-app review sheet**, if the OS will show one. This is the good outcome: the user
@@ -29,7 +29,7 @@ import { Linking } from 'react-native';
  *
  * Apple's guidelines say not to ask in response to the user pressing a "rate us" button — the
  * prompt is meant to be offered at a natural moment, not on demand. That is a real tension with
- * a button the design asks for, and it resolves in our favour: a user who taps "Rate Hisaab" in
+ * a button the design asks for, and it resolves in our favour: a user who taps "Rate Chukta" in
  * the tip jar has gone looking for it, which is about as close to intent as this gets. What we
  * must not do is call this on a timer or after N expenses.
  */

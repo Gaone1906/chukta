@@ -1,13 +1,13 @@
-# Hisaab — Design Doc
+# Chukta — Design Doc
 
-This is the master reference for building Hisaab in Claude Code. It explains what
+This is the master reference for building Chukta in Claude Code. It explains what
 the app is, why it looks the way it does, every screen and what happens after it,
 and the exact design system to build against. Pair this with the screen images and
 HTML exports in `design-reference/`.
 
 ## What this app is
 
-Hisaab is a Splitwise clone for iOS: split shared expenses with friends, track who
+Chukta is a Splitwise clone for iOS: split shared expenses with friends, track who
 owes whom, settle up via UPI/Venmo/PayPal deep links. Every feature is free forever
 — no gated tiers, no paywalled multi-currency, no ads. The only monetization is an
 optional one-time tip jar. The pitch: everything Splitwise charges for, free,
@@ -17,7 +17,7 @@ features.
 ## How we got here (brief)
 
 Naming went FreeSplit → ChaiSutta (dropped — trademark overlap with the real "Chai
-Sutta Bar" franchise in India) → ChaiSplit → **Hisaab**, final. "Hisaab"
+Sutta Bar" franchise in India) → ChaiSplit → **Chukta**, final. "Chukta"
 (hisab-kitab) means "accounts/reckoning" in Hindi/Urdu.
 
 Visual direction went through a full pastel-glass exploration, then a premium
@@ -108,7 +108,7 @@ pattern for every screen change in the app**, not just the add-expense flow.
 
 Dry, confident, a little funny, never corporate. Examples already locked in:
 tagline "Splits everything except chai sutta breaks" (early direction, since
-revised alongside the Hisaab rename), the "चुकता" (chukta/settled) concept,
+revised alongside the Chukta rename), the "चुकता" (chukta/settled) concept,
 "EST. BETWEEN FRIENDS," and the tip jar's "Made free, on purpose" framing. Error
 and empty states should follow this same register — honest and plain, not
 apologetic, never guilt-driven (especially on the tip jar, which explicitly
@@ -192,7 +192,7 @@ copy says so honestly.
 ### Sidebar
 
 Slides in from the left over a dimmed Home screen. Profile summary at top, then:
-**Tip jar**, Settings, Invite friends, Help and feedback, About Hisaab, and Sign out
+**Tip jar**, Settings, Invite friends, Help and feedback, About Chukta, and Sign out
 near the bottom in a quieter treatment. (CSV/data export was considered and cut
 from v1 scope — too niche for launch.)
 
@@ -200,7 +200,7 @@ from v1 scope — too niche for launch.)
 
 Reached from a "+ Add someone new" affordance on the People tab. Search field,
 contacts list with Invite/Add buttons depending on whether the contact is already
-on Hisaab, and a note that invited friends can view a shared expense before
+on Chukta, and a note that invited friends can view a shared expense before
 installing the app.
 
 ### Settings
@@ -214,7 +214,7 @@ link, de-emphasized.
 Reached from the Sidebar. The app's only monetization touchpoint. "Made free, on
 purpose" headline, an honest explanation of the free-forever philosophy, preset
 one-time amounts (₹99/₹199/₹499) + custom amount, a primary "Send tip" button, and
-a visually secondary "Share Hisaab" action for people who can't tip but can spread
+a visually secondary "Share Chukta" action for people who can't tip but can spread
 the word. One-time only, no subscription — stated explicitly at the bottom.
 
 ### Help and feedback
@@ -223,10 +223,10 @@ Reached from the Sidebar. FAQ accordion (4-5 common questions, short honest
 answers), plus a direct feedback text area that goes straight to the developers,
 not a support queue.
 
-### About Hisaab
+### About Chukta
 
 Reached from the Sidebar. Stamp mark, app name, one or two lines on the app's
-philosophy, version number, links (Terms, Privacy, Rate Hisaab, Tip jar), and a
+philosophy, version number, links (Terms, Privacy, Rate Chukta, Tip jar), and a
 modest credit line.
 
 ---

@@ -6,7 +6,7 @@ import {
   parseAmount,
   settlementNote,
   toAmountInput,
-} from '@hisaab/core';
+} from '@chukta/core';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import { Image } from 'expo-image';
@@ -133,7 +133,7 @@ export default function SettleUp() {
    * it goes out inside the UPI deep link as the transaction reference `tr`, before the write
    * is attempted at all. So the queue has to adopt that exact key rather than generate its
    * own. Handing UPI one reference and the server another would break the only thread tying a
-   * payment in GPay to a settlement in Hisaab.
+   * payment in GPay to a settlement in Chukta.
    */
   const record = () => {
     if (!profile) return;

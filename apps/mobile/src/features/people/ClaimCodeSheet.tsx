@@ -68,7 +68,7 @@ function ClaimCodeBody({
         // The server refuses a profile that already signed up. That is not a failure the user
         // caused, and it has a genuinely good answer, so it gets its own sentence.
         e.message.includes('already has an account')
-          ? `${displayName} is already on Hisaab — there is nothing to claim.`
+          ? `${displayName} is already on Chukta — there is nothing to claim.`
           : e.message,
       ),
   });
@@ -89,7 +89,7 @@ function ClaimCodeBody({
       visible
       onClose={onClose}
       title={`Claim code for ${displayName}`}
-      subtitle="They type this into Hisaab to take over their side of the ledger."
+      subtitle="They type this into Chukta to take over their side of the ledger."
       footer={
         <GlassButton
           label={expired ? 'Get a new code' : 'Done'}

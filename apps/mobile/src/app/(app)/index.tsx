@@ -1,4 +1,4 @@
-import { money } from '@hisaab/core';
+import { money } from '@chukta/core';
 import { useQuery } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -17,7 +17,7 @@ import { deltaFor } from '@/lib/offline/effects';
 import { useOffline } from '@/lib/offline/OfflineProvider';
 import { queryKeys } from '@/lib/queryKeys';
 
-const WORDMARK = require('../../../assets/brand/hisaab-mark.png');
+const WORDMARK = require('../../../assets/brand/chukta-mark.png');
 
 /**
  * Home — the hub.

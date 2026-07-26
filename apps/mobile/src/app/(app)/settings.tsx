@@ -227,7 +227,7 @@ export default function Settings() {
             >
               <Text style={styles.delete}>Delete account</Text>
             </Pressable>
-            <Text style={styles.version}>Hisaab v{version}</Text>
+            <Text style={styles.version}>Chukta v{version}</Text>
           </View>
         </View>
       </ScrollView>

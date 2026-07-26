@@ -1,20 +1,30 @@
 import type { ExpoConfig } from 'expo/config';
 
-// The store-facing display name is deliberately a variable: "Hisaab" already exists on the
-// stores, so the final name is decided before submission (plan/PROGRESS.md, open question #1).
-// The bundle identifier is NOT flexible — it is painful to change after first submission.
-const DISPLAY_NAME = process.env.APP_DISPLAY_NAME ?? 'Hisaab';
+/*
+ * "Chukta" — settled, paid off. What the seal has said all along: SQUARED · SETTLED.
+ *
+ * The name was forced rather than chosen. "Hisaab" is contested by at least eight shipping
+ * apps, two of which are this same product with this same pitch — "Hisaab: Split Group
+ * Expenses" on Play and "Hisaab: Split Bills & UPI" on the App Store. Being the ninth would
+ * have meant no search discovery at all, plus a real chance of an Apple rejection for a
+ * confusingly similar name. "Barabar" was checked and is also taken.
+ *
+ * Still a variable, because a store can refuse a name at submission and this should not need
+ * a code change to answer that.
+ */
+const DISPLAY_NAME = process.env.APP_DISPLAY_NAME ?? 'Chukta';
 
-// Product-named and namespace-neutral. Never shown to users, so it can stay `hisaab` even if
-// the store display name has to change. Owning hisaab.com is not required for this.
-const BUNDLE_ID = 'com.hisaab.app';
+// Never shown to users. Changed alongside the rename because a bundle id CANNOT change once a
+// store listing exists — so it was now or never, and a package called `com.hisaab.app` under an
+// app called Chukta would have been permanent misdirection for whoever reads this next.
+const BUNDLE_ID = 'com.chukta.app';
 
 const config: ExpoConfig = {
   name: DISPLAY_NAME,
-  slug: 'hisaab',
+  slug: 'chukta',
   version: '1.0.0',
   orientation: 'portrait',
-  scheme: 'hisaab',
+  scheme: 'chukta',
 
   // Dark mode only — a deliberate, permanent decision, not a placeholder. See docs/design-doc.md.
   userInterfaceStyle: 'dark',
@@ -23,13 +33,33 @@ const config: ExpoConfig = {
   ios: {
     bundleIdentifier: BUNDLE_ID,
     supportsTablet: false,
+
+    /*
+     * Sign in with Apple, declared HERE rather than only in the generated entitlements file.
+     *
+     * `ios/` is gitignored and regenerated, and the entitlement had only ever existed in the
+     * generated `.entitlements` — so the next `expo prebuild --clean` would have silently
+     * dropped it and broken Apple sign-in with no config change anywhere to explain why. This
+     * had to land before the rename's prebuild, which is exactly such a clean.
+     */
+    usesAppleSignIn: true,
     // UPI apps must be declared here or canOpenURL() always returns false.
     // Populated by the UPI config plugin in Phase 6.
     infoPlist: {
       LSApplicationQueriesSchemes: ['upi', 'gpay', 'tez', 'phonepe', 'paytmmp', 'bhim', 'venmo'],
 
-      // Google's iOS SDK redirects back into the app through the reversed client id. Without
-      // this URL scheme the sheet opens and then has nowhere to return to.
+      /*
+       * Google's iOS SDK redirects back into the app through the reversed client id. Without
+       * this URL scheme the sheet opens and then has nowhere to return to.
+       *
+       * ⚠️ **STALE UNTIL A NEW iOS OAUTH CLIENT EXISTS.** A Google iOS client is bound to the
+       * bundle id, and the bundle id just changed to `com.chukta.app`. The id below was issued
+       * for the OLD bundle id, so iOS Google sign-in will fail until a new client is
+       * created in Google Cloud for the new bundle id and BOTH this scheme and
+       * `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` are updated to match it. The new client id must
+       * also be added to Supabase Auth's comma-separated audience list, or the token is
+       * rejected with `Unacceptable audience in id_token`.
+       */
       CFBundleURLTypes: [
         {
           CFBundleURLSchemes: [
@@ -52,12 +82,12 @@ const config: ExpoConfig = {
        * shipping without whichever the app actually calls is an immediate review rejection.
        */
       NSCameraUsageDescription:
-        'Hisaab uses the camera only to photograph a receipt you attach to an expense.',
+        'Chukta uses the camera only to photograph a receipt you attach to an expense.',
       NSPhotoLibraryUsageDescription:
-        'Hisaab reads only the photo you pick, to attach it to an expense as a receipt.',
+        'Chukta reads only the photo you pick, to attach it to an expense as a receipt.',
 
       NSContactsUsageDescription:
-        'Hisaab only reads the single contact you choose, to fill in their name and number. Your address book is never uploaded.',
+        'Chukta only reads the single contact you choose, to fill in their name and number. Your address book is never uploaded.',
     },
   },
 

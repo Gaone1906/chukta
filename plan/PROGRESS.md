@@ -171,7 +171,7 @@ gets switched on when the CHECK comes off.
 - `tokens.ts`, fonts (Rozha One + Hind), `GlassSurface` with three backends behind one switch,
   `AmbientBackground`, `Row`/`BalanceChip`, `SegmentedSwitcher`, `GlassButton`, `FAB`, `Seal`,
   `Toast`, and the `RippleReveal` transition.
-- `@hisaab/core` gained `money.ts` + `format.ts` early — the balance chip needs en-IN
+- `@chukta/core` gained `money.ts` + `format.ts` early — the balance chip needs en-IN
   lakh/crore grouping, and it is our own implementation rather than `Intl` because Hermes' ICU
   support differs across platforms.
 - Kitchen sink at `src/app/index.tsx`: every primitive, a glass-backend picker, and a
@@ -232,7 +232,7 @@ balance and emits at most n−1 transfers; and both currency vectors sum exactly
 - Expenses with a nullable `group_id` (one-offs), denormalised `group_id` on every child table
   so RLS policies stay flat, and `expense_debts` / `expense_participants` written in the same
   transaction.
-- `app.allocate_minor` — **verified byte-identical to `@hisaab/core` against all ten fixtures**,
+- `app.allocate_minor` — **verified byte-identical to `@chukta/core` against all ten fixtures**,
   including the reordered-keys tiebreak and the negative-total refund case.
 - `trg_expense_balanced` — deferred constraint trigger asserting payers and splits both sum to
   the total at commit.
@@ -928,7 +928,7 @@ only way most of this can be tested at all.
 #### Three deviations from the phase plan, all deliberate
 
 **Reads are cached, not mirrored — and Drizzle is gone.** The plan called for `expo-sqlite` +
-Drizzle mirroring ten server tables and recomputing balances locally with `@hisaab/core`. But
+Drizzle mirroring ten server tables and recomputing balances locally with `@chukta/core`. But
 every screen here is fed by one RPC that returns the whole screen with its balances already
 computed by the server's views, so persisting those responses verbatim *is* the offline read
 story. The plan's own requirement is that an offline balance must never disagree with an online

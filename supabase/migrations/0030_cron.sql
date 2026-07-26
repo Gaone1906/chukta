@@ -16,8 +16,8 @@
 --
 -- To configure an environment (NOT in this file, and not in any committed file):
 --
---   select vault.create_secret('https://<ref>.supabase.co/functions/v1', 'hisaab_functions_url');
---   select vault.create_secret('<service key>', 'hisaab_service_key');
+--   select vault.create_secret('https://<ref>.supabase.co/functions/v1', 'chukta_functions_url');
+--   select vault.create_secret('<service key>', 'chukta_service_key');
 
 create extension if not exists pg_cron;
 
@@ -62,8 +62,8 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_url  text := internal.vault_secret('hisaab_functions_url');
-  v_key  text := internal.vault_secret('hisaab_service_key');
+  v_url  text := internal.vault_secret('chukta_functions_url');
+  v_key  text := internal.vault_secret('chukta_service_key');
   v_msgs jsonb;
 begin
   if v_url is null or v_key is null then
@@ -168,10 +168,10 @@ declare
   v_job text;
 begin
   foreach v_job in array array[
-    'hisaab-notification-dispatch',
-    'hisaab-notification-sweep',
-    'hisaab-recurring',
-    'hisaab-purge-claim-codes'
+    'chukta-notification-dispatch',
+    'chukta-notification-sweep',
+    'chukta-recurring',
+    'chukta-purge-claim-codes'
   ] loop
     begin
       perform cron.unschedule(v_job);
@@ -184,10 +184,10 @@ end $$;
 -- Every 30 seconds. The queue's 45-second coalescing window means a notification waits at most
 -- ~75s, which is well inside "prompt" for this app and buys the collapsing that makes bulk
 -- entry survivable.
-select cron.schedule('hisaab-notification-dispatch', '30 seconds',
+select cron.schedule('chukta-notification-dispatch', '30 seconds',
                      $$select internal.dispatch_notifications()$$);
 
-select cron.schedule('hisaab-notification-sweep', '*/5 * * * *',
+select cron.schedule('chukta-notification-sweep', '*/5 * * * *',
                      $$select internal.requeue_stuck_notifications()$$);
 
 /*
@@ -195,9 +195,9 @@ select cron.schedule('hisaab-notification-sweep', '*/5 * * * *',
  * so "the 1st of the month" has to be noticed at local midnight wherever the user is. A daily
  * job would fire every rule at one UTC instant and post a day early or late for most of them.
  */
-select cron.schedule('hisaab-recurring', '0 * * * *',
+select cron.schedule('chukta-recurring', '0 * * * *',
                      $$select app.run_due_recurring_expenses()$$);
 
 -- 0026 wrote this and deliberately left it unscheduled, waiting for exactly this file.
-select cron.schedule('hisaab-purge-claim-codes', '17 3 * * *',
+select cron.schedule('chukta-purge-claim-codes', '17 3 * * *',
                      $$select internal.purge_claim_codes()$$);

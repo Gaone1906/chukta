@@ -28,7 +28,7 @@ import { rateApp } from '@/features/tip/rate';
 
 // Published from legal/ via GitHub Pages. The stores require both to be reachable URLs that
 // work without the app installed, which rules out anything served from inside it.
-const LEGAL_BASE = 'https://gaone1906.github.io/hisaab';
+const LEGAL_BASE = 'https://gaone1906.github.io/chukta';
 
 export default function About() {
   const insets = useSafeAreaInsets();
@@ -60,7 +60,7 @@ export default function About() {
   const rate = async () => {
     try {
       if ((await rateApp()) === 'unavailable') {
-        setToast('Once Hisaab is on the store, this is where you rate it.');
+        setToast('Once Chukta is on the store, this is where you rate it.');
         setTimeout(() => setToast(null), 3000);
       }
     } catch (e) {
@@ -83,7 +83,7 @@ export default function About() {
         <View style={styles.hero}>
           {/* `state="settled"` — the stamp already landed. This is a mark, not a moment. */}
           <Seal size={104} state="settled" label="" />
-          <Text style={styles.name}>Hisaab</Text>
+          <Text style={styles.name}>Chukta</Text>
           <Text style={styles.tagline}>
             Built to stay free forever. No ads, no paywalls, no subscriptions — just a quiet
             ledger between friends.
@@ -96,7 +96,7 @@ export default function About() {
           <Rule />
           <LinkRow label="Privacy Policy" onPress={() => void openLegal('privacy')} />
           <Rule />
-          <LinkRow label="Rate Hisaab" onPress={() => void rate()} />
+          <LinkRow label="Rate Chukta" onPress={() => void rate()} />
           <Rule />
           <LinkRow
             label="Tip jar"

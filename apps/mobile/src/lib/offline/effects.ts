@@ -1,4 +1,4 @@
-import { resolvePairwise } from '@hisaab/core';
+import { resolvePairwise } from '@chukta/core';
 
 /**
  * What a queued write does to the numbers on screen, before the server has seen it.

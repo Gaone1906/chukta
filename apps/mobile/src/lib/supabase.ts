@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '@hisaab/core';
+import type { Database } from '@chukta/core';
 import { AppState } from 'react-native';
 import { createMMKV } from 'react-native-mmkv';
 
@@ -14,7 +14,7 @@ import { env } from './env';
  * itself — a visible flash on every cold start.
  */
 // react-native-mmkv v4: instances come from createMMKV(), and the delete method is `remove`.
-const storage = createMMKV({ id: 'hisaab-auth' });
+const storage = createMMKV({ id: 'chukta-auth' });
 
 const mmkvStorageAdapter = {
   getItem: (key: string) => storage.getString(key) ?? null,

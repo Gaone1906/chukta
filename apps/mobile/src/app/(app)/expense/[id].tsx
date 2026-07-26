@@ -1,4 +1,4 @@
-import { formatAmount, money } from '@hisaab/core';
+import { formatAmount, money } from '@chukta/core';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';

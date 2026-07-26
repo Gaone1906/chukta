@@ -216,7 +216,7 @@ function SidebarContent({
                 icon={<HelpIcon />}
                 onPress={(e) => go(e, '/help')}
               />
-              <SidebarRow label="About Hisaab" icon={<AboutIcon />} onPress={(e) => go(e, '/about')} />
+              <SidebarRow label="About Chukta" icon={<AboutIcon />} onPress={(e) => go(e, '/about')} />
             </View>
 
             <View style={styles.spacer} />
@@ -245,7 +245,7 @@ function SidebarContent({
 
             {/* Read, never hardcoded — the prototype's "v1.0.3" disagrees with the About
                 screen's, which is exactly what hardcoding a version gets you. */}
-            <Text style={styles.version}>Hisaab v{version}</Text>
+            <Text style={styles.version}>Chukta v{version}</Text>
           </GlassSurface>
         </Animated.View>
       </GestureDetector>

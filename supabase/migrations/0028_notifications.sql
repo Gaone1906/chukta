@@ -332,7 +332,7 @@ begin
     when 'comment'         then 'New comment'
     when 'settlement'      then 'Settled up'
     when 'group_added'     then 'Added to a group'
-    else 'Hisaab'
+    else 'Chukta'
   end;
 
   v_body := case v_kind

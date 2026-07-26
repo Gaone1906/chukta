@@ -41,7 +41,7 @@ to end up displaying a wrong balance.
 `expense_payers`, `expense_splits`, `expense_debts`, `expense_participants`, `settlements`,
 `expense_comments`, plus a `sync_state(last_event_id, last_full_sync_at)` row.
 
-Balances are recomputed **locally** from the same `expense_debts` shape using `@hisaab/core` —
+Balances are recomputed **locally** from the same `expense_debts` shape using `@chukta/core` —
 the same allocator and the same simplification the server runs. An offline balance must never
 disagree with an online one.
 

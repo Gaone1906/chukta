@@ -1,4 +1,4 @@
-import { formatAmount, money, parseAmount, toAmountInput } from '@hisaab/core';
+import { formatAmount, money, parseAmount, toAmountInput } from '@chukta/core';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 

@@ -1,4 +1,4 @@
-import { formatAmount, money } from '@hisaab/core';
+import { formatAmount, money } from '@chukta/core';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GlassSurface, color, font, radius } from '@/design';

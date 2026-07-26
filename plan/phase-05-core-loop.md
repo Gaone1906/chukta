@@ -50,7 +50,7 @@ directly.
 Reference: `design-reference/screens/Hisaab Home.dc.html`
 
 - Segmented switcher Groups ⇄ People (component exists from Phase 1).
-- Rows from `get_home_summary`, amounts via `@hisaab/core` `formatAmount`.
+- Rows from `get_home_summary`, amounts via `@chukta/core` `formatAmount`.
 - Profile button → Sidebar (Phase 7 stub for now). FAB → picker.
 - **Empty states** — none exist in the design set. A brand-new account currently has no
   designed experience at all; write one for both tabs.
@@ -94,7 +94,7 @@ Reference: `Hisaab Expense Form.dc.html` — the most interactive screen in the 
 - Amount, description, date, who paid, split-type tabs, live preview, Save.
 - **All five split types with real per-person inputs.** The prototype has no editable
   per-person fields at all and fabricates its distributions; this is new UI, not a port.
-- Preview computed by `@hisaab/core` `computeShares` — the same function the server mirrors.
+- Preview computed by `@chukta/core` `computeShares` — the same function the server mirrors.
 - The optional "name this group" field: naming it promotes the participant set into a group,
   leaving it blank keeps a one-off. `create_expense` takes `new_group` for exactly this.
 - Date picker and payer picker are toast stubs in the prototype — both need building.

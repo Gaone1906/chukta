@@ -1,5 +1,5 @@
 /**
- * Design tokens for Hisaab.
+ * Design tokens for Chukta.
  *
  * Values come from docs/design-doc.md, cross-checked against the actual prototype exports in
  * design-reference/screens/ — where the two disagreed, the prototypes won, because those are

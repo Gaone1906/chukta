@@ -201,7 +201,7 @@ window do a full resync.
 ## Acceptance criteria
 
 - `supabase db reset` applies all migrations cleanly from scratch
-- pgTAP: `allocate_minor` matches `@hisaab/core` on shared fixtures
+- pgTAP: `allocate_minor` matches `@chukta/core` on shared fixtures
 - pgTAP: the balanced trigger rejects `Σ splits ≠ total`
 - pgTAP: replaying a `client_mutation_id` doesn't duplicate
 - pgTAP: `merge_profiles` preserves every net balance

@@ -1,4 +1,4 @@
-import { formatAmount, money } from '@hisaab/core';
+import { formatAmount, money } from '@chukta/core';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 

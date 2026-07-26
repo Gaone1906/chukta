@@ -9,7 +9,7 @@
       "@/assets/*": [
         "./assets/*"
       ],
-      "@hisaab/core": [
+      "@chukta/core": [
         "../../packages/core/src/index.ts"
       ]
     }

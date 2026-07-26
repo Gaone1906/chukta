@@ -1,10 +1,10 @@
 # Privacy Policy
 
-**Effective:** [EFFECTIVE_DATE] · **Applies to:** the Hisaab mobile app for iOS and Android
+**Effective:** [EFFECTIVE_DATE] · **Applies to:** the Chukta mobile app for iOS and Android
 
 > ⚠️ Draft. Not reviewed legal advice. See `legal/README.md`.
 
-Hisaab is an expense-splitting app. It records who paid for what among friends so nobody has
+Chukta is an expense-splitting app. It records who paid for what among friends so nobody has
 to keep a mental tally. This policy explains what it stores, why, and what you can do about it.
 
 Short version: we store what's needed to compute balances between you and the people you share
@@ -15,7 +15,7 @@ trackers.
 
 ## 1. Who we are
 
-Hisaab is published by [ENTITY]. Contact: [CONTACT_EMAIL].
+Chukta is published by [ENTITY]. Contact: [CONTACT_EMAIL].
 
 For users in India, the Grievance Officer under the Digital Personal Data Protection Act 2023
 is [GRIEVANCE_OFFICER], reachable at [CONTACT_EMAIL].
@@ -48,7 +48,7 @@ address. We never see your real one.
 someone, your phone shows you its own contact picker and hands us the **one** contact you
 select, so we can fill in their name and number. We never read, scan, upload or store your
 address book, and we never check your contacts against our records to tell you who else uses
-Hisaab. You can add anyone by typing their name instead, which needs no permission at all.
+Chukta. You can add anyone by typing their name instead, which needs no permission at all.
 
 **We do not collect:** your address book (see above — only the single contact you pick, and
 only when you pick one), your location, your advertising identifier, your browsing activity,
@@ -57,9 +57,9 @@ we never see who you invited or how.
 
 ## 3. What we never touch
 
-**Hisaab does not process payments.** When you tap "Pay via", the app hands a pre-filled
+**Chukta does not process payments.** When you tap "Pay via", the app hands a pre-filled
 request to your UPI, Venmo or PayPal app and stops there. Whether you actually pay, and what
-happens inside that app, is between you and them. Nothing in Hisaab is verified against a bank
+happens inside that app, is between you and them. Nothing in Chukta is verified against a bank
 or a payment processor — marking something settled is a self-reported note, and the app says so
 where it matters.
 
@@ -88,7 +88,7 @@ becomes yours. You can review and leave any group.
 | Frankfurter / European Central Bank | Currency rates | Nothing about you — we fetch rates, we send nothing |
 
 **We never sell your data, and we never share it for advertising.** There is no advertising in
-Hisaab and no plans for any.
+Chukta and no plans for any.
 
 **Legal disclosure:** we will disclose data if legally compelled, and will tell you unless
 prohibited from doing so.
@@ -126,7 +126,7 @@ local supervisory authority.
 
 ## 8. Children
 
-Hisaab isn't intended for anyone under 13 (or the local minimum age). We don't knowingly
+Chukta isn't intended for anyone under 13 (or the local minimum age). We don't knowingly
 collect their data. If you believe a child has an account, email us and we'll remove it.
 
 ## 9. Security

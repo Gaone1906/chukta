@@ -15,7 +15,7 @@ import Animated, {
 import { color, font, motion } from '../tokens';
 import { useReduceMotion } from '../useReduceMotion';
 
-const STAMP = require('../../../assets/brand/hisaab-stamp.png');
+const STAMP = require('../../../assets/brand/chukta-stamp.png');
 
 export type SealState = 'loading' | 'settled' | 'animate';
 
@@ -156,7 +156,7 @@ export function Seal({ size = 158, state = 'animate', label = 'Sealing your ledg
             source={STAMP}
             style={{ width: size, height: size }}
             contentFit="contain"
-            accessibilityLabel="Hisaab seal"
+            accessibilityLabel="Chukta seal"
           />
         </Animated.View>
       </View>

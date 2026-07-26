@@ -1,4 +1,4 @@
-import { formatAmount, money, type SplitType } from '@hisaab/core';
+import { formatAmount, money, type SplitType } from '@chukta/core';
 import * as Crypto from 'expo-crypto';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';

@@ -132,7 +132,7 @@ begin
     when 'comment'         then 'New comment'
     when 'settlement'      then 'Settled up'
     when 'group_added'     then 'Added to a group'
-    else 'Hisaab'
+    else 'Chukta'
   end;
 
   v_body := case v_kind
@@ -296,13 +296,13 @@ revoke all on function internal.purge_sync_spine() from public, anon, authentica
 do $$
 begin
   begin
-    perform cron.unschedule('hisaab-purge-sync-spine');
+    perform cron.unschedule('chukta-purge-sync-spine');
   exception when others then
     null;
   end;
 end $$;
 
-select cron.schedule('hisaab-purge-sync-spine', '43 3 * * *',
+select cron.schedule('chukta-purge-sync-spine', '43 3 * * *',
                      $$select internal.purge_sync_spine()$$);
 
 notify pgrst, 'reload schema';

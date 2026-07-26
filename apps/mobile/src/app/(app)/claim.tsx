@@ -116,7 +116,7 @@ export default function Claim() {
         ) : (
           <>
             <Text style={styles.lede}>
-              If a friend added you to Hisaab before you signed up, they can generate a code for
+              If a friend added you to Chukta before you signed up, they can generate a code for
               you. Typing it here moves everything they recorded against you onto this account.
             </Text>
 
