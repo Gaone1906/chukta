@@ -305,18 +305,25 @@ const config: ExpoConfig = {
      *
      * A Sentry project now exists and `EXPO_PUBLIC_SENTRY_DSN` is set, so crashes will arrive.
      *
-     * ⚠️ **Source maps will NOT upload yet.** That needs `organization` and `project` — the
-     * SLUGS, which are not derivable from the DSN (it carries numeric ids: the `o…` host is the
-     * org id, the trailing path the project id). Find them in the Sentry URL,
-     * `sentry.io/organizations/<org-slug>/projects/<project-slug>/`, and add them here.
+     * ⚠️ **Source maps will NOT upload yet** — `project` is still missing, so every stack trace
+     * arrives as one line of minified bundle, which is close to useless for the thing a beta
+     * exists to do.
      *
-     * Until then every stack trace arrives as one line of minified bundle, which is close to
-     * useless for the thing a beta exists to do.
+     * `organization` is the slug from the dashboard subdomain (`pranav-yarasi.sentry.io`), NOT
+     * the `o4511802768228352` in the DSN — that is the numeric id, and the plugin wants the
+     * slug. Same trap for the project: the DSN's trailing path is its id, and the slug has to
+     * come from `pranav-yarasi.sentry.io/settings/projects/`.
      *
      * The upload also needs `SENTRY_AUTH_TOKEN`. That one IS a secret — it belongs in EAS
      * environment variables and must NEVER be written here, because this file is committed.
      */
-    '@sentry/react-native/expo',
+    [
+      '@sentry/react-native/expo',
+      {
+        organization: 'pranav-yarasi',
+        // TODO: the project SLUG, from Settings → Projects. Not the id in the DSN.
+      },
+    ],
   ],
 
   experiments: {

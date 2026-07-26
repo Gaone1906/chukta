@@ -16,8 +16,33 @@ config, not code**: push migrations 0025–0036 to hosted Supabase, rotate the c
 (open item #11), Play upload keystore, a domain, icons and listings. The binding constraint on
 release is Play's **12 testers × 14 continuous days**, not engineering.
 
-**Next: Phase C — cloud.** `supabase link`, `migration list` before pushing, deploy
-`push-dispatch`, Vault secrets. **Needs the DB password.**
+**Phase C1 is done — hosted is fully migrated, 36 of 36.**
+
+The gap was **bigger than planned**: the plan expected 0025–0033 missing, and the real answer was
+**0020–0036 — seventeen migrations**. Hosted had been sitting at 0019 since Phase 7. That is the
+entire justification for the plan's "`migration list` FIRST" instruction, and it paid for itself.
+
+Checked before pushing rather than after, because 0025 and 0027 add validation and a constraint
+that fails against existing rows leaves a production database half-migrated: a data-only dump
+showed one auth user, one profile, one contact point and the two storage buckets — **no groups,
+no expenses, no splits**, so the new constraints had nothing to reject. (Dump deleted afterwards;
+it contained a live refresh token.)
+
+Verified by calling the hosted RPCs directly rather than trusting "Finished": `get_home_summary`
+and `get_group_detail` both answer anon with **42501 permission denied, not 404**. That is the
+result that proves two things at once — the functions are deployed and PostgREST can see them,
+and `revoke ... from anon` held.
+
+**Next: the rest of Phase C.**
+
+- **C2** — deploy `push-dispatch`; set the Vault secrets (`chukta_functions_url`,
+  `chukta_service_key`); **confirm `pg_net` is enabled on the hosted project.** `0030` created
+  `pg_cron` fine, but `net.http_post` sits inside a plpgsql body so it was never resolved at
+  migration time — the cron jobs are scheduled now and will fail at runtime if `pg_net` is
+  absent. Missing Vault secrets are safe by design (the jobs no-op), a missing extension is not.
+- **C3** — **rotate the compromised keys** (open item #11). The DB password is already done.
+- **C4** — the new Google client ids in Supabase Auth, once the OAuth clients are recreated
+  against `com.chukta.app`.
 
 The whole money loop works and has been walked on a device: sign in → profile → Home → add an
 expense in any of the five split types → see it agree on Home, the group and the person → edit
