@@ -219,6 +219,22 @@ export const layout = {
   /** The prototypes are all drawn at iPhone 14 Pro size; used for motion math and the sink. */
   designWidth: 390,
   designHeight: 844,
+
+  /**
+   * Minimum interactive size. Apple asks for 44pt, Material for 48dp; 44 satisfies the stricter
+   * reading of the first and is what the design was drawn against.
+   *
+   * **This is about BOUNDS, not `hitSlop`.** `hitSlop` genuinely enlarges the tappable region —
+   * it is not a lie — but it is invisible to Android's Accessibility Scanner and to Xcode's
+   * Accessibility Inspector, both of which measure the view's own frame. More importantly it is
+   * invisible to a person with a tremor looking for something to aim at: a 24pt icon with 20pt
+   * of slop around it still *looks* like a 24pt target.
+   *
+   * Where a control needs to stay visually small, the pattern is a `touchTarget`-sized
+   * Pressable centring a smaller decorated View — bounds and appearance decoupled, rather than
+   * the button growing.
+   */
+  touchTarget: 44,
 } as const;
 
 /**

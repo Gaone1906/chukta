@@ -16,16 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
-import {
-  GlassButton,
-  GlassSurface,
-  Sheet,
-  Toast,
-  color,
-  font,
-  radius,
-  useRippleNav,
-} from '@/design';
+import { GlassButton, GlassSurface, Sheet, Toast, color, font, layout, radius, useRippleNav } from '@/design';
 import { useSession } from '@/features/auth/session';
 import { describeDate } from '@/features/expenses/DateSheet';
 import { ScreenHeader } from '@/features/expenses/ScreenHeader';
@@ -474,7 +465,11 @@ function PersonAmountRow({
 const styles = StyleSheet.create({
   root: { flex: 1 },
   scroll: { paddingHorizontal: 22 },
-  editButton: { paddingHorizontal: 14, paddingVertical: 8 },
+  editButton: {
+    paddingHorizontal: 14,
+    minHeight: layout.touchTarget,
+    justifyContent: 'center',
+  },
   editLabel: { fontFamily: font.medium, fontSize: 15, color: color.creamWarm },
   loading: { marginTop: 24 },
   // Margin on `style`, not `contentStyle`. contentStyle lands on the inner view inside

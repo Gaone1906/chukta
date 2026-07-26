@@ -4,17 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import {
-  FAB,
-  GlassButton,
-  GlassSurface,
-  SettledBadge,
-  Toast,
-  color,
-  font,
-  radius,
-  useRippleNav,
-} from '@/design';
+import { FAB, GlassButton, GlassSurface, SettledBadge, Toast, color, font, layout, radius, useRippleNav } from '@/design';
 import { EmptyState } from '@/features/home/EmptyState';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
 import { ExpenseRow } from '@/features/expenses/ExpenseRow';
@@ -278,6 +268,10 @@ const styles = StyleSheet.create({
   sectionMeta: { fontFamily: font.light, fontSize: 12, color: color.textGhost },
   list: { gap: 11 },
   fab: { position: 'absolute', right: 24 },
-  settingsButton: { paddingVertical: 4, paddingHorizontal: 6 },
+  settingsButton: {
+    paddingHorizontal: 6,
+    minHeight: layout.touchTarget,
+    justifyContent: 'center',
+  },
   settingsLabel: { fontFamily: font.medium, fontSize: 14, color: color.creamWarm },
 });

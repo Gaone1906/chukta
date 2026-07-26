@@ -6,7 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
-import { GlassButton, GlassSurface, Sheet, Toast, color, font, radius } from '@/design';
+import { GlassButton, GlassSurface, Sheet, Toast, color, font, layout, radius } from '@/design';
 import { useSession } from '@/features/auth/session';
 import { ScreenHeader } from '@/features/expenses/ScreenHeader';
 import { PersonPickRow } from '@/features/expenses/PickRow';
@@ -493,7 +493,14 @@ const styles = StyleSheet.create({
     color: color.textFaint,
   },
   memberMeta: { fontFamily: font.light, fontSize: 12.5, color: color.textMuted },
-  removeButton: { padding: 6 },
+  // Bounds, not padding: a 12pt glyph with `padding: 6` is a 24pt target, which is what a
+  // scanner measures and what a shaky thumb has to hit.
+  removeButton: {
+    width: layout.touchTarget,
+    height: layout.touchTarget,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   leave: { marginTop: 30 },
   leaveHint: {

@@ -3,7 +3,7 @@ import * as Crypto from 'expo-crypto';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { GlassSurface, color, font, radius } from '@/design';
+import { GlassSurface, color, font, layout, radius } from '@/design';
 import { Avatar } from '@/features/people/Avatar';
 import type { Participant } from './PayerSheet';
 import type { DraftItem, SplitState } from './splitDraft';
@@ -239,17 +239,24 @@ function Stepper({
 }) {
   return (
     <View style={styles.stepper}>
+      {/*
+        * The Pressable is the 44pt target; the 30pt circle inside it is the appearance.
+        * Decoupling them is what lets a deliberately small control still be aimable — growing
+        * the circle to 44 would have changed a design the stepper was drawn against.
+        */}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`One fewer share for ${label}`}
-        hitSlop={8}
+        accessibilityState={{ disabled: value <= 1 }}
         disabled={value <= 1}
         onPress={() => onChange(Math.max(1, value - 1))}
-        style={[styles.stepButton, value <= 1 ? styles.stepDisabled : null]}
+        style={styles.stepTarget}
       >
-        <Svg width={11} height={2} viewBox="0 0 11 2" fill="none">
-          <Path d="M0.8 1h9.4" stroke={color.creamWarm} strokeWidth={1.6} strokeLinecap="round" />
-        </Svg>
+        <View style={[styles.stepButton, value <= 1 ? styles.stepDisabled : null]}>
+          <Svg width={11} height={2} viewBox="0 0 11 2" fill="none">
+            <Path d="M0.8 1h9.4" stroke={color.creamWarm} strokeWidth={1.6} strokeLinecap="round" />
+          </Svg>
+        </View>
       </Pressable>
 
       <Text style={styles.stepValue}>{value}</Text>
@@ -257,18 +264,19 @@ function Stepper({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`One more share for ${label}`}
-        hitSlop={8}
         onPress={() => onChange(value + 1)}
-        style={styles.stepButton}
+        style={styles.stepTarget}
       >
+        <View style={styles.stepButton}>
         <Svg width={11} height={11} viewBox="0 0 12 12" fill="none">
           <Path
             d="M6 1.6v8.8M1.6 6h8.8"
             stroke={color.creamWarm}
             strokeWidth={1.6}
-            strokeLinecap="round"
-          />
-        </Svg>
+              strokeLinecap="round"
+            />
+          </Svg>
+        </View>
       </Pressable>
     </View>
   );
@@ -459,7 +467,21 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: color.cream,
   },
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 0 },
+  /*
+   * Bounds, decoupled from appearance: a 44pt Pressable centring the 30pt circle below.
+   *
+   * This is NOT free — the stepper grows from 98pt wide to 106, and because each circle is
+   * centred in a wider box they sit about 4pt further apart than they were drawn. `gap` went
+   * from 10 to 0 to claw most of that back. The row has flex room to absorb the remainder, and
+   * 8pt of width is a fair price for two controls that were 30pt targets in a form about money.
+   */
+  stepTarget: {
+    width: layout.touchTarget,
+    height: layout.touchTarget,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   stepButton: {
     width: 30,
     height: 30,
