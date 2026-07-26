@@ -3,12 +3,21 @@
 Single place to answer "where are we". Update the status table and the log at the end of
 every phase. Each phase has its own file in this directory with the detailed work list.
 
-**Last updated:** 2026-07-26 (renamed to Chukta; Phase A all but done)
+**Last updated:** 2026-07-26 (Chukta; Phase A closed bar A11, Phase B done)
 
 ## Where we are, in one screen
 
 **10 of 12 phases done, and the app is now called Chukta.** 36 migrations, 206 pgTAP
 assertions, 166 TypeScript tests, all green. Tree clean, everything pushed.
+
+**Phase A is closed** except A11, which waits on store listings existing. **Phase B is done** —
+env precedence and EAS profiles. What remains before a beta is almost entirely **accounts and
+config, not code**: push migrations 0025–0036 to hosted Supabase, rotate the compromised keys
+(open item #11), Play upload keystore, a domain, icons and listings. The binding constraint on
+release is Play's **12 testers × 14 continuous days**, not engineering.
+
+**Next: Phase C — cloud.** `supabase link`, `migration list` before pushing, deploy
+`push-dispatch`, Vault secrets. **Needs the DB password.**
 
 The whole money loop works and has been walked on a device: sign in → profile → Home → add an
 expense in any of the five split types → see it agree on Home, the group and the person → edit
@@ -1666,14 +1675,60 @@ lint · 166 TS tests.**
 Plus, from using it: the stuck toast, the `expo-notifications` keychain noise, the About seal,
 the split-pill divider, and naming a group moving from a field to a question beside the name.
 
+| A10 | **Edge vignette measured** against text scrolling under the island — no token changed | `550a495` |
+| A13 | **Stale docs** that would have produced a false Contacts declaration to both stores | `6e0b9a2` |
+
 ## Left in Phase A
 
-- **A10 — tune the edge vignette.** Built and safe (`ce2e709`), never judged against text
-  actually scrolling under it. Settings or Help is now long enough to test on.
-- **A13 — stale docs.** `plan/phase-11-store-release.md:54` still claims there is no Contacts
-  permission; there is (`app.config.ts`), and both the Play Data Safety form and the iOS privacy
-  manifest must declare it. A false store declaration is the risk, not tidiness.
-- **A11 — `EXPO_PUBLIC_STORE_URL`** waits on store listings existing.
+- **A11 — `EXPO_PUBLIC_STORE_URL`** waits on store listings existing. Nothing to do until D6.
+
+That is the whole of it. **Phase A is otherwise closed.**
+
+### A10, in one line
+
+The vignette was right and needed no tuning. Measured on the picker with "Goa, finally" under
+the island against "Sunday football" sharp below it — same face, same card, so the vignette is
+the only variable: detail 0.60 vs 21–25, luminance 45 vs 145. ~35× less high-frequency detail,
+and luminance rising monotonically down the band, so the six layers are not banding. Numbers are
+in `EdgeVignette.tsx` so nobody re-tunes it blind. Known gap recorded there: Home has no footer
+and so no bottom fade once it scrolls, and a default bottom band would clip the FAB's lower
+~3pt — left as a noted decision rather than a guess.
+
+### A13, in one line
+
+`phase-11-store-release.md` claimed there was **no Contacts permission to declare**. There are
+two (`app.config.ts:89`, `:102`). The correction is not just an inversion: what the app does is
+genuinely narrow — OS-drawn picker, `getAll()` never called, no address book uploaded — and the
+tempting answer on Play's form is "accessed, not collected". That would be wrong, because the
+picked name and E.164 number are sent to the server and stored. **Contacts → collected → name,
+phone.** Also cut from v1 in the docs: IAP/tipping and recurring expenses, both of which would
+otherwise have had someone doing store work for features that are not shipping.
+
+## Phase B — done, 2026-07-26 (`d185435`)
+
+| # | Item |
+|---|---|
+| B1 | `.env.local` → **`.env.development.local`** |
+| B2 | `apps/mobile/eas.json` — development / preview / production |
+| B3 | Remote versioning: `appVersionSource` + `autoIncrement` |
+
+**B1 was the live hazard.** `.env.local` appears in @expo/env's resolution order with no mode
+qualifier, so it was loaded in production builds and beat `.env` — a release AAB would have
+shipped pointing at a LAN address with blank Google client ids and looked perfect on the machine
+that built it. Verified both directions rather than reasoned about: development loads
+`.env.development.local .env`, production loads `.env`. It also retires the workaround instead of
+fixing it — nothing moves the file now, so the `trap` that once deleted it has nothing to guard.
+
+**Two things to know before the first EAS build**, both in `docs/setup-services.md`:
+
+1. `.env` is gitignored and EAS uploads the git repo, so the credentials are simply **absent**
+   unless pushed with `eas env:push`. Not duplicated into `eas.json` on purpose — it all gets
+   rotated before the public build, and a committed copy would go stale unnoticed.
+2. `extra.eas.projectId` is still absent. `npx eas init` inside `apps/mobile`, signed in, adds
+   it. No `expo-updates` in the project, so no profile sets a `channel`.
+
+`preview` is the profile that produces the **APK** for sideloading; `production` produces the
+**AAB** Play requires.
 
 ## Worth knowing before the next stretch
 
