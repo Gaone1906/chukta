@@ -3,12 +3,12 @@
 Single place to answer "where are we". Update the status table and the log at the end of
 every phase. Each phase has its own file in this directory with the detailed work list.
 
-**Last updated:** 2026-07-26 (Phase 8 built and verified against a dead server)
+**Last updated:** 2026-07-26 (Phase 9 complete and green)
 
 ## Where we are, in one screen
 
-**9 of 12 phases done.** 24 migrations, 115 pgTAP tests, 135 TypeScript tests, all green. Tree
-clean, everything pushed.
+**10 of 12 phases done.** 33 migrations, 187 pgTAP assertions, 159 TypeScript tests, all green.
+Tree clean; one commit unpushed.
 
 The whole money loop works and has been walked on a device: sign in → profile → Home → add an
 expense in any of the five split types → see it agree on Home, the group and the person → edit
@@ -60,8 +60,8 @@ Use `Phase 0:` for repo-level chores that belong to no feature phase.
 | 6 | Settle up & UPI | [phase-06-settle-upi.md](phase-06-settle-upi.md) | ✅ built (6A–6C); needs a physical device to close | 1 wk |
 | 7 | Sidebar surfaces | [phase-07-sidebar-surfaces.md](phase-07-sidebar-surfaces.md) | ✅ built; tipping blocked on developer accounts | 1.5 wk |
 | 8 | Offline & realtime | [phase-08-offline-realtime.md](phase-08-offline-realtime.md) | ✅ built; verified against a stopped server | 1.5 wk |
-| 9 | Push, FX, recurring, receipts | [phase-09-push-fx-recurring.md](phase-09-push-fx-recurring.md) | ⬜ not started | 1.5 wk |
-| 10 | States & polish | [phase-10-states-polish.md](phase-10-states-polish.md) | ⬜ not started | 1.5 wk |
+| 9 | Push, FX, recurring, receipts | [phase-09-push-fx-recurring.md](phase-09-push-fx-recurring.md) | ✅ built & green; delivery needs a device. FX deliberately out (INR-only) | 1.5 wk |
+| 10 | States & polish | [phase-10-states-polish.md](phase-10-states-polish.md) | 🟡 part done — empty + error states shipped; a11y and Android blur perf left | 1.5 wk |
 | 11 | Store release | [phase-11-store-release.md](phase-11-store-release.md) | ⬜ not started | 1.5 wk |
 
 Phases 1, 2 and 3 have no dependencies on each other and can run in parallel.
@@ -1362,14 +1362,48 @@ to is always a two-step.
 **What is left for Phase 9 needs hardware, not code** — see below. Everything that can be
 verified on this machine has been.
 
-## Next, once Phase 9 is signed off
+## Next, in this order
 
-1. **Task 69 — the `Someone` bug.** Diagnosed at the end of this file; on the app's primary
-   path and 100% reproducible. Ahead of Phase 10.
-2. Phase 10 remainder: a11y pass, Android blur perf.
-3. Phase 11: store submission, `PrivacyInfo.xcprivacy`, and **open item #11 — rotate the
+**Task ids are creation order, not priority. This list is the priority.**
+
+1. **Task 70 — progressive blur vignette at the screen edges.** Content scrolls under the
+   Dynamic Island in perfect focus. See the note below for how this is normally solved and the
+   one trap in it.
+2. **Task 69 — the `Someone` bug.** Diagnosed at the end of this file; on the app's primary
+   path and 100% reproducible.
+3. Phase 10 remainder: a11y pass, Android blur perf.
+4. Phase 11: store submission, `PrivacyInfo.xcprivacy`, and **open item #11 — rotate the
    compromised keys**.
-4. Optional: re-run the audit workflow against `0032`/`0033`.
+5. Optional: re-run the audit workflow against `0032`/`0033`.
+
+### Task 70 — what "progressive blur" actually means, and the trap
+
+Apple ships this natively as of **iOS 26**: `UIScrollEdgeEffect` / SwiftUI's
+`.scrollEdgeEffectStyle` blur *and* dim content where it meets the status bar or a tab bar.
+That is the exact complaint, and the platform's own answer — so **step 0 is checking whether we
+can reach it** rather than rebuilding it. We already depend on `expo-glass-effect` and have a
+`liquid` backend for iOS 26+ (`design/glassConfig.ts`). Precedent for checking first: RNS 4.26
+shipped a Reanimated transition API that expo-router surfaced *none* of.
+
+**The trap in the hand-rolled version.** A single `BlurView` under a gradient mask does not
+work — it blurs *uniformly* and then fades in **opacity**, which reads as a fog patch with a
+visible edge rather than focus dissolving. The technique is a stack of 4–8 absolutely
+positioned blur layers, intensity stepping up toward the edge, each masked to a progressively
+narrower band; that approximates a variable blur radius. Eased gradient stops, not linear — a
+linear alpha ramp on blur bands visibly.
+
+`@react-native-masked-view/masked-view` is already in (the ripple uses it).
+**`expo-linear-gradient` is not** — adding it needs a dev-client rebuild, so schedule it with
+anything else native. Reference implementation worth reading first:
+[expo-progressive-blur](https://github.com/rit3zh/expo-progressive-blur).
+
+**Android must not stack blurs.** `getGlassBackend()` already returns `fallback` there and
+expo-blur needs a `blurTarget` ref; N stacked blurs is precisely the cost that switch exists to
+avoid. Degrade to one gradient scrim.
+
+Build it as **one design-system primitive** taking an edge and a height, not per-screen copies —
+same reasoning that put every glass surface behind one switch. The bottom edge over the pinned
+`FooterBar` has the same problem and should get the same treatment.
 
 ## Cannot be done without hardware
 
