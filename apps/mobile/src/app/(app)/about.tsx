@@ -81,9 +81,18 @@ export default function About() {
         <ScreenHeader title="About" />
 
         <View style={styles.hero}>
-          {/* `state="settled"` — the stamp already landed. This is a mark, not a moment. */}
-          <Seal size={104} state="settled" label="" />
-          <Text style={styles.name}>Chukta</Text>
+          {/*
+            * `state="settled"` — the stamp already landed. This is a mark, not a moment.
+            *
+            * No wordmark under it. The seal already reads CHUKTA, so setting the name again in
+            * 40pt directly beneath was the same word twice — and at this size the seal says it
+            * with the texture and the SQUARED · SETTLED ring, which the plain text threw away.
+            *
+            * Nothing is lost for screen readers: the stamp image inside `Seal` carries
+            * `accessibilityLabel="Chukta seal"` itself. `label` here is the spinner caption,
+            * which never renders in the `settled` state.
+            */}
+          <Seal size={168} state="settled" label="" />
           <Text style={styles.tagline}>
             Built to stay free forever. No ads, no paywalls, no subscriptions — just a quiet
             ledger between friends.
@@ -150,8 +159,9 @@ const Rule = () => <View style={styles.rule} />;
 const styles = StyleSheet.create({
   root: { flex: 1 },
   scroll: { paddingHorizontal: 22 },
-  hero: { alignItems: 'center', marginTop: 26, marginBottom: 30, gap: 12 },
-  name: { fontFamily: font.display, fontSize: 40, lineHeight: 46, color: color.cream },
+  // Tighter gap than before: with the wordmark gone the tagline sits directly under the seal,
+  // and 12 left it floating away from the thing it belongs to.
+  hero: { alignItems: 'center', marginTop: 20, marginBottom: 30, gap: 18 },
   tagline: {
     textAlign: 'center',
     maxWidth: 300,
