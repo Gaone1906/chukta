@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 import { normalisePhone } from '@chukta/core';
 
 /**
@@ -62,12 +64,46 @@ export function contactPickerAvailable(): boolean {
 }
 
 /**
+ * Thrown when the OS refused the contacts permission.
+ *
+ * A distinct type rather than a message, because refusal is the one outcome the caller must
+ * say something about: the user tapped a button and the picker did not appear, so silence
+ * reads as the app being broken. Cancellation and an absent module stay `null` — nothing
+ * happened, and nothing needs saying.
+ */
+export class ContactsPermissionDenied extends Error {
+  constructor() {
+    super('contacts-permission-denied');
+  }
+}
+
+/**
  * Present the picker. Resolves null when the user cancelled or the module is absent — both are
  * ordinary outcomes and neither is an error worth surfacing.
+ *
+ * ---------------------------------------------------------------- the Android permission
+ *
+ * Declaring `READ_CONTACTS` in the manifest is necessary and NOT sufficient: Android has
+ * required a runtime grant for it since API 23, and without one `presentPicker()` rejects with
+ *
+ *     Missing android.permission.READ_CONTACTS permission
+ *
+ * which the first Android build put on screen verbatim, inside the sheet, as though it were
+ * copy. Found by running the APK rather than by reading this file — nothing here looked wrong.
+ *
+ * Requested on **Android only**, deliberately. On iOS the picker is drawn out of process and
+ * needs no grant at all, so asking would put a permission dialog in front of the user to buy
+ * exactly nothing — and a contacts prompt an app does not need is the kind of thing App Review
+ * asks about.
  */
 export async function pickContact(): Promise<PickedContact | null> {
   const mod = contacts();
   if (mod === null) return null;
+
+  if (Platform.OS === 'android') {
+    const { granted } = await mod.requestPermissionsAsync();
+    if (!granted) throw new ContactsPermissionDenied();
+  }
 
   const contact = await mod.Contact.presentPicker();
   if (contact === null) return null;

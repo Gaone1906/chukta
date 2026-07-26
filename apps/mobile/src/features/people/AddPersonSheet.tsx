@@ -13,7 +13,7 @@ import { useOffline } from '@/lib/offline/OfflineProvider';
 import { queueContactProfile } from '@/lib/offline/writes';
 import { Avatar } from './Avatar';
 import { ClaimCodeSheet } from './ClaimCodeSheet';
-import { contactPickerAvailable, pickContact } from './pickContact';
+import { ContactsPermissionDenied, contactPickerAvailable, pickContact } from './pickContact';
 
 /**
  * Add a person who is not on Chukta — and, if you want, send them the link.
@@ -144,7 +144,20 @@ function AddPersonBody({
         setNote("Couldn't read that contact's number — type it in if you want it.");
       }
     } catch (e) {
-      setNote((e as Error).message);
+      /*
+       * Never `(e as Error).message` here.
+       *
+       * That is what this was, and on the first Android build it printed "Call to function
+       * 'Contact.getDetails' has been rejected. → Caused by: Missing
+       * android.permission.READ_CONTACTS permission" into the sheet, in the slot where the help
+       * text goes. A refused permission is something the user DID; it is not a stack trace for
+       * them to read.
+       */
+      setNote(
+        e instanceof ContactsPermissionDenied
+          ? 'Chukta needs permission to open your contacts. Allow it in Settings, or just type their name in.'
+          : "Couldn't open your contacts — type their name in instead.",
+      );
     }
   };
 
