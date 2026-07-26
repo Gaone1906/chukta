@@ -84,11 +84,30 @@ export default function WhoPicker() {
   };
 
   const selectedGroup = data?.groups.find((g) => g.id === groupId) ?? null;
+
+  /*
+   * Name who is picked, rather than counting them.
+   *
+   * "2 people" is true and useless. The sheet ticks whoever it creates and never unticks, so
+   * adding somebody, spotting a typo in the name and adding them again leaves BOTH selected —
+   * and the only thing standing between that and a three-way split of a two-person dinner was
+   * a number that reads exactly the same either way. Spelled out, "Harshi Kadali, Harshi
+   * Kadalo" is a mistake you cannot miss, and tapping either row already removes it.
+   *
+   * Falls back to a count past three, where the names stop fitting and the risk of a stray
+   * selection is not really the problem any more.
+   */
+  const pickedNames = people
+    .map((id) => folks.find((p) => p.id === id)?.display_name)
+    .filter((n): n is string => Boolean(n));
+
   const picked = selectedGroup
     ? selectedGroup.name
     : people.length === 0
       ? 'Nobody picked yet'
-      : `${people.length} ${people.length === 1 ? 'person' : 'people'}`;
+      : pickedNames.length === people.length && people.length <= 3
+        ? pickedNames.join(', ')
+        : `${people.length} ${people.length === 1 ? 'person' : 'people'}`;
   const ready = Boolean(groupId) || people.length > 0;
 
   const advance = (event: GestureResponderEvent) => {

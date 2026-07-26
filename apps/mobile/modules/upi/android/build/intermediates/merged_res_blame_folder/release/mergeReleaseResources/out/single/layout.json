@@ -1,0 +1,22 @@
+[
+    {
+        "merged": "expo.modules.upi-release-12:/layout/notification_template_part_chronometer.xml",
+        "source": "expo.modules.upi-core-1.17.0-8:/layout/notification_template_part_chronometer.xml"
+    },
+    {
+        "merged": "expo.modules.upi-release-12:/layout/notification_template_part_time.xml",
+        "source": "expo.modules.upi-core-1.17.0-8:/layout/notification_template_part_time.xml"
+    },
+    {
+        "merged": "expo.modules.upi-release-12:/layout/ime_secondary_split_test_activity.xml",
+        "source": "expo.modules.upi-core-1.17.0-8:/layout/ime_secondary_split_test_activity.xml"
+    },
+    {
+        "merged": "expo.modules.upi-release-12:/layout/ime_base_split_test_activity.xml",
+        "source": "expo.modules.upi-core-1.17.0-8:/layout/ime_base_split_test_activity.xml"
+    },
+    {
+        "merged": "expo.modules.upi-release-12:/layout/custom_dialog.xml",
+        "source": "expo.modules.upi-core-1.17.0-8:/layout/custom_dialog.xml"
+    }
+]

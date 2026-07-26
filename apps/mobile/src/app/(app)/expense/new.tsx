@@ -105,6 +105,7 @@ export default function NewExpense() {
         // shows "Someone" for the person you just typed the name of, which is exactly the bug
         // migration 0022 fixed for the online case.
         const queued = offline.pendingPeople.find((p) => p.id === id);
+
         return {
           id,
           name: person?.display_name ?? queued?.displayName ?? 'Someone',

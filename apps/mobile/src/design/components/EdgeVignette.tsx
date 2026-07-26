@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useBlurTarget } from '../blurTarget';
 import { ANDROID_BLUR_METHOD, getGlassBackend } from '../glassConfig';
-import { color, vignette } from '../tokens';
+import { vignette } from '../tokens';
 
 /**
  * The soft edge where scrolling content meets the status bar, the Dynamic Island, or the

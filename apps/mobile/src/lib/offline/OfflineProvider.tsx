@@ -13,6 +13,7 @@ import { AppState } from 'react-native';
 
 import { motion } from '@/design/tokens';
 import { syncPull } from '@/lib/api';
+import { queryKeys } from '@/lib/queryKeys';
 import { useSession } from '@/features/auth/session';
 
 import {
@@ -156,6 +157,28 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     // 1. Drain. Nothing else may run until the server has been told what we already decided.
     const outcome = await drainOutbox(refresh);
     refresh();
+
+    /*
+     * Refetch what the drain made true, now that it IS true.
+     *
+     * Most writes need nothing here: they emit change events, so step 2's pull carries them and
+     * `applyChangeEvent` invalidates precisely. `upsert_contact_profile` emits none — creating a
+     * placeholder is not news to anybody else — and that gap produced a real bug.
+     *
+     * The screen that names somebody used to invalidate the roster in the same handler that
+     * enqueued the write. But `sync` is deliberately deferred a full `motion.ripple.duration` so
+     * the drain does not land on the transition's opening frames, so the refetch beat the write
+     * to the server by ~850ms EVERY time, and cached a roster that predated the person for the
+     * full 60-second `staleTime`. When the outbox row was then deleted, they were in neither
+     * source and the expense form showed "Someone" — a nameless stranger on the screen where
+     * money is decided.
+     *
+     * Invalidating here instead is the fix, and it is the general one: the roster is refetched
+     * when the person exists, not when we hoped they would.
+     */
+    if (outcome.sentOps.includes('upsert_contact_profile')) {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.home() });
+    }
 
     if (outcome.blockedBy === 'offline') {
       // No network. Pulling would fail the same way, so schedule and stop — a reconnect or a

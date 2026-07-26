@@ -1,0 +1,18 @@
+<lint-module
+    format="1"
+    dir="/Users/pranav.yarasi/Desktop/workspace/personal/Hisaab/apps/mobile/modules/upi/android"
+    name=":upi"
+    type="LIBRARY"
+    maven="club.hisaab.upi:upi:1.0.0"
+    agpVersion="8.12.0"
+    buildFolder="build"
+    bootClassPath="/Users/pranav.yarasi/Library/Android/sdk/platforms/android-36/android.jar:/Users/pranav.yarasi/Library/Android/sdk/build-tools/35.0.0/core-lambda-stubs.jar"
+    javaSourceLevel="17"
+    compileTarget="android-36"
+    neverShrinking="true">
+  <lintOptions
+      absolutePaths="true"
+      checkReleaseBuilds="true"
+      explainIssues="true"/>
+  <variant name="release"/>
+</lint-module>

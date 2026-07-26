@@ -62,6 +62,18 @@ import {
 
 export interface DrainOutcome {
   sent: number;
+  /**
+   * Which ops actually landed this run.
+   *
+   * The caller needs this because **not every RPC emits a change event**, and the ones that do
+   * not are invisible to `sync_pull` — so nothing would ever tell the cache to refetch.
+   * `upsert_contact_profile` is the case that bit: naming somebody enqueued a write, the screen
+   * invalidated the roster immediately, the refetch came back BEFORE the drain had told the
+   * server the person existed, and that answer was cached as fresh for a minute. The moment the
+   * outbox row was deleted the person was in neither the roster nor the queue, and the expense
+   * form fell through to "Someone".
+   */
+  sentOps: string[];
   /** Set when the drain stopped early. The queue is ordered, so the rest did not run. */
   blockedBy: 'conflict' | 'failed' | 'offline' | null;
 }
@@ -86,10 +98,11 @@ export function drainOutbox(onChange?: () => void): Promise<DrainOutcome> {
 
 async function run(onChange?: () => void): Promise<DrainOutcome> {
   let sent = 0;
+  const sentOps: string[] = [];
 
   for (;;) {
     const row = nextPending();
-    if (!row) return { sent, blockedBy: null };
+    if (!row) return { sent, sentOps, blockedBy: null };
 
     // No progress report here. It only moves `attempts`, which nothing displays, and each
     // report costs a full re-render of every screen holding `useOffline()`.
@@ -99,12 +112,13 @@ async function run(onChange?: () => void): Promise<DrainOutcome> {
       await send(row);
       complete(row.id);
       sent += 1;
+      sentOps.push(row.op);
       onChange?.();
     } catch (error) {
       if (isConflict(error)) {
         markConflict(row.id, error.message, error.serverSnapshot);
         onChange?.();
-        return { sent, blockedBy: 'conflict' };
+        return { sent, sentOps, blockedBy: 'conflict' };
       }
 
       const message = (error as Error).message ?? 'Something went wrong';
@@ -112,13 +126,13 @@ async function run(onChange?: () => void): Promise<DrainOutcome> {
       if (isServerRefusal(error)) {
         markFailed(row.id, message);
         onChange?.();
-        return { sent, blockedBy: 'failed' };
+        return { sent, sentOps, blockedBy: 'failed' };
       }
 
       // Transport. Leave it exactly where it is and come back to it.
       markRetryable(row.id, message);
       onChange?.();
-      return { sent, blockedBy: 'offline' };
+      return { sent, sentOps, blockedBy: 'offline' };
     }
   }
 }

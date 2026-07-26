@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import { useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -11,7 +11,6 @@ import { inviteMessage, personalInviteUrl } from '@/features/invite/inviteLink';
 import { createInviteLink } from '@/lib/api';
 import { useOffline } from '@/lib/offline/OfflineProvider';
 import { queueContactProfile } from '@/lib/offline/writes';
-import { queryKeys } from '@/lib/queryKeys';
 import { Avatar } from './Avatar';
 import { ClaimCodeSheet } from './ClaimCodeSheet';
 import { contactPickerAvailable, pickContact } from './pickContact';
@@ -52,7 +51,6 @@ function AddPersonBody({
   onClose: () => void;
   onAdded: (profileId: string, displayName: string) => void;
 }) {
-  const queryClient = useQueryClient();
   const offline = useOffline();
 
   const [name, setName] = useState('');
@@ -108,7 +106,19 @@ function AddPersonBody({
       onAdded(person.id, person.name);
       offline.refresh();
       offline.sync();
-      void queryClient.invalidateQueries({ queryKey: queryKeys.home() });
+      /*
+       * Deliberately NOT invalidating the roster here.
+       *
+       * It used to, and it could only ever have made things worse: the server has not been told
+       * about this person yet — `offline.sync()` is deferred a full transition — so the refetch
+       * came back with a roster that predated them and cached it as fresh for a minute. The
+       * moment the outbox row drained and disappeared, the person was in neither the roster nor
+       * the queue, and the expense form showed them as "Someone".
+       *
+       * The invalidation now happens in `OfflineProvider`'s `runSync`, once the drain reports
+       * `upsert_contact_profile` actually sent. Until then `offline.pendingPeople` covers them,
+       * which is what it is for and what keeps this working with no signal at all.
+       */
     } catch (e) {
       setNote((e as Error).message);
     }
