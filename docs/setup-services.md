@@ -218,7 +218,9 @@ it. Exposure is not undone by deleting the message.
 
 ## Still undecided
 
-- **Store display name** — "Chukta" is taken on the stores. The bundle id `com.chukta.app` is
-  fixed and users never see it, so only the display name needs choosing, before Phase 11.
+- ~~**Store display name**~~ — settled on 2026-07-26. "Hisaab" was already three near-identical
+  listings across both stores, so the app was renamed to **Chukta**, which turned up nothing.
+  The bundle id `com.chukta.app` is fixed and cannot change once a listing exists. Confirm the
+  name is still free in both consoles before creating them.
 - **A domain**, for iOS Universal Links / Android App Links so invite links resolve when the
   app isn't installed. Also where the Terms and Privacy pages get hosted.

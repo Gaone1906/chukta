@@ -69,14 +69,6 @@ const config: ExpoConfig = {
       ],
 
       /*
-       * Shown when adding someone from the contact picker.
-       *
-       * Worded to say what actually happens, because it is unusually narrow and the default
-       * assumption about a contacts prompt is the opposite: we read the ONE contact you pick,
-       * in a picker the OS draws, and the address book is never enumerated or uploaded. On
-       * iOS 18+ the picker is out-of-process and this is never even shown.
-       */
-      /*
        * Receipts. Both strings are needed and they are NOT interchangeable: iOS shows the
        * camera one for taking a photo and the library one for choosing an existing file, and
        * shipping without whichever the app actually calls is an immediate review rejection.
@@ -86,6 +78,18 @@ const config: ExpoConfig = {
       NSPhotoLibraryUsageDescription:
         'Chukta reads only the photo you pick, to attach it to an expense as a receipt.',
 
+      /*
+       * Shown when adding someone from the contact picker.
+       *
+       * Worded to say what actually happens, because it is unusually narrow and the default
+       * assumption about a contacts prompt is the opposite: we read the ONE contact you pick,
+       * in a picker the OS draws, and the address book is never enumerated or uploaded. On
+       * iOS 18+ the picker is out-of-process and this is never even shown.
+       *
+       * Narrow is not the same as nothing, and the store forms must not be filled in as though
+       * it were: the picked name and number ARE sent to the server and stored. Contacts is
+       * declared as **collected** on both — see plan/phase-11-store-release.md §4.
+       */
       NSContactsUsageDescription:
         'Chukta only reads the single contact you choose, to fill in their name and number. Your address book is never uploaded.',
     },

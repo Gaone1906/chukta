@@ -93,7 +93,7 @@ Everything from 4 onward is sequential.
 
 | # | Question | Blocks | Status |
 |---|---|---|---|
-| 1 | Store display name — "Chukta" is taken. Bundle id settled: `com.chukta.app` | Phase 11 | name open |
+| 1 | ~~Store display name — "Hisaab" is taken~~ | — | **resolved: renamed to Chukta, `com.chukta.app`** |
 | 2 | ~~Currency: Help FAQ vs feature spec~~ | — | **resolved: INR only for v1** |
 | 3 | Domain for Universal Links / App Links (invite deep links). Links are built and shareable; they open a web page rather than the app until the association files are published. | Phase 11 | open |
 | 9 | **Hosted Supabase project** — the local stack is Docker on this Mac, unreachable from a phone | device alpha | **needed from user** |
@@ -592,7 +592,8 @@ In the order it bites, not the order it was raised:
 4. **A domain**, for iOS Universal Links / Android App Links. Invite links are built and
    shareable but open a web page rather than the app until the association files are hosted.
 5. **A hosted Supabase project** for anything off this Mac — the local stack is Docker here.
-6. **The store display name** ("Chukta" is taken). Only blocks Phase 11.
+6. ~~**The store display name**~~ — resolved on 2026-07-26 by renaming the app to **Chukta**,
+   because "Hisaab" was three near-identical listings across both stores.
 
 ### Phase 5 — done, 2026-07-25
 
@@ -610,7 +611,7 @@ with the dev seed.
 | 5E Person detail | `(app)/person/[id].tsx` |
 | 5F Picker + new group | `(app)/expense/who.tsx`, `(app)/expense/new-group.tsx` |
 | 5G Expense form | `(app)/expense/new.tsx`, `features/expenses/{useExpenseForm,splitDraft,SplitEditor,PayerSheet,DateSheet,fields,FooterBar}` |
-| 5H Detail / edit / delete | `(app)/expense/[id].tsx`, `(app)/expense/edit.tsx`, `features/expenses/ConflictSheet.tsx` |
+| 5H Detail / edit / delete | `(app)/expense/[id].tsx`, `(app)/expense/edit.tsx`, `(app)/pending.tsx` |
 | 5I Ripple navigation | `design/motion/RippleNav.tsx` |
 
 **Verified on device, not just written**
@@ -1237,8 +1238,11 @@ writes permanently.
 - **Phase 9** — push (queue-and-drain via `pg_cron` → Edge Function → Expo Push), FX poll,
   recurring expenses, receipts. `pg_cron` is stood up here; **add `internal.purge_claim_codes()`
   to that same schedule** — it is written and deliberately unscheduled.
+  → *Done: scheduled at `0030:203`. Recurring expenses were cut from v1 — backend built and
+  running, no UI; see `phase-11-store-release.md` §5b.*
 - **Phase 11** — store submission: icons, screenshots, an iOS `PrivacyInfo.xcprivacy` (none
   exists, and contacts now makes one mandatory), Play data-safety entry, IAP review.
+  → *IAP is cut from v1 (tipping ships off). Contacts must be declared as **collected**.*
 - **Phase 10 remainder** — a11y pass and the Android blur perf check on a low-end device.
 
 ## Open decisions
