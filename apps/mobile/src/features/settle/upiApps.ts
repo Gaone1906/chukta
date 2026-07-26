@@ -32,10 +32,15 @@ export interface UpiApp {
   iconBase64?: string | null;
   /** Set only on the Linking path; the native module targets by id instead. */
   iosScheme?: string;
+  /**
+   * Path after the iOS scheme. Defaults to `pay`. Google Pay is the known exception — its
+   * documented iOS form is `gpay://upi/pay`, and `gpay://pay` opens the app doing nothing.
+   */
+  iosPath?: string;
 }
 
 const IOS_FALLBACK_APPS: UpiApp[] = [
-  { id: 'gpay', label: 'Google Pay', iosScheme: 'gpay' },
+  { id: 'gpay', label: 'Google Pay', iosScheme: 'gpay', iosPath: 'upi/pay' },
   { id: 'phonepe', label: 'PhonePe', iosScheme: 'phonepe' },
   { id: 'paytm', label: 'Paytm', iosScheme: 'paytmmp' },
   { id: 'bhim', label: 'BHIM', iosScheme: 'bhim' },
@@ -86,10 +91,24 @@ export async function openUpiPayment(
 
   if (native && app) return payViaUpi(app.id, uri);
 
-  // No app named on Android means the system chooser, which is the right default there.
-  const target = Platform.OS === 'ios' && app?.iosScheme
-    ? uri.replace('upi://', `${app.iosScheme}://`)
-    : uri;
+  /*
+   * No app named on Android means the system chooser, which is the right default there.
+   *
+   * On iOS the scheme is swapped for the target app's own, because there is no `upi://`
+   * handler — but the PATH is not always `pay`, and assuming it was produced a URL Google Pay
+   * does not answer. Google documents the iOS form as `gpay://upi/pay?…`, so a blanket
+   * `replace('upi://', 'gpay://')` yields `gpay://pay?…` and silently opens the app on its home
+   * screen with nothing filled in. The path now comes from the app entry.
+   * https://developers.google.com/pay/india/api/ios/in-app-payments
+   *
+   * The other three keep `pay`, which is what they are widely used with — but that is inherited
+   * belief, not something documented by PhonePe, Paytm or NPCI, and none of it has run on a
+   * real iOS device yet. The QR fallback is what actually carries iOS until it has.
+   */
+  const target =
+    Platform.OS === 'ios' && app?.iosScheme
+      ? uri.replace('upi://pay', `${app.iosScheme}://${app.iosPath ?? 'pay'}`)
+      : uri;
 
   try {
     if (!(await Linking.canOpenURL(target))) return false;
