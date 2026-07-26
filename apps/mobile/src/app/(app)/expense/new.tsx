@@ -4,10 +4,10 @@ import { useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,6 +21,7 @@ import { PayerSheet, type Participant } from '@/features/expenses/PayerSheet';
 import { SplitEditor } from '@/features/expenses/SplitEditor';
 import { useExpenseForm } from '@/features/expenses/useExpenseForm';
 import { EmptyState } from '@/features/home/EmptyState';
+import { EditFieldSheet } from '@/features/settings/EditFieldSheet';
 import { Avatar } from '@/features/people/Avatar';
 import { BackChevron } from '@/features/onboarding/BackChevron';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
@@ -119,6 +120,7 @@ export default function NewExpense() {
 
   const [dateOpen, setDateOpen] = useState(false);
   const [payerOpen, setPayerOpen] = useState(false);
+  const [namingGroup, setNamingGroup] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   /*
    * A save is a local fact, not a request.
@@ -246,24 +248,33 @@ export default function NewExpense() {
             </Text>
           ) : null}
 
-          {/* Only the ad-hoc entry point can name a group — a group expense already has one. */}
+          {/*
+            * Only the ad-hoc entry point can name a group — a group expense already has one.
+            *
+            * This was a 28pt display-font TextInput with a line of help text under it, sitting
+            * between the heading and the amount. It read as a required field on the way to the
+            * thing people actually came to do, when it is in fact the least-used control on the
+            * screen: most expenses are one-offs. Now it is one line that asks a question, and
+            * the answer happens in a sheet — the same `EditFieldSheet` that Settings uses for
+            * every other short value, so the explanation lives in the sheet's hint where there
+            * is room for it rather than permanently on the form.
+            */}
           {!groupId ? (
-            <View style={styles.namable}>
-              <TextInput
-                value={form.groupName}
-                onChangeText={form.setGroupName}
-                placeholder="Name this group"
-                placeholderTextColor={color.textGhost}
-                maxLength={60}
-                accessibilityLabel="Group name, optional"
-                style={styles.groupNameInput}
-              />
-              <Text style={styles.nameHelp}>
-                {form.groupName.trim()
-                  ? `Keeps these ${participants.length} together as a group.`
-                  : 'Optional — leave it blank and this stays a one-off.'}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                form.groupName.trim()
+                  ? `Group name, currently ${form.groupName.trim()}. Change it.`
+                  : 'Make this a group'
+              }
+              hitSlop={8}
+              onPress={() => setNamingGroup(true)}
+              style={styles.namable}
+            >
+              <Text style={styles.nameLink}>
+                {form.groupName.trim() ? `Group · ${form.groupName.trim()}` : 'Make this a group?'}
               </Text>
-            </View>
+            </Pressable>
           ) : null}
         </View>
 
@@ -346,6 +357,30 @@ export default function NewExpense() {
         onChange={form.setPayers}
       />
 
+      {/*
+        * The naming that used to be a permanent field on the form.
+        *
+        * `allowEmpty` is what makes this reversible: clearing the name puts the expense back to
+        * a one-off, which was previously done by deleting the text in place. Without it the
+        * only way out of naming a group would be to leave the screen.
+        */}
+      <EditFieldSheet
+        visible={namingGroup}
+        title="Make this a group"
+        hint={`Keeps these ${participants.length} together, so the next expense between you can go in the same place. Leave it blank and this stays a one-off.`}
+        initialValue={form.groupName}
+        placeholder="Goa, finally"
+        maxLength={60}
+        saving={false}
+        allowEmpty
+        autoCapitalize="sentences"
+        onClose={() => setNamingGroup(false)}
+        onSave={(v) => {
+          form.setGroupName(v.trim());
+          setNamingGroup(false);
+        }}
+      />
+
       <Toast message={toast} onDismiss={() => setToast(null)} />
     </KeyboardAvoidingView>
   );
@@ -378,17 +413,11 @@ const styles = StyleSheet.create({
     color: color.textFaint,
   },
   heading: { fontFamily: font.display, fontSize: 32, color: color.cream },
-  namable: { marginTop: 4 },
-  groupNameInput: {
-    padding: 0,
-    paddingBottom: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: color.glassBorder,
-    fontFamily: font.display,
-    fontSize: 28,
-    color: color.cream,
-  },
-  nameHelp: { marginTop: 7, fontFamily: font.light, fontSize: 12.5, color: color.textFaint },
+  // minHeight rather than the 44 used elsewhere: this sits directly under a 32pt heading in a
+  // gap-4 stack, and a 44pt box there would push the amount card down for a control most people
+  // never touch. 36 plus the hitSlop above clears the practical target.
+  namable: { marginTop: 2, minHeight: 36, justifyContent: 'center' },
+  nameLink: { fontFamily: font.medium, fontSize: 14, color: color.creamWarm },
   loading: { marginTop: 26 },
   form: { marginTop: 22, gap: 12 },
   fieldError: { fontFamily: font.light, fontSize: 12.5, color: color.creamRose },
