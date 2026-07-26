@@ -3,12 +3,12 @@
 Single place to answer "where are we". Update the status table and the log at the end of
 every phase. Each phase has its own file in this directory with the detailed work list.
 
-**Last updated:** 2026-07-26 (Phase 9 complete and green)
+**Last updated:** 2026-07-26 (renamed to Chukta; Phase A all but done)
 
 ## Where we are, in one screen
 
-**10 of 12 phases done.** 33 migrations, 187 pgTAP assertions, 159 TypeScript tests, all green.
-Tree clean; one commit unpushed.
+**10 of 12 phases done, and the app is now called Chukta.** 36 migrations, 206 pgTAP
+assertions, 166 TypeScript tests, all green. Tree clean, everything pushed.
 
 The whole money loop works and has been walked on a device: sign in → profile → Home → add an
 expense in any of the five split types → see it agree on Home, the group and the person → edit
@@ -1631,3 +1631,55 @@ account the button logs into are the same thing by construction rather than by l
 (no request reaches `supabase_auth_chukta`, and the same is true for the Kitchen sink link
 beside it), while taps everywhere else in the app work. Not diagnosed. It only affects the
 automated loop, not a human tapping the screen.
+
+---
+
+# PHASE A — development completeness (2026-07-26)
+
+Everything below is committed and pushed. Gate is green throughout: **206 pgTAP · typecheck ·
+lint · 166 TS tests.**
+
+## Done
+
+| # | Item | Commit |
+|---|---|---|
+| — | **Rename Hisaab → Chukta**, everything: bundle id `com.chukta.app`, npm scope, storage ids, cron/Vault names, Supabase project id, GitHub repo, folder | `cb014b5` `704217f` |
+| A1 | **Undo delete.** `restore_expense` was a public RPC nothing called, so deleting was one-way from the UI | `f369801` |
+| A2 | **Group settings** — rename, members, add, remove, leave (migrations `0034`, `0035`) | `c19d6cc` `020c9af` |
+| A3 | **Legal links** pointed at `example.com` — the consent copy at sign-up linked nowhere | `f369801` |
+| A4 | **`/_dev/kitchen-sink`** was an unauthenticated route in a shipped bundle | `f369801` |
+| A5 | **`ios.usesAppleSignIn`** — entitlement lived only in gitignored `ios/` | `cb014b5` |
+| A6 | **Accessibility** — contrast, Dynamic Type, spoken amounts, labels, touch targets | `d479a6f` `0ef2a8b` `8d78c39` |
+| A7 | **Sentry**, behind a DSN seam, with PII scrubbing | `79c0f16` |
+| A8 | Tip-jar copy that would have become false at launch | `f369801` |
+| A12 | **`merge_profiles` is now reversible** (migration `0036`) | `d7e5a10` |
+
+Plus, from using it: the stuck toast, the `expo-notifications` keychain noise, the About seal,
+the split-pill divider, and naming a group moving from a field to a question beside the name.
+
+## Left in Phase A
+
+- **A10 — tune the edge vignette.** Built and safe (`ce2e709`), never judged against text
+  actually scrolling under it. Settings or Help is now long enough to test on.
+- **A13 — stale docs.** `plan/phase-11-store-release.md:54` still claims there is no Contacts
+  permission; there is (`app.config.ts`), and both the Play Data Safety form and the iOS privacy
+  manifest must declare it. A false store declaration is the risk, not tidiness.
+- **A11 — `EXPO_PUBLIC_STORE_URL`** waits on store listings existing.
+
+## Worth knowing before the next stretch
+
+**Four of the fourteen reported Phase A items were not real**, and each was checked before any
+code was written: A9's "missing error path" in Settings (it has three), reduce-motion (all four
+animated components already honour it), and three of the eight "unlabelled" controls (a naive
+regex mistook `=>` inside a prop for the end of the tag).
+
+**The bugs that were real were mostly found by running the app, not reading it** — the `Someone`
+race, the stuck toast, the ambiguous `get_group_detail` overload I introduced myself, the
+stale-JWT empty shell. That was the lesson recorded after Phase 8 and it has held every time
+since.
+
+**One thing I introduced and caught:** `0035` first typed `p_before` as `timestamptz` where
+`0014` declares `date`. Different signature, so `create or replace` added a second overload
+instead of replacing, and every call failed with "function is not unique". On screen it looked
+like a missing owner badge. Changing a parameter type in a create-or-replace is an ADD, never
+an edit.
