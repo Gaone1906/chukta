@@ -14,6 +14,7 @@ import { useAppFonts } from '@/design/fonts';
 import { SessionProvider, useSession } from '@/features/auth/session';
 import { usePendingInvite } from '@/features/invite/usePendingInvite';
 import { isConflict } from '@/lib/errors';
+import { registerForPush } from '@/features/notifications/registerPush';
 import { OfflineProvider } from '@/lib/offline/OfflineProvider';
 import { OfflineBanner } from '@/lib/offline/OfflineBanner';
 import { CACHE_BUSTER, CACHE_MAX_AGE, queryPersister } from '@/lib/offline/persister';
@@ -116,7 +117,7 @@ export default function RootLayout() {
 const AUTH_PATHS = ['/sign-in', '/phone', '/otp', '/profile', '/done'];
 
 function RootNavigator() {
-  const { session, loading, needsProfileSetup } = useSession();
+  const { session, loading, needsProfileSetup, profile } = useSession();
   /*
    * usePathname rather than useSegments: segments is a TUPLE whose length comes from the
    * generated route types, and `.expo/types/` is gitignored — so indexing `segments[1]`
@@ -154,6 +155,23 @@ function RootNavigator() {
       router.replace('/');
     }
   }, [loading, session, needsProfileSetup, pathname, router]);
+
+  /*
+   * Ask for push once the user is actually in the app.
+   *
+   * Not at cold start, and not on the sign-in screen: the OS permission prompt can be shown
+   * once per install and never re-asked once denied, so firing it before the user has seen
+   * anything worth being notified about is the reliable way to get a permanent no. By the time
+   * `needsProfileSetup` is false they have a name, a home screen, and a reason to care.
+   *
+   * Fire-and-forget on purpose. Every outcome — denied, simulator, no project id — is a normal
+   * state of the world, not an error worth interrupting anybody with, and `registerForPush`
+   * already swallows its own failures.
+   */
+  useEffect(() => {
+    if (loading || !session || needsProfileSetup || !profile) return;
+    void registerForPush(profile.id);
+  }, [loading, session, needsProfileSetup, profile]);
 
   return (
     <>
