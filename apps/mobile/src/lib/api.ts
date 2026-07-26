@@ -45,6 +45,8 @@ export interface GroupMember {
   display_name: string;
   avatar_url: string | null;
   is_placeholder: boolean;
+  /** Only the owner may remove somebody else — see migration 0034. */
+  role: 'owner' | 'member';
   net_minor: bigint;
 }
 
@@ -161,6 +163,10 @@ export async function getGroupDetail(groupId: string, before?: string): Promise<
       display_name: String(m.display_name),
       avatar_url: (m.avatar_url as string | null) ?? null,
       is_placeholder: Boolean(m.is_placeholder),
+      // Defaults to 'member' rather than trusting the string: a cached response written before
+      // migration 0035 has no `role` at all, and the safe reading of "unknown" is the one that
+      // offers fewer destructive actions, not more.
+      role: m.role === 'owner' ? 'owner' : 'member',
       net_minor: big(m.net_minor),
     })),
     expenses: (raw.expenses ?? []).map(toExpenseListItem),
@@ -556,6 +562,37 @@ export async function createGroup(
       name: input.name,
       member_profile_ids: input.memberProfileIds,
     },
+    p_client_mutation_id: mutationId,
+  });
+}
+
+export async function renameGroup(
+  groupId: string,
+  name: string,
+  mutationId: string,
+): Promise<{ group_id: string; name: string }> {
+  return rpc('rename_group', {
+    p_group_id: groupId,
+    p_name: name,
+    p_client_mutation_id: mutationId,
+  });
+}
+
+export async function leaveGroup(
+  groupId: string,
+  mutationId: string,
+): Promise<{ group_id: string; left: boolean; archived: boolean }> {
+  return rpc('leave_group', { p_group_id: groupId, p_client_mutation_id: mutationId });
+}
+
+export async function removeGroupMember(
+  groupId: string,
+  profileId: string,
+  mutationId: string,
+): Promise<{ group_id: string; removed: string }> {
+  return rpc('remove_group_member', {
+    p_group_id: groupId,
+    p_profile_id: profileId,
     p_client_mutation_id: mutationId,
   });
 }

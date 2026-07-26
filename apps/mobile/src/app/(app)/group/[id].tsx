@@ -79,6 +79,27 @@ export default function GroupDetail() {
           subtitle={
             data ? `${data.members.length} ${data.members.length === 1 ? 'member' : 'members'}` : undefined
           }
+          /*
+           * The prototype drew an `onMembers` affordance here and bound it to nothing, which is
+           * how a group ended up immutable after creation. This is that door.
+           */
+          action={
+            data ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Group settings"
+                hitSlop={10}
+                onPress={(ev) =>
+                  rippleFrom(ev, () =>
+                    router.push({ pathname: '/group/settings', params: { id: id! } }),
+                  )
+                }
+                style={styles.settingsButton}
+              >
+                <Text style={styles.settingsLabel}>Manage</Text>
+              </Pressable>
+            ) : undefined
+          }
         />
 
         {error && !data ? (
@@ -257,4 +278,6 @@ const styles = StyleSheet.create({
   sectionMeta: { fontFamily: font.light, fontSize: 12, color: color.textGhost },
   list: { gap: 11 },
   fab: { position: 'absolute', right: 24 },
+  settingsButton: { paddingVertical: 4, paddingHorizontal: 6 },
+  settingsLabel: { fontFamily: font.medium, fontSize: 14, color: color.creamWarm },
 });
