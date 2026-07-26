@@ -1599,3 +1599,35 @@ intensity, curve, softness) has not been tuned by eye. Do that on a long screen 
   steal the seed. Delete them first: `delete from auth.users where email like 'dev-%@chukta.test';`
 - The dev sign-in row on the sign-in screen used to sit exactly under LogBox's warning banner,
   which made it untappable. Moved above the footnote in `ce2e709`.
+
+---
+
+## Dev-loop gotchas found on 2026-07-26 (worth reading before debugging "no data")
+
+**A deleted account stays signed in.** Supabase JWTs are stateless, so
+`delete from auth.users` does NOT invalidate a token the app already holds. The app stays on
+Home as a user that no longer exists, every RPC returns empty, and it looks exactly like a
+broken query — the database plainly has three groups and the app shows "No groups yet". Cost
+about forty minutes before I read `Documents/mmkv/chukta-auth` and found it authenticated as a
+`dev-*` account I had deleted twenty minutes earlier.
+
+```bash
+C=$(xcrun simctl get_app_container <UDID> com.chukta.app data)
+strings "$C/Documents/mmkv/chukta-auth" | grep -oE '[a-z0-9.-]+@chukta\.test' | head -1
+```
+
+**Worth a product decision before beta:** the app has no handling for "my session is valid but
+my profile is gone". It renders an empty shell rather than returning to sign-in. `delete_account`
+anonymises rather than hard-deletes, so this is mostly a dev-only shape today — but a client
+that treats "signed in with no resolvable profile" as signed-out would be more honest, and it is
+a small change in `SessionProvider`.
+
+**The seed used to attach to whichever profile was created first**, which is fine until the
+sign-in screen's "New account" button mints a `dev-<random>` one. Fixed: `seed.sql` now targets
+`dev@chukta.test` by address — the same account `devSignIn` uses — so the seeded account and the
+account the button logs into are the same thing by construction rather than by luck.
+
+**Synthetic taps on the sign-in screen's dev row stopped registering** late in the session
+(no request reaches `supabase_auth_chukta`, and the same is true for the Kitchen sink link
+beside it), while taps everywhere else in the app work. Not diagnosed. It only affects the
+automated loop, not a human tapping the screen.

@@ -238,44 +238,55 @@ export default function NewExpense() {
             {groupId ? 'New expense in' : participants.length > 2 ? 'New expense' : 'New expense with'}
           </Text>
 
-          {groupId ? (
-            <Text style={styles.heading} numberOfLines={1}>
-              {groupQuery.data?.group.name ?? '…'}
-            </Text>
-          ) : participants.length === 2 ? (
-            <Text style={styles.heading} numberOfLines={1}>
-              {participants.find((p) => p.id !== profile?.id)?.name ?? 'Someone'}
-            </Text>
-          ) : null}
-
           {/*
-            * Only the ad-hoc entry point can name a group — a group expense already has one.
+            * The name and the group question share a line.
             *
-            * This was a 28pt display-font TextInput with a line of help text under it, sitting
-            * between the heading and the amount. It read as a required field on the way to the
-            * thing people actually came to do, when it is in fact the least-used control on the
-            * screen: most expenses are one-offs. Now it is one line that asks a question, and
-            * the answer happens in a sheet — the same `EditFieldSheet` that Settings uses for
-            * every other short value, so the explanation lives in the sheet's hint where there
-            * is room for it rather than permanently on the form.
+            * Below the heading it read as a second title — another thing to deal with before
+            * the amount. Beside the name it reads as an aside about the name, which is what it
+            * is. The heading takes the flex so a long name shrinks and the question keeps its
+            * size; `baseline` rather than `center` because a 14pt label centred against a 32pt
+            * display face sits visibly high.
             */}
-          {!groupId ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={
-                form.groupName.trim()
-                  ? `Group name, currently ${form.groupName.trim()}. Change it.`
-                  : 'Make this a group'
-              }
-              hitSlop={8}
-              onPress={() => setNamingGroup(true)}
-              style={styles.namable}
-            >
-              <Text style={styles.nameLink}>
-                {form.groupName.trim() ? `Group · ${form.groupName.trim()}` : 'Make this a group?'}
+          <View style={styles.headingRow}>
+            {groupId ? (
+              <Text style={styles.heading} numberOfLines={1}>
+                {groupQuery.data?.group.name ?? '…'}
               </Text>
-            </Pressable>
-          ) : null}
+            ) : participants.length === 2 ? (
+              <Text style={styles.heading} numberOfLines={1}>
+                {participants.find((p) => p.id !== profile?.id)?.name ?? 'Someone'}
+              </Text>
+            ) : null}
+
+            {/*
+              * Only the ad-hoc entry point can name a group — a group expense already has one.
+              *
+              * This was a 28pt display-font TextInput with a line of help text under it, sitting
+              * between the heading and the amount. It read as a required field on the way to the
+              * thing people actually came to do, when it is in fact the least-used control on
+              * the screen: most expenses are one-offs. Now it is a question beside the name, and
+              * the answer happens in the same `EditFieldSheet` Settings uses for every other
+              * short value — which is also where the explanation went, since a sheet has room
+              * for a sentence and the form only had room for it permanently.
+              */}
+            {!groupId ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  form.groupName.trim()
+                    ? `Group name, currently ${form.groupName.trim()}. Change it.`
+                    : 'Make this a group'
+                }
+                hitSlop={10}
+                onPress={() => setNamingGroup(true)}
+                style={styles.namable}
+              >
+                <Text style={styles.nameLink} numberOfLines={1}>
+                  {form.groupName.trim() ? `Group · ${form.groupName.trim()}` : 'Make this a group?'}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
 
         {loading ? (
@@ -369,7 +380,7 @@ export default function NewExpense() {
         title="Make this a group"
         hint={`Keeps these ${participants.length} together, so the next expense between you can go in the same place. Leave it blank and this stays a one-off.`}
         initialValue={form.groupName}
-        placeholder="Goa, finally"
+        placeholder=""
         maxLength={60}
         saving={false}
         allowEmpty
@@ -412,7 +423,8 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: color.textFaint,
   },
-  heading: { fontFamily: font.display, fontSize: 32, color: color.cream },
+  heading: { flex: 1, fontFamily: font.display, fontSize: 32, color: color.cream },
+  headingRow: { flexDirection: 'row', alignItems: 'baseline', gap: 12 },
   // minHeight rather than the 44 used elsewhere: this sits directly under a 32pt heading in a
   // gap-4 stack, and a 44pt box there would push the amount card down for a control most people
   // never touch. 36 plus the hitSlop above clears the practical target.

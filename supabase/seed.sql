@@ -111,12 +111,26 @@ declare
   v_meher     uuid := 'aaaa0000-0000-4000-8000-000000000003';
   v_kabir     uuid := 'aaaa0000-0000-4000-8000-000000000004';
 begin
-  select id into v_me from public.profiles
-   where user_id is not null and deleted_at is null
-   order by created_at limit 1;
+  /*
+   * The dev account by ADDRESS, not by creation order.
+   *
+   * This used to take the earliest signed-in profile, which is the same thing right up until
+   * the sign-in screen's "New account" button is pressed — that mints a `dev-<random>` account,
+   * and from then on which profile the fixtures land on depends on tap history. It cost real
+   * time three separate times: the app shows "No groups yet", the database plainly contains
+   * three groups, and nothing connects the two.
+   *
+   * `dev@chukta.test` is `devSignIn`'s default (features/auth/devSignIn.ts), so the seeded
+   * account and the account the Dev sign-in button logs into are now the same thing by
+   * construction rather than by luck.
+   */
+  select p.id into v_me
+    from public.profiles p
+    join auth.users u on u.id = p.user_id
+   where u.email = 'dev@chukta.test' and p.deleted_at is null;
 
   if v_me is null then
-    raise notice 'seed: no signed-in profile yet — sign in once, then re-run db reset';
+    raise notice 'seed: no dev@chukta.test account yet — create it, then re-run the seed';
     return;
   end if;
 
