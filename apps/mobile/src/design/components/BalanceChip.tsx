@@ -1,4 +1,4 @@
-import { formatAmount, type Money } from '@chukta/core';
+import { formatAmount, spokenAmount, type Money } from '@chukta/core';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
@@ -23,7 +23,17 @@ export function BalanceChip({ balance, compact = false, showCaption = true }: Ba
   if (balance.minor === 0n) return <SettledBadge compact={compact} />;
 
   const youOwe = balance.minor < 0n;
-  const spoken = formatAmount(balance, { signed: false });
+  /*
+   * `spokenAmount`, not `formatAmount`. The visible text is "₹1,22,000.50"; what a screen
+   * reader makes of that glyph, the lakh grouping and the bare decimal point varies by reader
+   * and language setting. On the screen where somebody is deciding who owes what, that is not
+   * a detail worth leaving to chance — see packages/core/src/format.ts.
+   */
+  const positive = { ...balance, minor: youOwe ? -balance.minor : balance.minor };
+  /** What is drawn: "₹1,420". */
+  const shown = formatAmount(positive);
+  /** What is announced: "1,420 rupees". Same number, different audience. */
+  const spoken = spokenAmount(positive);
 
   return (
     // Labelled as a whole so a screen reader says "You owe ₹1,420" rather than reading a bare
@@ -50,7 +60,7 @@ export function BalanceChip({ balance, compact = false, showCaption = true }: Ba
             { color: youOwe ? color.creamRose : color.creamWarm },
           ]}
         >
-          {spoken}
+          {shown}
         </Text>
       </View>
 

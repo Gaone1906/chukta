@@ -6,6 +6,7 @@ import {
   balanceCaption,
   parseAmount,
   toAmountInput,
+  spokenAmount,
 } from '../src/format';
 import { money, exponentOf, add, sum, subtract } from '../src/money';
 
@@ -159,5 +160,38 @@ describe('parseAmount', () => {
         expect(parseAmount(text, 'INR') ?? 0n).toBe(minor);
       }),
     );
+  });
+});
+
+describe('spokenAmount', () => {
+  const inr = (minor: bigint) => ({ minor, currency: 'INR' as const });
+
+  it('spells the currency instead of leaving a glyph to the screen reader', () => {
+    expect(spokenAmount(inr(142000n))).toBe('1,420 rupees');
+  });
+
+  it('keeps lakh grouping, which is what gives a long number readable pauses', () => {
+    expect(spokenAmount(inr(12200000n))).toBe('1,22,000 rupees');
+  });
+
+  it('names the fraction rather than punctuating it', () => {
+    expect(spokenAmount(inr(142050n))).toBe('1,420 rupees 50 paise');
+  });
+
+  it('singularises', () => {
+    expect(spokenAmount(inr(100n))).toBe('1 rupee');
+    expect(spokenAmount(inr(101n))).toBe('1 rupee 1 paisa');
+  });
+
+  it('keeps a zero major unit, so a small amount is not mistaken for a large one', () => {
+    expect(spokenAmount(inr(50n))).toBe('0 rupees 50 paise');
+  });
+
+  it('says zero rather than nothing', () => {
+    expect(spokenAmount(inr(0n))).toBe('0 rupees');
+  });
+
+  it('words the sign', () => {
+    expect(spokenAmount(inr(-142000n))).toBe('minus 1,420 rupees');
   });
 });

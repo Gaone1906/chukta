@@ -121,7 +121,14 @@ export function ReceiptStrip({
         * surprising amount of gesture code for something nobody asked for.
         */}
       <Modal visible={viewing !== null} transparent animationType="fade" onRequestClose={() => setViewing(null)}>
-        <Pressable style={styles.viewer} onPress={() => setViewing(null)}>
+        {/* The whole backdrop is the dismiss target, so it needs to say so — otherwise a
+            screen reader user opens the viewer with no announced way out of it. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close the receipt"
+          style={styles.viewer}
+          onPress={() => setViewing(null)}
+        >
           {viewing !== null ? (
             <Image source={{ uri: viewing }} style={styles.full} resizeMode="contain" />
           ) : null}

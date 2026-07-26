@@ -133,3 +133,45 @@ export function balanceCaption(amount: Money): 'settled' | 'you owe' | 'owes you
   if (amount.minor === 0n) return 'settled';
   return amount.minor < 0n ? 'you owe' : 'owes you';
 }
+
+/**
+ * The same amount, worded for a screen reader.
+ *
+ * `formatAmount` returns "₹1,22,000.50", and what a screen reader does with that is not ours to
+ * control: the ₹ glyph, the lakh grouping and the bare decimal point are each read differently
+ * across VoiceOver, TalkBack and their language settings. On the screen where somebody is
+ * deciding who owes what, "one twenty-two thousand point five" is not good enough.
+ *
+ * So the units are spelled out and the fraction is named rather than punctuated. Grouping is
+ * kept — "1,22,000" gives a reader the natural pauses that make a long number followable — but
+ * everything else is words.
+ *
+ * Deliberately NOT localised beyond English: v1 is INR-only by CHECK constraint, and inventing
+ * a translation layer for one currency would be scaffolding around a decision already made.
+ */
+export function spokenAmount(amount: Money): string {
+  const exponent = exponentOf(amount.currency);
+  const negative = amount.minor < 0n;
+  const abs = negative ? -amount.minor : amount.minor;
+
+  const divisor = 10n ** BigInt(exponent);
+  const whole = exponent === 0 ? abs : abs / divisor;
+  const fraction = exponent === 0 ? 0n : abs % divisor;
+
+  const major = amount.currency === 'INR' ? ['rupee', 'rupees'] : ['unit', 'units'];
+  const minor = amount.currency === 'INR' ? ['paisa', 'paise'] : ['cent', 'cents'];
+  const plural = (n: bigint, words: string[]) => (n === 1n ? words[0]! : words[1]!);
+
+  const parts: string[] = [];
+
+  // "0 rupees 50 paise" rather than "50 paise" alone: dropping the zero major unit reads as a
+  // different magnitude when the amount is spoken in a list of larger ones. Always present,
+  // therefore — the first version of this had a condition that did the opposite of what this
+  // comment promised, and the test caught it.
+  parts.push(`${groupDigits(whole.toString(), 'indian')} ${plural(whole, major)}`);
+  if (fraction !== 0n) {
+    parts.push(`${fraction.toString()} ${plural(fraction, minor)}`);
+  }
+
+  return (negative ? 'minus ' : '') + parts.join(' ');
+}

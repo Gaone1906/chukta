@@ -32,12 +32,33 @@ export const color = {
   creamWarm: '#F6E9CB',
   creamRose: '#F6DADE',
 
-  /** Text ramp. Anything below `textMuted` fails WCAG AA on glass — see Phase 10. */
-  textPrimary: 'rgba(255,255,255,0.90)',
-  textSecondary: 'rgba(255,255,255,0.62)',
-  textMuted: 'rgba(255,255,255,0.45)',
-  textFaint: 'rgba(255,255,255,0.32)',
-  textGhost: 'rgba(255,255,255,0.22)',
+  /*
+   * The text ramp, every step of which now meets WCAG AA (4.5:1).
+   *
+   * The old comment here said "anything below `textMuted` fails AA on glass", which was both a
+   * known-broken state left in place and **wrong about where the line was**. Measured against
+   * the worst background in the app — `glassFill` over the warm centre of the ambient glow,
+   * roughly #2C1519 — the real figures were:
+   *
+   *     textMuted  0.45 → 4.24   (fails, and the comment claimed it passed)
+   *     textFaint  0.32 → 2.85
+   *     textGhost  0.22 → 2.04
+   *
+   * Ratios below are against that same worst case, so every other surface is better. The named
+   * colours were measured too and all pass untouched — `textHighlight`, which every amount in
+   * the app is drawn in, is 7.70.
+   *
+   * The bottom three are close together now, and that is the honest shape: they used to be
+   * spread across a range where the differences were only visible because the text was too dim
+   * to read. `textGhost` is also the placeholder colour, so placeholders are more prominent
+   * than they were — fields keep their own uppercase label above them, which is what should
+   * distinguish an empty field anyway, rather than the hint being too faint to see.
+   */
+  textPrimary: 'rgba(255,255,255,0.90)',   // 12.68:1
+  textSecondary: 'rgba(255,255,255,0.62)', //  6.79:1
+  textMuted: 'rgba(255,255,255,0.56)',     //  5.79:1
+  textFaint: 'rgba(255,255,255,0.50)',     //  4.89:1
+  textGhost: 'rgba(255,255,255,0.47)',     //  4.52:1
 
   glassFill: 'rgba(255,255,255,0.05)',
   glassFillRaised: 'rgba(255,255,255,0.08)',

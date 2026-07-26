@@ -125,7 +125,13 @@ export default function OtpScreen() {
       <Text style={styles.heading}>Enter the code</Text>
       <View style={styles.sentRow}>
         <Text style={styles.sent}>Sent to {phone ?? 'your phone'}</Text>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
+        {/* "Edit" alone tells a screen reader nothing about what it edits. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Change the phone number"
+          onPress={() => router.back()}
+          hitSlop={8}
+        >
           <Text style={styles.edit}>Edit</Text>
         </Pressable>
       </View>
@@ -153,7 +159,20 @@ export default function OtpScreen() {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Pressable onPress={() => void resend()} disabled={seconds > 0} hitSlop={8}>
+      {/*
+        * `accessibilityState.disabled` as well as the prop: VoiceOver announces the state from
+        * the former, so without it the countdown reads as a live button that does nothing.
+        */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={
+          seconds > 0 ? `Resend the code, available in ${mmss}` : 'Resend the code'
+        }
+        accessibilityState={{ disabled: seconds > 0 }}
+        onPress={() => void resend()}
+        disabled={seconds > 0}
+        hitSlop={8}
+      >
         <Text style={[styles.resend, seconds === 0 ? styles.resendActive : null]}>
           {seconds > 0 ? `Resend in ${mmss}` : "Didn't get it? Tap to resend."}
         </Text>
