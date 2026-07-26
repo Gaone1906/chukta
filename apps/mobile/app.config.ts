@@ -113,6 +113,16 @@ const config: ExpoConfig = {
     // Google Sign-In's Swift deps cannot link statically without module maps; pod install
     // fails outright without this.
     './plugins/withModularHeaders',
+    /*
+     * Crash reporting. The plugin wires the native SDK and, on a release build, uploads source
+     * maps so a stack trace names our files instead of one line of minified bundle.
+     *
+     * `organization` and `project` are deliberately absent until a Sentry project exists — the
+     * plugin tolerates that, and adding them is a config change rather than a code one. The
+     * auth token for map upload is an env var (SENTRY_AUTH_TOKEN) and must NEVER be written
+     * here: this file is committed.
+     */
+    '@sentry/react-native/expo',
   ],
 
   experiments: {

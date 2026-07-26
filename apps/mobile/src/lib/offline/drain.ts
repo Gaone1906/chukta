@@ -10,6 +10,7 @@ import {
   type ExpenseDraft,
 } from '@/lib/api';
 import { isConflict, isServerRefusal } from '@/lib/errors';
+import { report } from '@/lib/monitoring';
 
 import { getDatabase } from './database';
 import { stringify } from './serialize';
@@ -126,6 +127,20 @@ async function run(onChange?: () => void): Promise<DrainOutcome> {
 
       if (isServerRefusal(error)) {
         markFailed(row.id, message);
+        /*
+         * Reported, because this is the failure a beta most needs to hear about and the one it
+         * is least likely to be told about.
+         *
+         * The app handles it correctly — the row is marked and surfaced in the pending inbox —
+         * so it never crashes, which means it never reaches crash reporting on its own. But a
+         * write the server refuses permanently is a bug somewhere: a guard the client should
+         * have enforced first, or a rule we got wrong. Without this, the only trace is a row in
+         * one tester's local SQLite that nobody will ever look at.
+         *
+         * The op name is a tag rather than part of the message so the issue groups by kind
+         * instead of splintering into one issue per message.
+         */
+        report(error, { op: row.op });
         onChange?.();
         return { sent, sentOps, blockedBy: 'failed' };
       }

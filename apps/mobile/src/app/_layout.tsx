@@ -18,6 +18,7 @@ import { registerForPush } from '@/features/notifications/registerPush';
 import { OfflineProvider } from '@/lib/offline/OfflineProvider';
 import { OfflineBanner } from '@/lib/offline/OfflineBanner';
 import { CACHE_BUSTER, CACHE_MAX_AGE, queryPersister } from '@/lib/offline/persister';
+import { identify, startMonitoring } from '@/lib/monitoring';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,6 +46,15 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+/*
+ * Before anything else renders.
+ *
+ * An error thrown while the tree is first mounting is exactly the kind worth catching, and an
+ * effect has not run by then. No-ops entirely when unconfigured or in development — see
+ * lib/monitoring.ts.
+ */
+startMonitoring();
 
 SplashScreen.preventAutoHideAsync().catch(() => {
   // Already hidden; nothing to do.
@@ -181,6 +191,18 @@ function RootNavigator() {
     if (loading || !session || needsProfileSetup || !profile) return;
     void registerForPush(profile.id);
   }, [loading, session, needsProfileSetup, profile]);
+
+  /*
+   * Tag crash reports with the account they came from — **profile id only**.
+   *
+   * That is enough to answer the question an issue stream actually asks: is one person hitting
+   * this repeatedly, or fifty people hitting it once. A name or an email would answer nothing
+   * further and would put user data in a third-party service. Cleared on sign-out so a shared
+   * device does not attribute the next person's crashes to the last one.
+   */
+  useEffect(() => {
+    identify(profile?.id ?? null);
+  }, [profile]);
 
   return (
     <>
