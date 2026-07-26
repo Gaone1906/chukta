@@ -90,8 +90,19 @@ export async function registerForPush(profileId: string): Promise<PushOutcome> {
    * never touched and there is nothing to log. `expo-device` reads a static property and does
    * not touch the keychain itself.
    */
+  /*
+   * iOS only. This guard used to be platform-blind, and that quietly made push untestable
+   * anywhere but a physical phone.
+   *
+   * The keychain problem above is an iOS simulator problem. An ANDROID emulator running a
+   * Google Play system image has real Play Services and gets a real FCM token — so returning
+   * `unsupported` there refused a registration that would have worked, and `device_tokens`
+   * stayed empty with nothing logged to say why. Since the whole FCM setup (Firebase project,
+   * google-services.json, the service account key) can only be proven by a token actually
+   * arriving, this turned the one thing worth verifying into the one thing that could not be.
+   */
   const Device = device();
-  if (Device?.isDevice === false) return 'unsupported';
+  if (Platform.OS === 'ios' && Device?.isDevice === false) return 'unsupported';
 
   const Notifications = notifications();
   if (Notifications === null) return 'unsupported';
