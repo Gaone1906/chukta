@@ -65,6 +65,22 @@ valid anon JWT (gateway and the function's own service-key check, both holding);
 `chukta-` cron jobs active. Local `db reset` + 206 pgTAP assertions pass with `0037`, and local
 and hosted now agree at **37 of 37**.
 
+### C2 closed — 2026-07-27
+
+Both Vault secrets are set, so the dispatcher is live. **Configured is not the same as proven**:
+`net._http_response` is empty and `device_tokens` is 0, so the HTTP leg has never fired. It
+cannot be, until the app is installed, someone signs in (registering a token) and an event is
+raised. Treat push as untested until that happens.
+
+**Which key goes in `chukta_service_key`** cost a round trip and is worth writing down: it is the
+**legacy `service_role` JWT** (`eyJ…`), NOT the modern `sb_secret_…` key. `push-dispatch` compares
+against `SUPABASE_SERVICE_ROLE_KEY`, which is the legacy value Supabase still injects. Confirmed
+from the Management API that legacy keys are `{"enabled": true}` on this project.
+
+**Tech debt:** `SUPABASE_SERVICE_ROLE_KEY` is deprecated in favour of `SUPABASE_SECRET_KEYS`, a
+JSON dictionary — so migrating `push-dispatch` is a code change and a redeploy, not a rename. It
+works today; do it before the deprecation actually bites.
+
 ### The Vault secrets — left for you, deliberately
 
 Writing them is a production config change and needs the service key, which is being rotated, so
