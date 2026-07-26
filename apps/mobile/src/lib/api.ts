@@ -696,7 +696,12 @@ export async function setNotificationPrefs(
 
 export async function updateMyProfile(
   profileId: string,
-  patch: { display_name?: string; upi_vpa?: string | null; avatar_url?: string | null },
+  patch: {
+    display_name?: string;
+    upi_vpa?: string | null;
+    avatar_url?: string | null;
+    onboarded_at?: string;
+  },
 ): Promise<void> {
   // A plain table write, not an RPC: 0010 grants UPDATE on exactly these columns and the
   // profiles_update_self policy scopes it to your own row. Nothing here crosses to anyone else.

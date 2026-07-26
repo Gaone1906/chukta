@@ -9,6 +9,8 @@ export interface Profile {
   display_name: string;
   avatar_url: string | null;
   upi_vpa: string | null;
+  /** Set when they finish the profile screen. NULL means never asked — see migration 0038. */
+  onboarded_at: string | null;
 }
 
 /**
@@ -73,7 +75,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     // account — a missing profile is expected here, not an error.
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, display_name, avatar_url, upi_vpa')
+      .select('id, display_name, avatar_url, upi_vpa, onboarded_at')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -117,10 +119,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       session,
       profile,
       loading,
-      // 'Someone' is the placeholder the signup trigger writes when no name came from the
-      // provider — Google always sends one, Apple only on the very first authorisation.
-      needsProfileSetup:
-        session != null && (profile == null || profile.display_name.trim() === 'Someone'),
+      /*
+       * Asked, not guessed.
+       *
+       * This used to be `display_name === 'Someone'`, on the belief that the signup trigger
+       * writes that when a provider sends no name. It does — but only when there is no name AND
+       * no email, because the trigger falls back to the email's local part first. So every
+       * OAuth and email signup arrived with a real-looking name and this was never true: the
+       * profile screen was unreachable, the completion seal never played, and nobody was ever
+       * asked for a UPI id, which is where it is captured. Found by signing in against an empty
+       * database and landing straight on Home.
+       *
+       * `onboarded_at` is written when they finish the screen. A name the provider happened to
+       * supply is not evidence that a person has been asked anything. See migration 0038.
+       */
+      needsProfileSetup: session != null && (profile == null || profile.onboarded_at == null),
       refreshProfile: () => loadProfile(session?.user.id),
       signOut: async () => {
         await supabase.auth.signOut();

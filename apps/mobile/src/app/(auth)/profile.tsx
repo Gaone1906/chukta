@@ -96,6 +96,16 @@ export default function ProfileSetup() {
           display_name: name.trim(),
           upi_vpa: upi.trim() || null,
           avatar_url: avatarUrl,
+          /*
+           * What actually ends onboarding.
+           *
+           * `needsProfileSetup` reads this, so without it the guard would send them straight
+           * back here after saving — a loop. It is written on save rather than on first sight
+           * of the screen, so abandoning it halfway leaves them still un-onboarded and they get
+           * asked again, which is the behaviour you want for the screen that captures the UPI
+           * id. See migration 0038.
+           */
+          onboarded_at: new Date().toISOString(),
         })
         .eq('user_id', session.user.id);
 

@@ -806,6 +806,7 @@ export type Database = {
           id: string
           merged_at: string | null
           merged_into_profile_id: string | null
+          onboarded_at: string | null
           primary_auth_provider: string | null
           timezone: string
           updated_at: string
@@ -822,6 +823,7 @@ export type Database = {
           id?: string
           merged_at?: string | null
           merged_into_profile_id?: string | null
+          onboarded_at?: string | null
           primary_auth_provider?: string | null
           timezone?: string
           updated_at?: string
@@ -838,6 +840,7 @@ export type Database = {
           id?: string
           merged_at?: string | null
           merged_into_profile_id?: string | null
+          onboarded_at?: string | null
           primary_auth_provider?: string | null
           timezone?: string
           updated_at?: string
