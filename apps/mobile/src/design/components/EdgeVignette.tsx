@@ -47,6 +47,35 @@ import { vignette } from '../tokens';
  * there, and expo-blur on Android needs a `blurTarget` and pays real cost per surface — N
  * stacked blurs is precisely what that switch exists to prevent. The scrim alone still reads
  * as intentional, which is the same conclusion `glassConfig` reached about glass panels.
+ *
+ * ---------------------------------------------------------------- measured, on a screen that scrolls
+ *
+ * This was built but never judged against scrolling text, which is the only thing it exists
+ * for. Measured on the picker (iPhone 17 Pro, iOS 26.5) with "Goa, finally" scrolled under the
+ * island and "Sunday football" left sharp below the band — same weight, same face, same card,
+ * so the only variable is the vignette. `detail` is the mean absolute luminance difference
+ * between horizontally-adjacent pixels, which is a blur proxy: sharp glyph edges score high,
+ * smeared ones score low.
+ *
+ *     title  in band   detail  0.60   lum  45      title  below   detail  21-25   lum 145
+ *     meta   in band   detail  1.2    lum  45      meta   below   detail  9.6     lum  67
+ *
+ * ~35x less high-frequency detail on the title and a third of the luminance. The `meta` row
+ * sits deeper into the ramp and is softened less, which is the ramp working rather than a
+ * shortfall. Sampling straight down the band showed luminance rising monotonically with no
+ * plateaus, so the six layers are not banding — the artefact this build was chosen to avoid.
+ *
+ * **The tokens were left alone.** The temptation after measuring is to adjust something to show
+ * for it; there was nothing wrong to adjust.
+ *
+ * ---------------------------------------------------------------- why only the top edge is mounted
+ *
+ * `edge="bottom"` works and is deliberately not mounted anywhere. Screens with a pinned action
+ * already fade their own bottom — `FooterBar` draws an SVG gradient for exactly this — and
+ * doubling them would darken that corner twice. Home has no footer, so its bottom edge is bare
+ * once there are enough groups to scroll; that is a live gap rather than a settled decision,
+ * and the thing to check first is the FAB, whose lower ~3pt would fall inside a default-height
+ * bottom band.
  */
 export function EdgeVignette({
   edge = 'top',
