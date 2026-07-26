@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
 
-import { RippleNavProvider } from '@/design';
+import { EdgeVignette, RippleNavProvider } from '@/design';
 
 /**
  * A route group needs its own layout to be navigable — without this file, `(app)/index.tsx`
@@ -35,24 +36,41 @@ import { RippleNavProvider } from '@/design';
 export default function AppLayout() {
   return (
     <RippleNavProvider>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: 'transparent' },
-          animation: 'slide_from_right',
-          // iOS only. Kept below motion.ripple.hold — see the note above.
-          animationDuration: 300,
-          gestureEnabled: true,
-          // The whole screen is draggable, not just the left edge. This app has no back button
-          // on most screens, so an edge-only gesture would be the only way back and would be
-          // undiscoverable.
-          fullScreenGestureEnabled: true,
-          // Maps to `customAnimationOnSwipe`: without it the drag falls back to the platform
-          // default animation instead of the one configured above, so a half-completed swipe
-          // and a completed one would not look like the same gesture.
-          animationMatchesGesture: true,
-        }}
-      />
+      {/*
+        * The vignette is mounted ONCE here rather than per screen, for the same reason the
+        * ambient background is mounted once at the root: it belongs to every screen in the
+        * group, and per-screen copies are a thing to forget on the next screen someone adds.
+        *
+        * Position in the tree is load-bearing. It is a sibling of the navigator and painted
+        * after it, so it covers screen content — and it is INSIDE `RippleNavProvider`, whose
+        * veil is a later sibling still, so a transition covers the vignette rather than the
+        * vignette showing through the veil. See `RippleNav.tsx`.
+        *
+        * Sheets are unaffected: they are RN `Modal`s, which are their own window on iOS.
+        */}
+      <View style={styles.stack}>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: 'transparent' },
+            animation: 'slide_from_right',
+            // iOS only. Kept below motion.ripple.hold — see the note above.
+            animationDuration: 300,
+            gestureEnabled: true,
+            // The whole screen is draggable, not just the left edge. This app has no back
+            // button on most screens, so an edge-only gesture would be the only way back and
+            // would be undiscoverable.
+            fullScreenGestureEnabled: true,
+            // Maps to `customAnimationOnSwipe`: without it the drag falls back to the platform
+            // default animation instead of the one configured above, so a half-completed swipe
+            // and a completed one would not look like the same gesture.
+            animationMatchesGesture: true,
+          }}
+        />
+        <EdgeVignette edge="top" />
+      </View>
     </RippleNavProvider>
   );
 }
+
+const styles = StyleSheet.create({ stack: { flex: 1 } });

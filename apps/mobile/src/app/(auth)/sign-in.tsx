@@ -122,13 +122,14 @@ export default function AuthEntry() {
         </Text>
       </GlassSurface>
 
-      <View style={styles.footnoteRow}>
-        <View style={styles.rule} />
-        <Text style={styles.footnote}>Est. between friends</Text>
-        <View style={styles.rule} />
-      </View>
-
-      {/* Dev-only doors. Both are stripped from release builds by the __DEV__ guard. */}
+      {/*
+        * Dev-only doors, ABOVE the footnote rather than below it.
+        *
+        * They used to be the last thing on the screen, which put them exactly under LogBox's
+        * warning banner — and that banner is present on essentially every dev launch, so the
+        * only way into the app without a configured OAuth client was covered by a toast that
+        * would not dismiss. Stripped from release builds by the `__DEV__` guard either way.
+        */}
       {__DEV__ ? (
         <View style={styles.devRow}>
           <Pressable onPress={() => void attempt('Dev sign-in', () => devSignIn())} hitSlop={12}>
@@ -145,6 +146,12 @@ export default function AuthEntry() {
           </Pressable>
         </View>
       ) : null}
+
+      <View style={styles.footnoteRow}>
+        <View style={styles.rule} />
+        <Text style={styles.footnote}>Est. between friends</Text>
+        <View style={styles.rule} />
+      </View>
 
       <Toast message={toast} position="bottom" />
     </View>

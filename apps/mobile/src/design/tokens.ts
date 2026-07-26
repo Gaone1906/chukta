@@ -199,3 +199,40 @@ export const layout = {
   designWidth: 390,
   designHeight: 844,
 } as const;
+
+/**
+ * The soft edge where scrolling content meets the status bar or the pinned footer.
+ * Consumed only by `components/EdgeVignette.tsx`, which explains the technique in full.
+ *
+ * `intensity` is per LAYER and is deliberately low: the layers overlap and a
+ * `UIVisualEffectView` samples its siblings, so the blur compounds. Raising this instead of
+ * `layers` is the wrong knob — it flattens the ramp back into one evenly-frosted rectangle,
+ * which is the exact artefact this component exists to avoid.
+ */
+export const vignette = {
+  /** How many masked blur layers. More is a smoother ramp and more compositing. */
+  layers: 6,
+  /** Per layer, not cumulative. See above. */
+  intensity: 9,
+  /** Extra height past the safe-area inset, so the fade completes below the island. */
+  overhang: 26,
+  /**
+   * Clusters the layer stops toward the edge. 1 is linear and leaves a visible shoulder where
+   * the last layer ends; above 1 pushes the falloff outward, which is where the eye is.
+   */
+  curve: 1.6,
+  /** Fraction of each layer's reach that stays fully opaque before its ramp begins. */
+  softness: 0.42,
+
+  /*
+   * The dim half. Apple's scroll edge effect blurs AND dims, and blur alone is not enough
+   * here — the design is light text on a dark ambient wash, and blurring bright text without
+   * darkening it just smears something that is still clearly legible.
+   *
+   * `bgBase` rather than pure black, so the vignette reads as the app's own ground colour
+   * coming forward rather than as a grey haze laid over it.
+   */
+  tintStrong: 'rgba(10,4,5,0.62)',
+  tintMid: 'rgba(10,4,5,0.22)',
+  tintNone: 'rgba(10,4,5,0)',
+} as const;

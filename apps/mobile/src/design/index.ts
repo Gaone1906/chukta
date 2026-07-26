@@ -4,6 +4,7 @@ export * from './useReduceMotion';
 
 export { AmbientBackground } from './components/AmbientBackground';
 export { BalanceChip, SettledBadge } from './components/BalanceChip';
+export { EdgeVignette } from './components/EdgeVignette';
 export { FAB } from './components/FAB';
 export { GlassButton } from './components/GlassButton';
 export { GlassSurface } from './components/GlassSurface';
