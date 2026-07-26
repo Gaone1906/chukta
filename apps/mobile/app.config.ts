@@ -42,16 +42,21 @@ const config: ExpoConfig = {
    * The launcher icon. Until now there was NO icon key at all, which does not fail a build —
    * it silently ships Expo's default, and that is a store rejection on both platforms.
    *
-   * `assets/icon/` is generated from `assets/brand/chukta-stamp.png`, never from the SVG.
-   * The SVG sets the wordmark in Rozha One, which lives in node_modules rather than in system
-   * fonts, so anything that rasterises it here (QuickLook, a headless browser) silently falls
-   * back to a different serif — an icon whose wordmark does not match the app's own. The
-   * designer's PNG is the only source with the real lettering.
+   * Option **1A "Pressed seal"** from the design doc's five directions: a gold ring and a single
+   * Rozha One C on the oxblood radial. Sources and the exact geometry are in
+   * `assets/icon/README.md`.
    *
-   * This one is FLATTENED onto bgBase and carries no alpha channel, which is not cosmetic:
-   * the App Store rejects an icon with transparency outright. It is also square and
-   * un-rounded, because iOS applies its own mask and rounding a source that is about to be
-   * rounded again produces a visibly clipped corner.
+   * Which of the doc's two size variants became the master was **measured, not chosen**. Its
+   * 180px cell uses a 3.4 stroke with a second ring; its 60px cell drops the inner ring and
+   * thickens the stroke to 5. Downscaled to 60px, the large cell's ring holds luminance 34.5
+   * against the small cell's 49 — a thin stroke averages into a dark background, and the two
+   * rings collapse onto each other. The small geometry won; the ink filter was kept because
+   * texture degrades gracefully where a second ring does not.
+   *
+   * FLATTENED onto the oxblood and carrying no alpha channel, which is not cosmetic: the App
+   * Store rejects an icon with transparency outright. Square and un-rounded too, because iOS
+   * applies its own mask and rounding a source that is about to be rounded again produces a
+   * visibly clipped corner.
    */
   icon: './assets/icon/icon.png',
 
@@ -244,8 +249,16 @@ const config: ExpoConfig = {
      */
     adaptiveIcon: {
       foregroundImage: './assets/icon/adaptive-foreground.png',
+      /*
+       * A real gradient rather than `backgroundColor` alone. The icon's oxblood radial is half
+       * of what makes it read as pressed wax; a flat fill behind the ring loses it, and Android
+       * is the platform where this icon is most often seen.
+       *
+       * `backgroundColor` stays as the fallback a launcher uses if it declines the image.
+       */
+      backgroundImage: './assets/icon/adaptive-background.png',
       monochromeImage: './assets/icon/adaptive-monochrome.png',
-      backgroundColor: '#0A0405',
+      backgroundColor: '#14090B',
     },
     /*
      * Android has no out-of-process picker equivalent, so the permission is required for the
