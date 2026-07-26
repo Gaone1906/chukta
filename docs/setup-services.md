@@ -189,6 +189,60 @@ internal testing track and, eventually, release.
 
 ---
 
+## 4b. EAS build profiles — `apps/mobile/eas.json`
+
+Three profiles, and the one you want for Android testing right now is **`preview`**:
+
+| Profile | Distribution | Android artifact | For |
+|---|---|---|---|
+| `development` | internal | APK | dev client, with the debugger attached |
+| `preview` | internal | **APK** | sideloading onto a phone — install it directly, no Play account |
+| `production` | store | **AAB** | the closed track. Play will not accept an APK |
+
+```bash
+npx eas build --profile preview --platform android
+```
+
+**The file has no comments on purpose.** Everything else in this repo is heavily commented;
+`eas.json` is the one file where a parser disagreement would break every build, so the prose
+lives here instead.
+
+### The part that will bite: `.env` is gitignored
+
+EAS uploads your git repo, and **gitignored files are not uploaded**. `.env` holds the hosted
+Supabase URL, the publishable key and the Google client ids — so a build made without doing
+anything about it compiles fine and ships an app that points nowhere. `requireCommit: true` in
+`eas.json` makes the tree state explicit rather than silent, but it does not solve this.
+
+Push the values to EAS once per environment:
+
+```bash
+npx eas env:push --environment production --path .env
+```
+
+They are **not** duplicated into `eas.json`, deliberately. All of these get rotated before the
+public build (open item #11), and a committed copy would be a second place to update and a
+stale value nobody notices until sign-in fails.
+
+### Versioning is remote — do not hand-edit build numbers
+
+`appVersionSource: "remote"` with `autoIncrement: true` on the production profile means EAS
+owns `versionCode` and `buildNumber` and bumps each one per build. That is why neither appears
+in `app.config.ts`. Both stores reject an upload that reuses a number, and you will upload
+repeatedly across the 14-day tester window, so hand-managing them is a guaranteed wasted build.
+
+`version` (`1.0.0`) is still yours to set in `app.config.ts` — that is the marketing version
+users see, and it is unrelated to the build number.
+
+### Before the first build
+
+`eas.json` is written, but the project is not linked yet — `extra.eas.projectId` is absent from
+`app.config.ts`. Run `npx eas init` inside `apps/mobile` while signed in to an Expo account; it
+adds the id. There is no EAS Update / `expo-updates` in this project, so no profile sets a
+`channel` — adding one before installing `expo-updates` would only produce a confusing failure.
+
+---
+
 ## 5. Xcode — installed, one command left
 
 Xcode 26.6 is installed but the active toolchain still points at Command Line Tools. Needs

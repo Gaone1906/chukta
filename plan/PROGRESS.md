@@ -342,7 +342,7 @@ result of things going wrong and being fixed.
 | Supabase (hosted) | `https://khzjdtnagkaecbngjvoa.supabase.co` — schema **is** deployed |
 | Supabase (local) | `npx supabase start`, Postgres on 54322, API on 54321 |
 | Credentials | `apps/mobile/.env` — **gitignored**, hosted project |
-| Local override | `apps/mobile/.env.local` — **gitignored**, points at local Supabase via `10.0.2.2`. Required for dev sign-in; delete it to go back to hosted |
+| Local override | `apps/mobile/.env.development.local` — **gitignored**, points at local Supabase via the host's LAN IP. Required for dev sign-in; delete it to go back to hosted. Renamed from `.env.local` in B1 — the old name was loaded in production builds too |
 | Xcode | 26.6, licence accepted, iOS 26.5 simulator runtime installed. CocoaPods 1.17 via Homebrew (system Ruby 2.6 is too old) |
 | iOS simulator | `iPhone 17 Pro` — `BB49D14F-3053-4A4E-BDB3-A294A8578AFB` |
 
@@ -377,7 +377,7 @@ adb -s emulator-5554 emu kill; pkill -f "emulator/qemu"; pkill -f netsimd
 
 # Database. `db reset` also wipes auth.users, so seeding is THREE steps, not one — see trap 17.
 npx supabase db reset && npx supabase test db            # local, 115 pgTAP tests
-ANON=$(grep EXPO_PUBLIC_SUPABASE_ANON_KEY apps/mobile/.env.local | cut -d= -f2-)
+ANON=$(grep EXPO_PUBLIC_SUPABASE_ANON_KEY apps/mobile/.env.development.local | cut -d= -f2-)
 curl -s -X POST "http://127.0.0.1:54321/auth/v1/signup" -H "apikey: $ANON" \
   -H "Content-Type: application/json" \
   -d '{"email":"dev@chukta.test","password":"chukta-dev-password"}' -o /dev/null
@@ -1570,13 +1570,18 @@ approval; iOS beta starts when it lands. Android is not blocked on that.
 | — | Phase 10 remainder: a11y pass, Android blur perf | nothing — can proceed |
 | — | Deep-link domain for invite links (Universal Links / App Links) | **a domain** |
 
-## The one that will actually bite
+## ~~The one that will actually bite~~ — defused in B1
 
-**`.env` points at the hosted project; `.env.local` overrides it with a LAN address and blank
-Google client ids.** Expo loads `.env.local` last, so any build made without moving it aside
-ships pointing at a laptop. The APK script in `scratchpad/apk.sh` moves it and restores it in a
-`trap` — and note the trap must use ABSOLUTE paths, because the script `cd`s into `android/`
-before Gradle runs and a relative restore silently fails, leaving `.env.local` deleted.
+**`.env` points at the hosted project; `.env.local` overrode it with a LAN address and blank
+Google client ids.** `.env.local` appears in @expo/env's resolution list with no mode qualifier,
+so it was loaded in PRODUCTION builds too and beat `.env` — any build made without moving it
+aside would have shipped pointing at a laptop and looked fine on the machine that built it.
+
+Fixed by renaming it to **`.env.development.local`**, which is only loaded when mode is
+development. Production falls through to `.env` on its own. No file to move, so no script moves
+one — which also retires the `trap` hazard: the restore in `scratchpad/apk.sh` used a relative
+path, ran after the script had `cd`'d into `android/`, and deleted the file instead of restoring
+it. That is now a class of bug that cannot recur rather than one to remember.
 
 ## Known and deliberately not fixed
 
