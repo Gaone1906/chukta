@@ -55,9 +55,13 @@ support URL, marketing URL.
 - `legal/terms.md` and `legal/privacy.md` published via GitHub Pages for stable URLs. **These
   are drafts, not reviewed legal advice — get a lawyer's pass before submission**, especially
   on India's DPDP Act.
-- **iOS privacy manifest** (`PrivacyInfo.xcprivacy`) declaring collected data types and any
-  required-reason APIs used by dependencies
-- **Play data safety form** — same information, different format
+- ✅ **iOS privacy manifest** — done. Declared as `ios.privacyManifests` in `app.config.ts`
+  rather than as a hand-written `PrivacyInfo.xcprivacy`, because `ios/` is gitignored and one
+  `prebuild --clean` from vanishing. Expo's `PrivacyInfo` plugin generates the real file.
+  Ten collected data types, all `Linked: true`, all `Tracking: false`, plus the four
+  required-reason APIs (`CA92.1`, `C617.1`, `E174.1`, `35F9.1`).
+- **Play data safety form** — same information, different format. **Still to do**, and it must
+  match the manifest above answer for answer
 - Account deletion must be reachable in-app (Apple requires it) — built in Phase 7
 - Export compliance: standard HTTPS only
 

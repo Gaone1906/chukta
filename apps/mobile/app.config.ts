@@ -110,6 +110,107 @@ const config: ExpoConfig = {
       NSContactsUsageDescription:
         'Chukta only reads the single contact you choose, to fill in their name and number. Your address book is never uploaded.',
     },
+
+    /*
+     * ---------------------------------------------------------------- the iOS privacy manifest
+     *
+     * Declared HERE rather than as a hand-written `PrivacyInfo.xcprivacy`, for the same reason
+     * `usesAppleSignIn` is: `ios/` is gitignored and regenerated, so a file that exists only in
+     * there is one `prebuild --clean` away from vanishing with no config change to blame. Expo
+     * generates the real manifest from this.
+     *
+     * **Everything below is `Linked: true`.** Every row in this database hangs off
+     * `profiles.id`, and the account is identified at sign-in — there is no anonymous mode to
+     * claim otherwise. Tracking is `false` throughout and `NSPrivacyTrackingDomains` is empty:
+     * no ads, no attribution, no third party receives any of this. Sentry is the only external
+     * recipient and it gets a profile id, never a name or an email.
+     *
+     * The judgement call worth recording is **Contacts**. What the app does is unusually narrow
+     * — the OS draws the picker, `getAll()` is never called, no address book is enumerated or
+     * uploaded — and that makes "accessed, not collected" tempting. It is wrong: the chosen
+     * contact's name and E.164 number are sent to the server and stored as a placeholder
+     * profile plus a contact point. Narrowness reduces volume, not retention. Under-declaring
+     * here is the kind of thing that pulls an app after it ships.
+     *
+     * Balances and expense amounts are `OtherFinancialInfo` — this app's whole subject is who
+     * owes whom, which is debt, and that sits squarely in Apple's financial category. The UPI
+     * VPA goes there too: it is a payment handle rather than a card or account number, so
+     * `PaymentInfo` would overstate it and omitting it entirely would understate it.
+     */
+    privacyManifests: {
+      NSPrivacyTracking: false,
+      NSPrivacyTrackingDomains: [],
+
+      NSPrivacyCollectedDataTypes: [
+        // Identity.
+        ...[
+          'NSPrivacyCollectedDataTypeName',
+          'NSPrivacyCollectedDataTypeEmailAddress',
+          'NSPrivacyCollectedDataTypePhoneNumber',
+          'NSPrivacyCollectedDataTypeUserID',
+          // The contact picker. See the note above — this one is collected, not merely accessed.
+          'NSPrivacyCollectedDataTypeContacts',
+          // Receipt photographs.
+          'NSPrivacyCollectedDataTypePhotosorVideos',
+          // Expense descriptions, group names, comments.
+          'NSPrivacyCollectedDataTypeOtherUserContent',
+          // Amounts, balances, and the UPI VPA.
+          'NSPrivacyCollectedDataTypeOtherFinancialInfo',
+          // The Expo push token.
+          'NSPrivacyCollectedDataTypeDeviceID',
+        ].map((type) => ({
+          NSPrivacyCollectedDataType: type,
+          NSPrivacyCollectedDataTypeLinked: true,
+          NSPrivacyCollectedDataTypeTracking: false,
+          NSPrivacyCollectedDataTypePurposes: ['NSPrivacyCollectedDataTypePurposeAppFunctionality'],
+        })),
+
+        /*
+         * Sentry. Declared even though `lib/monitoring.ts` scrubs hard — console breadcrumbs
+         * dropped, request and response bodies stripped, navigation reduced to from/to — because
+         * a stack trace is still diagnostic data leaving the device, and it is tagged with the
+         * profile id so it is linked.
+         */
+        {
+          NSPrivacyCollectedDataType: 'NSPrivacyCollectedDataTypeCrashData',
+          NSPrivacyCollectedDataTypeLinked: true,
+          NSPrivacyCollectedDataTypeTracking: false,
+          NSPrivacyCollectedDataTypePurposes: ['NSPrivacyCollectedDataTypePurposeAppFunctionality'],
+        },
+      ],
+
+      /*
+       * Required-reason APIs.
+       *
+       * These four are what a React Native app touches through its dependencies — MMKV and the
+       * query persister hit UserDefaults, SQLite and the file cache stamp and read file times,
+       * and Reanimated reads boot time for its clock. Over-declaring here is harmless;
+       * UNDER-declaring produces an ITMS-91053 rejection email after upload, which costs a
+       * build cycle to discover.
+       *
+       * Codes are Apple's, and each means "this app, for its own operation": CA92.1 reads back
+       * only what this app wrote, C617.1 covers timestamps of files this app created, E174.1 is
+       * a disk-space check to write safely, 35F9.1 is boot time for measuring elapsed intervals.
+       */
+      NSPrivacyAccessedAPITypes: [
+        {
+          NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryUserDefaults',
+          NSPrivacyAccessedAPITypeReasons: ['CA92.1'],
+        },
+        {
+          NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryFileTimestamp',
+          NSPrivacyAccessedAPITypeReasons: ['C617.1'],
+        },
+        {
+          NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryDiskSpace',
+          NSPrivacyAccessedAPITypeReasons: ['E174.1'],
+        },
+        {
+          NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategorySystemBootTime',
+          NSPrivacyAccessedAPITypeReasons: ['35F9.1'],
+        },
+      ],
+    },
   },
 
   android: {
