@@ -5,7 +5,7 @@
 -- no second line of defence. These tests inspect the catalogue rather than trusting review.
 
 begin;
-select plan(7);
+select plan(9);
 
 -- Every SECURITY DEFINER function in `app` must pin its search_path. Without it, an
 -- unqualified reference inside the body can be resolved against a schema the caller controls.
@@ -106,6 +106,37 @@ select is(
      and has_function_privilege('anon', p.oid, 'execute')),
   '',
   'anon can execute nothing in public — the client API is authenticated-only'
+);
+
+/*
+ * The push dispatcher's two wrappers are for `service_role` ONLY.
+ *
+ * They exist because PostgREST cannot reach `internal`, so the Edge Function needs a door in
+ * `public`. A door in `public` that `authenticated` can open is a very quiet attack: anyone
+ * could mark somebody else's notifications sent, and the victim would simply never be told
+ * their money moved. Nothing about that failure is visible from either side, which is exactly
+ * why it is asserted rather than reviewed.
+ */
+select is(
+  (select coalesce(string_agg(p.proname, ', ' order by p.proname), '')
+   from pg_proc p
+   join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public'
+     and p.proname in ('complete_notifications', 'disable_push_token')
+     and has_function_privilege('authenticated', p.oid, 'execute')),
+  '',
+  'authenticated cannot reach the push dispatcher wrappers — only service_role may'
+);
+
+select is(
+  (select count(*)::int
+   from pg_proc p
+   join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public'
+     and p.proname in ('complete_notifications', 'disable_push_token')
+     and has_function_privilege('service_role', p.oid, 'execute')),
+  2,
+  'but service_role can, or the dispatcher has no way to report back'
 );
 
 select * from finish();
