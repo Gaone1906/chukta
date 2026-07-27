@@ -39,16 +39,92 @@ interface ExpoTicket {
   details?: { error?: string };
 }
 
+/**
+ * Every key the runtime will accept as "this is our own cron calling".
+ *
+ * ---------------------------------------------------------------- why this is a set
+ *
+ * This used to compare against `SUPABASE_SERVICE_ROLE_KEY` alone, and it returned 403 to fifteen
+ * consecutive real dispatches. Nothing was misconfigured: the Vault secret was verified to be a
+ * legacy JWT with `"role":"service_role"`, and the URL was right. Supabase is simply mid-migration
+ * from the legacy `service_role` JWT to the `sb_secret_…` keys — the Edge Functions dashboard
+ * already marks `SUPABASE_SERVICE_ROLE_KEY` DEPRECATED in favour of `SUPABASE_SECRET_KEYS` — so
+ * the value the runtime injects and the value a human copies out of the dashboard can both be
+ * legitimate and still not be the same string.
+ *
+ * Matching against every key the runtime knows about removes the coupling entirely. It is not
+ * looser: each of these is a full-privilege key, so accepting any of them grants nothing that
+ * accepting one did not.
+ *
+ * The failure mode this replaces is the expensive kind — a silent 403 that looks exactly like a
+ * push-delivery problem, so it gets debugged in the notification pipeline rather than in auth.
+ */
+function acceptableKeys(): string[] {
+  const keys = new Set<string>();
+
+  /*
+   * The one we control on both ends, and the only one that is actually reliable.
+   *
+   * Everything below is a key SUPABASE injects, and the whole point of this function's auth is
+   * to recognise a caller whose token comes from OUR Vault. Those two things are only equal by
+   * coincidence, and during Supabase's migration off legacy JWTs they stopped being equal:
+   * fifteen dispatches were refused while the Vault secret was verifiably a `service_role` JWT
+   * and the URL was correct. Matching a wider set of injected keys did not fix it either.
+   *
+   * `CHUKTA_DISPATCH_KEY` is a shared secret set as an Edge Function secret, holding the same
+   * string as the `chukta_service_key` Vault entry. It cannot drift when Supabase renames or
+   * re-formats anything, because nothing but us writes either copy.
+   */
+  const shared = Deno.env.get('CHUKTA_DISPATCH_KEY');
+  if (shared) keys.add(shared);
+
+  const legacy = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (legacy) keys.add(legacy);
+
+  // The replacement: a JSON dictionary rather than a bare string. Parsed defensively — a shape
+  // change here must not take the whole dispatcher down with it.
+  try {
+    const raw = Deno.env.get('SUPABASE_SECRET_KEYS');
+    if (raw) {
+      const parsed = JSON.parse(raw) as unknown;
+      if (typeof parsed === 'string') keys.add(parsed);
+      else if (Array.isArray(parsed)) for (const v of parsed) if (typeof v === 'string') keys.add(v);
+      else if (parsed && typeof parsed === 'object') {
+        for (const v of Object.values(parsed)) if (typeof v === 'string') keys.add(v);
+      }
+    }
+  } catch {
+    // Malformed: fall back to whatever else we have rather than refusing every caller.
+  }
+
+  return [...keys];
+}
+
 Deno.serve(async (req) => {
-  // The caller is our own cron job carrying the service key. Anything else is refused before a
+  // The caller is our own cron job carrying a service key. Anything else is refused before a
   // single push is sent — this endpoint can spend money and annoy users, so it is not open.
   const auth = req.headers.get('Authorization');
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  if (!serviceKey || auth !== `Bearer ${serviceKey}`) {
+  const keys = acceptableKeys();
+  const presented = auth?.startsWith('Bearer ') ? auth.slice(7) : null;
+
+  if (!presented || keys.length === 0 || !keys.includes(presented)) {
     return new Response('forbidden', { status: 403 });
   }
 
-  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, serviceKey);
+  /*
+   * The DB client uses an INJECTED key, never the caller's and never the shared secret.
+   *
+   * Those are two different jobs. `CHUKTA_DISPATCH_KEY` exists to prove the caller is our cron;
+   * it is not required to be a credential that can read the database, and after this change it
+   * may deliberately be something that cannot. The client therefore takes whatever Supabase
+   * provides — which is also the value guaranteed to still work after the legacy keys are
+   * finally retired.
+   */
+  const dbKey =
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ??
+    keys.find((k) => k !== Deno.env.get('CHUKTA_DISPATCH_KEY'));
+
+  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, dbKey!);
 
   const { messages } = (await req.json()) as { messages: Message[] };
   if (!Array.isArray(messages) || messages.length === 0) {
