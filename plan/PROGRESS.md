@@ -1827,3 +1827,139 @@ since.
 instead of replacing, and every call failed with "function is not unique". On screen it looked
 like a missing owner badge. Changing a parameter type in a create-or-replace is an ADD, never
 an edit.
+
+---
+
+# PLANNED — "Paid in full" per expense (approved 2026-07-27, not yet built)
+
+Design approved from the mockup in `prototypes/paid-stamp.html` (gitignored; regenerate from this
+spec if lost). **Nothing below is implemented.** This section is the brief.
+
+## Why
+
+Today a settlement is a **pairwise net amount**: "Sushrith paid Pranav ₹5,000". Nothing records
+*which expense* that cleared. So the ledger can say two people are square while neither can say
+what was actually paid off, and a long shared history becomes impossible to audit. The user hit
+this immediately on real hardware.
+
+## The decision
+
+Marking an expense paid **writes a real settlement and moves the balance**. It is not an
+annotation. Rejected the visual-only option: two people could then disagree about what was paid,
+which is worse than not having the feature.
+
+## Schema — migration `0039`
+
+**`settlements.expense_id uuid null references public.expenses(id)`**, plus an index on it.
+
+A settlement is now one of two things, distinguished by that column being null:
+- **null** — a free-form pairwise payment, exactly as today. `record_settlement` is untouched.
+- **set** — this payment cleared one specific expense.
+
+### Why a link, and not `expenses.settled_at`
+
+A boolean on the expense plus settlement rows would be **two sources of truth for one fact**, and
+they would drift the first time anything edited an amount. Deriving "paid in full" from the
+settlements that point at the expense means the stamp and the balance can never disagree — the
+stamp *is* the balance statement, rendered.
+
+Consequence to accept: "paid in full" is computed, not stored. Every read RPC that shows the stamp
+pays for the coverage check. That is the right trade — a wrong stamp on a money screen is worse
+than a slower query.
+
+### What "paid in full" means, precisely
+
+`app.rebuild_expense_debts(expense_id)` already produces the per-expense debt edges. An expense is
+paid in full when, **for every** `(from, to)` edge it produced, the non-voided settlements carrying
+that `expense_id` sum to at least the edge amount. Single payer with N debtors — the common case —
+means N settlement rows written in one transaction.
+
+Do **not** approximate this as "one settlement whose amount equals `amount_minor`". A three-way
+split where only one person has paid would satisfy that and stamp a half-paid expense.
+
+## RPC — `app.mark_expense_paid(p_expense_id, p_client_mutation_id)`
+
+1. `assert_signed_in`; `mutation_log` idempotency check first, like every other write.
+2. **Authorisation: the caller must be in `expense_payers` for this expense.** Only whoever fronted
+   the money can confirm it came back. Anyone else — including a debtor marking their own debt
+   cleared — is refused. This is the rule the UI enforces visually; the server has to enforce it
+   for real.
+3. Refuse if the expense is deleted, or already paid in full (idempotent no-op is fine, a second
+   set of settlement rows is not).
+4. Insert one `settlements` row per outstanding debt edge, with `expense_id` set,
+   `recorded_by_profile_id = caller`, `settled_on = current_date`.
+5. `emit_change` to every participant so the other phones update and a notification fires.
+6. Return the settled timestamp, for the stamp's date.
+
+Companion **`app.unmark_expense_paid`** — voids the linked settlements (`status`, mirroring the
+`voided_by_merge` precedent from `0013`; do not hard-delete, the payment record is history). Same
+payer-only rule.
+
+Both `revoke ... from public, anon, authenticated` with thin `public.` wrappers, per the house
+pattern. Both go through the **outbox** (`lib/offline/writes.ts`, new op) so they work offline like
+every other money write.
+
+## The two hard cases — decide these in the migration, not later
+
+**Editing a stamped expense.** Because the stamp is derived from coverage, raising the amount
+un-stamps it automatically and the settlements stay — which is correct, that money really did
+move. Lowering it below the settled total leaves it over-covered; treat that as still paid.
+`update_expense` needs no special-casing, but this must be asserted in a pgTAP test or it will be
+"fixed" later by someone who thinks it is a bug.
+
+**Deleting a stamped expense.** `delete_expense` soft-deletes; the linked settlements must be
+voided in the same transaction or the balance keeps the credit for an expense that no longer
+exists. **This is the one that silently corrupts a ledger** — it needs an explicit test.
+
+## Client
+
+| File | Change |
+|---|---|
+| `app/(app)/expense/[id].tsx` | "Mark paid in full" pill beside the amount, payer-only. Confirm sheet. Stamp overlay. |
+| `features/expenses/PaidStamp.tsx` *(new)* | The stamp. Reanimated port of the `chukta-seal.js` keyframes — 760ms press, overshoot at 78%, halo. Animates **once**, on the tap; renders static on every later visit. Honour reduce-motion. |
+| `features/expenses/ExpenseRow.tsx` | Small `PAID` stamp + dimmed figures on settled rows. |
+| `lib/api.ts` | `markExpensePaid` / `unmarkExpensePaid`; `paid_in_full_at` on expense types. |
+| `lib/offline/writes.ts`, `drain.ts` | New outbox op, with the balance overlay so it works offline. |
+| `supabase/migrations/0039_*.sql` | Everything above. |
+
+### Copy for the confirm sheet — approved wording
+
+> **Mark this as paid in full?**
+> Sushrith has settled the whole ₹50,000 for **Car**.
+> This records a real payment. **Car** stops counting toward what Sushrith owes you, and your
+> balance drops by **₹50,000**.
+
+It names the **amount the balance moves by**. "This will affect your balance" is not good enough on
+a screen that moves money.
+
+### The stamp carries a date
+
+Approved. It is what makes it read as a record rather than a badge. Comes from the settlement's
+`created_at`, so no extra column.
+
+## Bundled into the same migration — the `0035` regression
+
+**Live bug, mine, currently shipping.** `0035` rebuilt `get_group_detail` and renamed the expense
+payload keys — `payers` → `payer_names`, `split_count` → `participant_count` — while
+`api.ts:184-185` still reads the old ones. The `?? 0` / `?? []` defaults swallowed it, so every
+group row reads **"Nobody paid · split 0 ways"**. Confirmed on device; server data is correct.
+
+Fix in `0039`: restore `payers` (with `profile_id`) and `split_count` to the payload. Keep
+`payer_names`/`participant_count` too — harmless, and something may already use them. `payerLabel`
+(`group/[id].tsx:215`) needs `profile_id` to say "You paid" rather than reading your own name back
+at you, so name-only cannot replace it.
+
+**The lesson worth keeping:** a `create or replace` on a read RPC changed a JSON payload shape and
+nothing failed — not typecheck, not lint, not 206 pgTAP assertions — because the client casts from
+`jsonb` and defaults on missing keys. Second time `0035` has bitten. Any migration that rewrites a
+read RPC must diff the emitted keys against the client's reader.
+
+## Verification
+
+- pgTAP for: payer-only authorisation (a debtor is refused); partial coverage does **not** stamp;
+  full coverage does; deleting a stamped expense voids its settlements and the balance returns;
+  editing the amount upward un-stamps; double-marking is idempotent; unmark restores the balance.
+- A regression test asserting `get_group_detail`'s expense payload contains `payers` and
+  `split_count` — the check that would have caught the bug above.
+- On device: mark paid → stamp animates once → reopen → static → group shows All square → unmark →
+  balance returns.

@@ -83,3 +83,6 @@ maestro/**/*.mp4
 # Gradle output from local Expo modules. Was tracked (778 files, including .aar and .dex),
 # and with requireCommit these uploaded to every EAS build.
 apps/mobile/modules/*/android/build/
+
+# Throwaway design prototypes for approval. The keepers live in design-reference/.
+prototypes/
