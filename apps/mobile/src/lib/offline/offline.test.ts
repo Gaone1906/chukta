@@ -140,8 +140,8 @@ describe('pending balance effects', () => {
    */
   it('marking an expense paid clears what each person owed me on it', () => {
     const effects = effectsOfMarkPaid(ME, 'group-1', [
-      { profileId: OTHER, amountMinor: 144000n },
-      { profileId: THIRD, amountMinor: 144000n },
+      { from: OTHER, to: ME, amountMinor: 144000n },
+      { from: THIRD, to: ME, amountMinor: 144000n },
     ]);
 
     expect(deltaFor(effects, 'person', OTHER)).toBe(-144000n);
@@ -150,8 +150,32 @@ describe('pending balance effects', () => {
     expect(deltaFor(effects, 'group', 'group-1')).toBe(-288000n);
   });
 
+  /*
+   * Since 0040 anyone can mark, so the edges handed to the overlay now include debts between two
+   * other people. Those must move nothing: the marker's own balance is untouched by a payment
+   * they are not party to, and folding them in would invent money on their Home screen.
+   */
+  it('marking a debt between two other people moves nothing of mine', () => {
+    const effects = effectsOfMarkPaid(ME, 'group-1', [
+      { from: OTHER, to: THIRD, amountMinor: 90000n },
+    ]);
+
+    expect(effects).toEqual([]);
+  });
+
+  it('a bystander marking a mixed expense only moves the edges they are on', () => {
+    const effects = effectsOfMarkPaid(ME, 'group-1', [
+      { from: OTHER, to: THIRD, amountMinor: 90000n },
+      { from: THIRD, to: ME, amountMinor: 40000n },
+    ]);
+
+    expect(deltaFor(effects, 'person', THIRD)).toBe(-40000n);
+    expect(deltaFor(effects, 'person', OTHER)).toBe(0n);
+    expect(deltaFor(effects, 'group', 'group-1')).toBe(-40000n);
+  });
+
   it('undoing it puts the debts back, exactly', () => {
-    const owed = [{ profileId: OTHER, amountMinor: 144000n }];
+    const owed = [{ from: OTHER, to: ME, amountMinor: 144000n }];
     const cancelled = merge([
       ...effectsOfMarkPaid(ME, 'group-1', owed),
       ...effectsOfUnmarkPaid(ME, 'group-1', owed),
@@ -163,7 +187,7 @@ describe('pending balance effects', () => {
   it('a mark and its undo agree with recording the same settlements by hand', () => {
     // The two paths must move the balance identically, or an expense settled through the stamp
     // and one settled through the settle screen would leave different numbers on Home.
-    const byStamp = effectsOfMarkPaid(ME, 'group-1', [{ profileId: OTHER, amountMinor: 50000n }]);
+    const byStamp = effectsOfMarkPaid(ME, 'group-1', [{ from: OTHER, to: ME, amountMinor: 50000n }]);
     const byHand = effectsOfSettlement(ME, {
       groupId: 'group-1',
       fromProfileId: OTHER,
@@ -184,7 +208,7 @@ describe('pending balance effects', () => {
    * through migration 0039's delete path against the client's, not by testing.
    */
   it('deleting a stamped expense moves nothing, because the payment goes with it', () => {
-    const owed = [{ profileId: OTHER, amountMinor: 50000n }];
+    const owed = [{ from: OTHER, to: ME, amountMinor: 50000n }];
     const net = merge([
       ...effectsOfDelete(ME, iPaid),
       ...effectsOfUnmarkPaid(ME, 'group-1', owed),
@@ -194,7 +218,7 @@ describe('pending balance effects', () => {
   });
 
   it('and restoring it puts both halves back', () => {
-    const owed = [{ profileId: OTHER, amountMinor: 50000n }];
+    const owed = [{ from: OTHER, to: ME, amountMinor: 50000n }];
     const roundTrip = merge([
       ...effectsOfDelete(ME, iPaid),
       ...effectsOfUnmarkPaid(ME, 'group-1', owed),

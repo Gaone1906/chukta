@@ -94,7 +94,7 @@ export default function ExpenseDetailScreen() {
    * the server has not seen.
    */
   const [pendingMark, setPendingMark] = useState<
-    { profileId: string; amountMinor: bigint }[] | null
+    { from: string; to: string; amountMinor: bigint }[] | null
   >(null);
 
   const { data, isLoading, isRefetching, refetch, error } = useQuery({
@@ -118,8 +118,9 @@ export default function ExpenseDetailScreen() {
    * back. All three have to move the balance by exactly this, or an expense that was stamped
    * shows a wrong figure for as long as the queue takes to drain.
    */
-  const settledToMe = (data?.settled_to_me ?? []).map((s) => ({
-    profileId: s.profile_id,
+  const settledToMe = (data?.settled ?? []).map((s) => ({
+    from: s.from_profile_id,
+    to: s.to_profile_id,
     amountMinor: s.amount_minor,
   }));
 
@@ -205,8 +206,9 @@ export default function ExpenseDetailScreen() {
    */
   const markPaid = () => {
     if (!data || !profile) return;
-    const breakdown = data.outstanding_to_me.map((o) => ({
-      profileId: o.profile_id,
+    const breakdown = data.outstanding.map((o) => ({
+      from: o.from_profile_id,
+      to: o.to_profile_id,
       amountMinor: o.amount_minor,
     }));
 
@@ -249,20 +251,35 @@ export default function ExpenseDetailScreen() {
   const e = data?.expense;
   const net = data ? data.my_paid_minor - data.my_share_minor : 0n;
 
-  const owedToMe = (data?.outstanding_to_me ?? []).reduce((sum, o) => sum + o.amount_minor, 0n);
+  /*
+   * The whole outstanding total, and what of it lands on me.
+   *
+   * Two figures because the confirm sheet needs both: `outstandingTotal` is what is being
+   * declared settled, `myMovement` is what it does to the reader's own balance — and since 0040
+   * the person tapping may be a bystander for whom that is zero.
+   */
+  const outstanding = data?.outstanding ?? [];
+  const outstandingTotal = outstanding.reduce((sum, o) => sum + o.amount_minor, 0n);
+  const myMovement = outstanding.reduce(
+    (sum, o) =>
+      o.to_profile_id === profile?.id
+        ? sum + o.amount_minor
+        : o.from_profile_id === profile?.id
+          ? sum - o.amount_minor
+          : sum,
+    0n,
+  );
   const paidAt = data?.paid_in_full_at ?? null;
   /*
    * A deleted expense never shows the stamp. Its settlements have been voided server-side, so a
    * stamp here would be claiming a payment that no longer counts towards anything.
    */
   const stamped = !e?.deleted_at && (paidAt != null || pendingMark != null);
-  const canMarkPaid = !e?.deleted_at && !stamped && owedToMe > 0n;
+  const canMarkPaid = !e?.deleted_at && !stamped && outstanding.length > 0;
   /*
-   * There is something of MINE to withdraw — not merely "this expense is stamped".
-   *
-   * On a multi-payer expense another creditor's confirmation can complete the coverage and stamp
-   * it while the caller holds no linked settlement at all. Offering undo there would be a button
-   * that voids nothing, which reads as broken rather than as refused.
+   * Anyone may undo, including somebody who did not make the mark — that is the safeguard that
+   * makes open marking safe, so it is deliberately not scoped to the marker. The only condition
+   * is that there is something to void.
    */
   const canUnmark = stamped && (pendingMark != null || settledToMe.length > 0);
 
@@ -386,25 +403,52 @@ export default function ExpenseDetailScreen() {
                 {formatAmount(money(data.my_share_minor, 'INR'))}.
               </Text>
 
+              {/*
+                * The byline lives INSIDE this card, under the same hairline that already
+                * separates the total from what you're owed. It was a bordered box of its own
+                * below the card, which made "this is settled" and "who said so" look like two
+                * unrelated facts — they are one.
+                */}
+              {stamped ? (
+                <>
+                  <View style={styles.divider} />
+                  <View style={styles.byline}>
+                    <Avatar
+                      name={data.marked_by?.display_name ?? 'Someone'}
+                      url={data.marked_by?.avatar_url ?? null}
+                      size={26}
+                      tone="plain"
+                    />
+                    <Text style={styles.bylineText} numberOfLines={2}>
+                      {markerLabel(data.marked_by, profile?.id, paidAt)}
+                    </Text>
+                    {canUnmark ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Undo marking this expense paid in full"
+                        hitSlop={10}
+                        onPress={unmarkPaid}
+                      >
+                        <Text style={styles.undoLabel}>Undo</Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                </>
+              ) : null}
+
+              {/*
+                * Centred at 38% rather than the middle, so the ink presses across the money and
+                * stops above the hairline. A stamp lying over the name that is accounting for it
+                * would be the same mistake as stamping over the amount.
+                */}
               {stamped ? (
                 <PaidStamp
                   date={paidAt ? stampDate(paidAt) : stampDate(new Date().toISOString())}
                   animate={justStamped}
+                  centerY={0.38}
                 />
               ) : null}
             </GlassSurface>
-
-            {canUnmark ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Undo marking this expense paid in full"
-                hitSlop={8}
-                onPress={unmarkPaid}
-                style={styles.undo}
-              >
-                <Text style={styles.undoLabel}>Not paid after all — undo</Text>
-              </Pressable>
-            ) : null}
 
             <Section title="Who paid">
               {data.payers.map((p) => (
@@ -561,12 +605,15 @@ export default function ExpenseDetailScreen() {
       </ScrollView>
 
       {/*
-        * The confirm sheet names the amount the balance MOVES BY.
+        * The sheet has to work from three seats, and since 0040 all three are reachable.
         *
-        * "This will affect your balance" is not good enough on a screen that moves money. The
-        * sentence below is the approved wording, and the figure in it is `owedToMe` — the same
-        * number the write is about to hand the outbox — rather than the expense total, which on
-        * anything but a two-person split is a different number.
+        * The old copy said "your balance drops by X", which is true only for the person owed the
+        * money. A debtor marking their own debt sees their balance go UP, and a group member who
+        * is on neither side sees it not move at all — telling either of them their balance drops
+        * would be a false statement about money.
+        *
+        * Every version ends on the same sentence: **it will show that you marked it.** That is
+        * what makes an open rule safe, so it is the one line that never varies.
         */}
       <Sheet
         visible={confirmPaid}
@@ -574,7 +621,7 @@ export default function ExpenseDetailScreen() {
         title="Mark this as paid in full?"
         subtitle={
           data
-            ? `${debtorLabel(data.outstanding_to_me, data.splits, profile?.id)} has settled the whole ${formatAmount(money(owedToMe, 'INR'))} for ${data.expense.description}.`
+            ? `You're saying the whole ${formatAmount(money(outstandingTotal, 'INR'))} outstanding on ${data.expense.description} has been settled.`
             : undefined
         }
         footer={
@@ -589,10 +636,35 @@ export default function ExpenseDetailScreen() {
         }
       >
         <Text style={styles.sheetBody}>
-          This records a real payment.{' '}
-          <Text style={styles.sheetEmphasis}>{data?.expense.description}</Text> stops counting
-          towards what you&rsquo;re owed, and your balance drops by{' '}
-          <Text style={styles.sheetEmphasis}>{formatAmount(money(owedToMe, 'INR'))}</Text>.
+          {myMovement > 0n ? (
+            <>
+              This records a real payment.{' '}
+              <Text style={styles.sheetEmphasis}>{data?.expense.description}</Text> stops counting
+              towards what you&rsquo;re owed, and your balance drops by{' '}
+              <Text style={styles.sheetEmphasis}>
+                {formatAmount(money(myMovement, 'INR'), { signed: false })}
+              </Text>
+              .
+            </>
+          ) : myMovement < 0n ? (
+            <>
+              This clears the{' '}
+              <Text style={styles.sheetEmphasis}>
+                {formatAmount(money(-myMovement, 'INR'), { signed: false })}
+              </Text>{' '}
+              you owe for{' '}
+              <Text style={styles.sheetEmphasis}>{data?.expense.description}</Text>, so your
+              balance moves up by that much.
+            </>
+          ) : (
+            <>
+              This records a real payment between other people.{' '}
+              <Text style={styles.sheetEmphasis}>Your own balance does not move.</Text>
+            </>
+          )}
+          {'\n\n'}
+          It will show that <Text style={styles.sheetEmphasis}>you</Text> marked it, and anyone
+          here can undo it.
         </Text>
       </Sheet>
 
@@ -631,24 +703,16 @@ const ACTION_VERB: Record<string, string> = {
   merged_participants: 'merged people on',
 };
 
-/**
- * Who is being said to have paid, for the confirm sheet.
- *
- * One name when it is one person, a count when it is more — "Priya has settled" reads as a fact
- * about somebody, and "3 people have settled" is the honest version when it is not. Falls back to
- * "This" so the sentence still parses if a name cannot be resolved, which happens when the
- * debtor is on the expense but the splits list has been trimmed by an edit.
- */
-function debtorLabel(
-  owed: ExpenseDetail['outstanding_to_me'],
-  splits: ExpenseDetail['splits'],
+/** "Sushrith marked this paid in full, today" — or "You" when it was you. */
+function markerLabel(
+  marked: ExpenseDetail['marked_by'],
   meId: string | undefined,
+  paidAt: string | null,
 ): string {
-  if (owed.length === 0) return 'This';
-  if (owed.length > 1) return `${owed.length} people`;
-  const id = owed[0]!.profile_id;
-  if (id === meId) return 'You';
-  return splits.find((s) => s.profile_id === id)?.display_name ?? 'They';
+  const when = paidAt ? describeDate(paidAt.slice(0, 10)).toLowerCase() : 'just now';
+  if (!marked) return `Marked paid in full ${when}`;
+  if (marked.profile_id === meId) return `You marked this paid in full, ${when}`;
+  return `Marked paid in full by ${marked.display_name}, ${when}`;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -725,8 +789,14 @@ const styles = StyleSheet.create({
     color: color.creamWarm,
     textAlign: 'center',
   },
-  undo: { alignSelf: 'center', marginTop: 12, minHeight: layout.touchTarget, justifyContent: 'center' },
-  undoLabel: { fontFamily: font.light, fontSize: 13, color: color.textFaint },
+  byline: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  bylineText: { flex: 1, fontFamily: font.light, fontSize: 12.5, lineHeight: 17, color: color.textSecondary },
+  undoLabel: {
+    fontFamily: font.regular,
+    fontSize: 12.5,
+    color: color.textFaint,
+    textDecorationLine: 'underline',
+  },
   sheetBody: { fontFamily: font.light, fontSize: 14.5, lineHeight: 22, color: color.textSecondary },
   sheetEmphasis: { fontFamily: font.medium, color: color.cream },
   divider: { marginVertical: 12, height: 1, backgroundColor: 'rgba(255,255,255,0.09)' },

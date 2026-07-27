@@ -162,21 +162,25 @@ export function effectsOfSettlement(
  * Marking one expense paid in full.
  *
  * Which is N settlements, not one — a single-payer expense split four ways settles three debt
- * edges — so this takes the per-person breakdown the server hands back in `outstanding_to_me`
- * rather than a total. A total could not be split back into the pairs it came from, and the
- * balance the overlay corrects is per pair.
+ * edges — so this takes the edges the server hands back in `outstanding` rather than a total. A
+ * total could not be split back into the pairs it came from, and the balance the overlay
+ * corrects is per pair.
  *
- * The edges are built pointing AWAY from me for the same reason `effectsOfSettlement` does it:
- * a payment cancels a debt, so it is the debt with its direction reversed. Each person here owes
- * me *less* afterwards, which is a negative delta against them.
+ * **The edges are whole edges, not "what I am owed".** Since 0040 anyone can mark, and marking
+ * settles every debt on the expense — including debts between two other people. `foldEdges`
+ * already drops those (they move nothing on any screen this user can see), so passing the whole
+ * graph is both correct and simpler than filtering it first.
+ *
+ * Each edge is reversed on the way in, for the same reason `effectsOfSettlement` reverses one:
+ * a payment cancels a debt, so it is that debt pointing the other way.
  */
 export function effectsOfMarkPaid(
   me: string,
   groupId: string | null,
-  owed: readonly { profileId: string; amountMinor: bigint }[],
+  edges: readonly { from: string; to: string; amountMinor: bigint }[],
 ): PendingEffect[] {
   return foldEdges(
-    owed.map((o) => ({ from: me, to: o.profileId, amountMinor: o.amountMinor })),
+    edges.map((e) => ({ from: e.to, to: e.from, amountMinor: e.amountMinor })),
     me,
     groupId,
   );
@@ -186,9 +190,9 @@ export function effectsOfMarkPaid(
 export function effectsOfUnmarkPaid(
   me: string,
   groupId: string | null,
-  settled: readonly { profileId: string; amountMinor: bigint }[],
+  edges: readonly { from: string; to: string; amountMinor: bigint }[],
 ): PendingEffect[] {
-  return negate(effectsOfMarkPaid(me, groupId, settled));
+  return negate(effectsOfMarkPaid(me, groupId, edges));
 }
 
 function negate(effects: PendingEffect[]): PendingEffect[] {

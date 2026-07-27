@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
@@ -7,7 +7,14 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Path, Text as SvgText } from 'react-native-svg';
+import Svg, {
+  Defs,
+  Ellipse,
+  Path,
+  RadialGradient,
+  Stop,
+  Text as SvgText,
+} from 'react-native-svg';
 
 import { color, font, motion, useReduceMotion } from '@/design';
 
@@ -24,6 +31,14 @@ export interface PaidStampProps {
   animate?: boolean;
   /** Overall width in points. The height follows the 252×104 artwork. */
   width?: number;
+  /**
+   * Where the die sits inside its container, as a fraction of the height. Defaults to centred.
+   *
+   * The expense card passes `0.38` so the ink presses across the money and stops above the
+   * hairline — the byline underneath is the fact the stamp is accounting for, and ink lying over
+   * it would be the same mistake as stamping over the amount.
+   */
+  centerY?: number;
 }
 
 const ART_WIDTH = 252;
@@ -77,9 +92,18 @@ const INNER_BORDER =
  * note on OUTER_BORDER, and why the mockup's filter approach could not survive the crossing to
  * native.
  */
-export function PaidStamp({ date, animate = false, width = 252 }: PaidStampProps) {
+export function PaidStamp({
+  date,
+  animate = false,
+  width = 252,
+  centerY = 0.5,
+}: PaidStampProps) {
   const reduceMotion = useReduceMotion();
   const height = Math.round((width / ART_WIDTH) * ART_HEIGHT);
+  // Per instance, because a group list renders several of these and react-native-svg has
+  // historically leaked gradient ids across sibling <Svg> roots. `useId` emits colons, which are
+  // not valid in a `url(#…)` reference.
+  const bleedId = `paidBleed${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
 
   // Starts landed unless this render is the one doing the pressing.
   const progress = useSharedValue(animate && !reduceMotion ? 0 : 1);
@@ -138,7 +162,43 @@ export function PaidStamp({ date, animate = false, width = 252 }: PaidStampProps
   });
 
   return (
-    <View pointerEvents="none" style={styles.wrap}>
+    <View
+      pointerEvents="none"
+      style={[
+        styles.wrap,
+        // `top`/`bottom` percentages resolve against the parent's HEIGHT in Yoga, which is what
+        // makes this work — a percentage `paddingTop` would have resolved against its width.
+        // Content stays centred in whatever box is left, so pulling the bottom edge up by twice
+        // the shortfall lands the die's centre exactly on `centerY`.
+        { bottom: `${Math.max(0, 100 - centerY * 200)}%` },
+      ]}
+    >
+      {/*
+        * The bleed: a gold wash under the ink, as though it soaked into the card.
+        *
+        * A real radial gradient, drawn in SVG — `RadialGradient` is one of the primitives
+        * react-native-svg actually implements on both platforms, unlike the filters the original
+        * mockup used. Stacked translucent Views were the alternative and they read as flat
+        * lozenges, because every one of them has a hard edge somewhere.
+        *
+        * This is the only decoration on the component. Everything else here carries information.
+        */}
+      <Svg
+        width={width * 1.5}
+        height={height * 2.1}
+        style={styles.bleed}
+        pointerEvents="none"
+      >
+        <Defs>
+          <RadialGradient id={bleedId} cx="50%" cy="50%" rx="50%" ry="50%">
+            <Stop offset="0" stopColor={color.goldLeaf} stopOpacity={0.24} />
+            <Stop offset="0.45" stopColor={color.goldLeaf} stopOpacity={0.08} />
+            <Stop offset="1" stopColor={color.goldLeaf} stopOpacity={0} />
+          </RadialGradient>
+        </Defs>
+        <Ellipse cx="50%" cy="50%" rx="50%" ry="50%" fill={`url(#${bleedId})`} />
+      </Svg>
+
       <Animated.View
         style={[
           styles.halo,
@@ -219,5 +279,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  bleed: { position: 'absolute' },
   halo: { position: 'absolute', borderWidth: 1, borderColor: 'rgba(184,150,60,0.55)' },
 });

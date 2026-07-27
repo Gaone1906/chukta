@@ -19,8 +19,9 @@ import { BackChevron } from '@/features/onboarding/BackChevron';
 import { EmptyState } from '@/features/home/EmptyState';
 import { InviteMethodSheet } from '@/features/invite/InviteMethodSheet';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
-import { ExpenseRow } from '@/features/expenses/ExpenseRow';
+import { ExpenseRow, markerFor } from '@/features/expenses/ExpenseRow';
 import { Avatar } from '@/features/people/Avatar';
+import { useSession } from '@/features/auth/session';
 import { getPersonDetail } from '@/lib/api';
 import { queryKeys } from '@/lib/queryKeys';
 
@@ -39,6 +40,7 @@ export default function PersonDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { rippleTo, rippleFrom } = useRippleNav();
+  const { profile } = useSession();
 
   const { data, isLoading, isRefetching, refetch, error } = useQuery({
     queryKey: queryKeys.person(id!),
@@ -223,7 +225,7 @@ export default function PersonDetail() {
                     myShareMinor={e.my_share_minor}
                     groupName={e.group_name}
                     meta={`${firstName(name)}'s share ${formatAmount(money(e.their_share_minor, 'INR'), { signed: false })}`}
-                    paidInFull={e.paid_in_full_at != null}
+                    paidBy={markerFor(e.paid_in_full_at, e.marked_by, profile?.id)}
                     onPress={(at) => rippleTo(at, () => router.push(`/expense/${e.id}`))}
                   />
                 ))}

@@ -119,18 +119,18 @@ export function queueUpdateExpense(
 }
 
 /**
- * @param settledToMe What has been settled against this expense and paid to you, per person —
- *   `ExpenseDetail.settled_to_me`. Deleting an expense also **voids its linked settlements**
- *   (migration 0039), so the overlay has to undo those alongside the debts. Without it, deleting
- *   a stamped expense briefly shows the payer in the red for money that was both owed to them
- *   and repaid: the debt is removed and the repayment is not.
+ * @param settledToMe Every settlement standing against this expense — `ExpenseDetail.settled`.
+ *   Deleting an expense also **voids its linked settlements** (migration 0039), so the overlay
+ *   has to undo those alongside the debts. Without it, deleting a stamped expense briefly shows
+ *   the payer in the red for money that was both owed to them and repaid: the debt is removed and
+ *   the repayment is not.
  */
 export function queueDeleteExpense(
   me: string,
   expenseId: string,
   before: ExpenseShape,
   expectedRevision: number,
-  settledToMe: readonly { profileId: string; amountMinor: bigint }[] = [],
+  settledToMe: readonly { from: string; to: string; amountMinor: bigint }[] = [],
 ): void {
   enqueue({
     clientMutationId: newId(),
@@ -154,15 +154,15 @@ export function queueDeleteExpense(
  * push the row into the pending inbox for a reason the user could not act on.
  *
  * @param settledToMe The mirror of the delete's argument. On a deleted expense
- *   `ExpenseDetail.settled_to_me` reports the settlements the delete voided, which are exactly
- *   the ones `restore_expense` brings back — so the two overlays are inverses and a
- *   delete-then-restore leaves the balance where it started.
+ *   `ExpenseDetail.settled` reports the settlements the delete voided, which are exactly the ones
+ *   `restore_expense` brings back — so the two overlays are inverses and a delete-then-restore
+ *   leaves the balance where it started.
  */
 export function queueRestoreExpense(
   me: string,
   expenseId: string,
   before: ExpenseShape,
-  settledToMe: readonly { profileId: string; amountMinor: bigint }[] = [],
+  settledToMe: readonly { from: string; to: string; amountMinor: bigint }[] = [],
 ): void {
   enqueue({
     clientMutationId: newId(),
@@ -219,21 +219,25 @@ export function queueSettlement(
 }
 
 /**
- * Confirm that everything owed to you on one expense has come back.
+ * Say that everything owed on one expense has been paid.
  *
  * Queued like every other money write, so it works at a restaurant table with no signal — and
- * carries its own balance movement, so the amount drops the instant the sheet is confirmed
+ * carries its own balance movement, so the figures drop the instant the sheet is confirmed
  * rather than whenever the network next appears.
  *
- * No `baseRevision`: the server's precondition is "something is still outstanding to me", not
- * "this expense is at revision N". Sending one would invent a conflict the user could not act
- * on. Same reasoning as `queueRestoreExpense`.
+ * `owed` is **every** outstanding edge, not just the ones involving the caller: since 0040
+ * anyone can mark, and marking settles the whole expense. `effectsOfMarkPaid` drops the edges
+ * that move nothing on this user's screens.
+ *
+ * No `baseRevision`: the server's precondition is "something is still outstanding", not "this
+ * expense is at revision N". Sending one would invent a conflict the user could not act on.
+ * Same reasoning as `queueRestoreExpense`.
  */
 export function queueMarkExpensePaid(
   me: string,
   expenseId: string,
   groupId: string | null,
-  owed: readonly { profileId: string; amountMinor: bigint }[],
+  owed: readonly { from: string; to: string; amountMinor: bigint }[],
 ): void {
   enqueue({
     clientMutationId: newId(),
@@ -249,7 +253,7 @@ export function queueUnmarkExpensePaid(
   me: string,
   expenseId: string,
   groupId: string | null,
-  settled: readonly { profileId: string; amountMinor: bigint }[],
+  settled: readonly { from: string; to: string; amountMinor: bigint }[],
 ): void {
   enqueue({
     clientMutationId: newId(),

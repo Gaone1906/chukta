@@ -50,6 +50,47 @@ export interface GroupMember {
   net_minor: bigint;
 }
 
+/**
+ * Who marked an expense paid in full.
+ *
+ * Read off `settlements.recorded_by_profile_id`, which has existed since Phase 2 as an audit
+ * column nobody displayed. Since 0040 anyone may mark an expense — so this stopped being an
+ * audit detail and became the thing that makes the open rule accountable.
+ */
+export interface MarkedBy {
+  profile_id: string;
+  display_name: string;
+  avatar_url: string | null;
+  /** ISO timestamp of the newest linked settlement. What the stamp and byline print. */
+  at: string;
+}
+
+/** One directed debt: `from` owes `to`. The shape the balance overlay reduces everything to. */
+export interface DebtEdge {
+  from_profile_id: string;
+  to_profile_id: string;
+  amount_minor: bigint;
+}
+
+function toMarkedBy(raw: unknown): MarkedBy | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const m = raw as Record<string, unknown>;
+  return {
+    profile_id: String(m.profile_id),
+    display_name: String(m.display_name),
+    avatar_url: (m.avatar_url as string | null) ?? null,
+    at: String(m.at),
+  };
+}
+
+function toDebtEdge(e: Record<string, unknown>): DebtEdge {
+  return {
+    from_profile_id: String(e.from_profile_id),
+    to_profile_id: String(e.to_profile_id),
+    amount_minor: big(e.amount_minor),
+  };
+}
+
 export interface ExpenseListItem {
   id: string;
   description: string;
@@ -61,6 +102,8 @@ export interface ExpenseListItem {
   payers: { profile_id: string; paid_amount_minor: bigint }[];
   /** Set once every debt this expense created has been settled against it. Drives the row stamp. */
   paid_in_full_at: string | null;
+  /** Who closed it — the row's byline. Null when it is not marked. */
+  marked_by: MarkedBy | null;
 }
 
 export interface GroupDetail {
@@ -79,6 +122,7 @@ export interface PersonExpenseItem {
   my_share_minor: bigint;
   their_share_minor: bigint;
   paid_in_full_at: string | null;
+  marked_by: MarkedBy | null;
 }
 
 export interface PersonDetail {
@@ -190,6 +234,7 @@ function toExpenseListItem(e: Record<string, unknown>): ExpenseListItem {
       paid_amount_minor: big(p.paid_amount_minor),
     })),
     paid_in_full_at: (e.paid_in_full_at as string | null) ?? null,
+    marked_by: toMarkedBy(e.marked_by),
   };
 }
 
@@ -225,6 +270,7 @@ export async function getPersonDetail(profileId: string): Promise<PersonDetail> 
       my_share_minor: big(e.my_share_minor),
       their_share_minor: big(e.their_share_minor),
       paid_in_full_at: (e.paid_in_full_at as string | null) ?? null,
+      marked_by: toMarkedBy(e.marked_by),
     })),
   };
 }
@@ -254,17 +300,22 @@ export interface ExpenseDetail {
    * a second field could disagree with it.
    */
   paid_in_full_at: string | null;
+  /** Who marked it, for the byline. Null when it is not marked. */
+  marked_by: MarkedBy | null;
   /**
-   * Who still owes you on this expense, and how much.
+   * Every debt on this expense that is still outstanding.
    *
-   * Per person rather than a total, because the outbox needs it that way: a queued write carries
-   * its own balance movement and balances are per-pair, so a total could not be split back into
-   * the pairs it came from. Non-empty is also exactly the condition the server enforces, so the
-   * button cannot offer an action `mark_expense_paid` is going to refuse.
+   * Whole edges rather than "what I am owed", because since 0040 anyone can mark and marking
+   * settles the lot — including debts between two other people. Edges rather than a total,
+   * because the outbox carries its own balance movement and balances are per-pair, so a total
+   * could not be split back into the pairs it came from.
+   *
+   * Non-empty is exactly the condition the server enforces, so the button cannot offer an action
+   * `mark_expense_paid` is going to refuse.
    */
-  outstanding_to_me: { profile_id: string; amount_minor: bigint }[];
-  /** What you have already confirmed here, per person. Drives the undo and its overlay. */
-  settled_to_me: { profile_id: string; amount_minor: bigint }[];
+  outstanding: DebtEdge[];
+  /** Every settlement standing against this expense. Drives the undo and its overlay. */
+  settled: DebtEdge[];
   payers: {
     profile_id: string;
     display_name: string;
@@ -325,14 +376,9 @@ export async function getExpenseDetail(expenseId: string): Promise<ExpenseDetail
     my_share_minor: big(raw.my_share_minor),
     my_paid_minor: big(raw.my_paid_minor),
     paid_in_full_at: (raw.paid_in_full_at as string | null) ?? null,
-    outstanding_to_me: (raw.outstanding_to_me ?? []).map((o: Record<string, unknown>) => ({
-      profile_id: String(o.profile_id),
-      amount_minor: big(o.amount_minor),
-    })),
-    settled_to_me: (raw.settled_to_me ?? []).map((o: Record<string, unknown>) => ({
-      profile_id: String(o.profile_id),
-      amount_minor: big(o.amount_minor),
-    })),
+    marked_by: toMarkedBy(raw.marked_by),
+    outstanding: (raw.outstanding ?? []).map(toDebtEdge),
+    settled: (raw.settled ?? []).map(toDebtEdge),
     payers: (raw.payers ?? []).map((p: Record<string, unknown>) => ({
       profile_id: String(p.profile_id),
       display_name: String(p.display_name),

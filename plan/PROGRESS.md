@@ -2048,3 +2048,102 @@ The plan named `payers` and `split_count`. It had also dropped `revision`, which
 `toExpenseListItem` reads and defaults to `1` — so every expense in a group list claimed revision
 1 regardless. All three are restored, and the new key-set assertions are exact rather than
 "contains", because a rename both adds and removes and only an exact set catches one.
+
+---
+
+# BUILT — anyone can mark it paid, and it says who (2026-07-27, same day)
+
+Approved from the mockups in `prototypes/paid-by-whom.html`, `paid-row-C-variants.html` and
+`paid-one-card.html` (all gitignored). Shipped as migration `0040_anyone_can_mark_paid.sql` plus
+the client changes below. **This supersedes 0039's authorisation rule entirely.**
+
+## The rule, and what it costs
+
+0039 let only the person owed the money confirm it came back, and only for their own share. That
+is the conservative reading and it has a real cost: the one person who most wants an expense
+closed is usually the one who just paid it back, and they could not say so.
+
+So the gate opens. **Anyone who can see an expense may mark it paid in full**, and doing so
+settles every outstanding debt on it — not just the marker's own.
+
+Be honest about what that changes. Before this, the app could not record a payment the recipient
+had not acknowledged. Now it can: somebody who owes you ₹50,000 can mark it settled without you
+agreeing. Two things make that safe, and **neither is optional**:
+
+1. **The name travels with it.** `settlements.recorded_by_profile_id` has existed since Phase 2 as
+   an audit column nobody displayed. It is now the byline on the expense card and on every list
+   row that shows the stamp.
+2. **Anyone can undo.** This is the half that actually matters. A name tells you who to blame
+   after your balance is already wrong; the undo is what stops it being wrong. Whoever loses money
+   must never be trapped by somebody else's mark.
+
+## Undo stopped being silent
+
+0039 routed un-marking through a `settlement_void` change event, which 0028's trigger did not
+recognise and therefore synced without notifying. That was right when you could only undo your own
+mark — telling someone they had undone their own action is noise.
+
+It is wrong now. An undo is one person overruling another about money, and silence means the first
+they hear of it is a balance that changed on its own. So `0040` rewrites
+`internal.enqueue_notification` (0033's body verbatim plus one case) to add a
+**`settlement_undone`** kind — "Payment undone · <name> undid a paid-in-full mark" — and
+`internal.wants_notification` maps it onto the existing `settlements` preference rather than
+inventing a sixth toggle. **The person whose mark was reversed is added to the recipient list**,
+which is the whole point.
+
+## Payload changes — two keys replaced, not added
+
+`get_expense_detail`'s `outstanding_to_me` and `settled_to_me` are **gone**, replaced by
+`outstanding` and `settled`, both arrays of whole `{from, to, amount}` debt edges.
+
+They were scoped to the caller because only the caller's edges could ever move. Marking now
+settles every edge, including ones between two other people, so the client needs the whole graph
+to compute its offline balance overlay — and a "to me" suffix on a field that is no longer about
+me is exactly the quiet lie that produced the 0035 regression. The key-set assertions were updated
+in the same commit, which is what they are for.
+
+`marked_by` (`{profile_id, display_name, avatar_url, at}`) is added to `get_expense_detail`,
+`get_group_detail` and `get_person_detail`.
+
+## The design, after four rounds
+
+**The expense card.** The byline lives *inside* the amount card, under the same hairline that
+already separates the total from what you're owed — not in a bordered box of its own below it.
+"This is settled" and "who said so" are one fact. The die is centred at **38%** rather than 50% so
+the ink presses across the money and clears the hairline; ink lying over the name that is
+accounting for it would repeat the mistake below.
+
+**The list row.** The die presses **behind** the type, with a gold radial bleed under it, and the
+byline is the row's last line. Three earlier attempts put the stamp on top and each one landed on
+something that had to stay readable — first the amount, then the byline. A rotated stamp across a
+62pt row has nowhere to go that is not already occupied. Behind it, the figures simply recede
+(32%, 20%) to make room, **except the amount**, which stays at full strength because it is how you
+find "the ₹50,000 one" in a list.
+
+`rowPaid` carries a `minHeight: 92` floor. The die is taller than the row and always overruns it —
+that overrun is what makes it read as pressed over an edge rather than placed in a box — but its
+*type* must never clip, only its borders.
+
+**The bleed** is a real `RadialGradient` in SVG. Stacked translucent Views were tried and read as
+flat lozenges, because every one of them has a hard edge somewhere. `RadialGradient` is among the
+primitives react-native-svg actually implements natively, unlike the `feTurbulence` filters the
+original mockup used (see the 0039 section). The gradient id is per-instance via `useId()`,
+because a group list renders several of these.
+
+**The confirm sheet** now has three versions, because all three seats are reachable: you're owed
+(balance drops), you owe (balance rises), or neither (it does not move). The old single sentence
+"your balance drops by X" is a false statement about money from two of those three. Every version
+ends on the same line — *it will show that you marked it* — because that is what makes an open
+rule safe.
+
+## Verification
+
+242 pgTAP assertions and 173 unit tests, typecheck and lint clean.
+
+New coverage: a debtor **can** now mark their own debt paid; the record names them; marking
+settles every edge including one the marker is not party to; somebody else can undo it and the
+stamp goes with it. Unit tests pin that edges between two other people move nothing on the
+marker's own balance — folding those in would invent money on their Home screen.
+
+**Still nothing has run on hardware.** That, and the UPI path from build `5fc8e34b`, are what a
+build is for.

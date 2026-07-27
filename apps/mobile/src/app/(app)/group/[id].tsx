@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FAB, GlassButton, GlassSurface, SettledBadge, Toast, color, font, layout, radius, useRippleNav } from '@/design';
 import { EmptyState } from '@/features/home/EmptyState';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
-import { ExpenseRow } from '@/features/expenses/ExpenseRow';
+import { ExpenseRow, markerFor } from '@/features/expenses/ExpenseRow';
 import { ScreenHeader } from '@/features/expenses/ScreenHeader';
 import { useSession } from '@/features/auth/session';
 import { getGroupDetail, type GroupMember } from '@/lib/api';
@@ -188,7 +188,7 @@ export default function GroupDetail() {
                     amountMinor={e.amount_minor}
                     myShareMinor={e.my_share_minor}
                     meta={`${payerLabel(e.payers, data.members, profile?.id)} · split ${e.split_count} ways`}
-                    paidInFull={e.paid_in_full_at != null}
+                    paidBy={markerFor(e.paid_in_full_at, e.marked_by, profile?.id)}
                     onPress={(at) => rippleTo(at, () => router.push(`/expense/${e.id}`))}
                   />
                 ))}

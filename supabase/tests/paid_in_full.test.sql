@@ -18,7 +18,7 @@
 -- `spent_on` sorts before `split_count`.)
 
 begin;
-select plan(32);
+select plan(36);
 
 -- Same fixture shape as expenses.test.sql: the auth trigger auto-creates a profile per user, so
 -- the auto-created rows are swapped out for ones with readable ids.
@@ -79,8 +79,8 @@ select is(
 select is(
   (select string_agg(k, ',' order by k)
    from jsonb_object_keys(app.get_expense_detail('eeee1111-0000-0000-0000-000000000001')) k),
-  'comments,expense,history,items,my_paid_minor,my_share_minor,outstanding_to_me,'
-  || 'paid_in_full_at,payers,receipts,settled_to_me,splits',
+  'comments,expense,history,items,marked_by,my_paid_minor,my_share_minor,outstanding,'
+  || 'paid_in_full_at,payers,receipts,settled,splits',
   'get_expense_detail emits exactly the keys lib/api.ts reads'
 );
 
@@ -89,8 +89,8 @@ select is(
    from jsonb_object_keys(
      (select app.get_group_detail(e.group_id) -> 'expenses' -> 0
       from public.expenses e where e.id = 'eeee1111-0000-0000-0000-000000000001')) k),
-  'amount_minor,description,id,my_share_minor,paid_in_full_at,participant_count,payer_names,'
-  || 'payers,revision,spent_on,split_count,split_type',
+  'amount_minor,description,id,marked_by,my_share_minor,paid_in_full_at,participant_count,'
+  || 'payer_names,payers,revision,spent_on,split_count,split_type',
   'get_group_detail''s expense payload has payers, split_count and revision back — the 0035 fix'
 );
 
@@ -98,8 +98,8 @@ select is(
   (select string_agg(k, ',' order by k)
    from jsonb_object_keys(
      app.get_person_detail('bbbbbbbb-0000-0000-0000-000000000001') -> 'expenses' -> 0) k),
-  'amount_minor,description,group_id,group_name,id,my_share_minor,paid_in_full_at,spent_on,'
-  || 'their_share_minor',
+  'amount_minor,description,group_id,group_name,id,marked_by,my_share_minor,paid_in_full_at,'
+  || 'spent_on,their_share_minor',
   'get_person_detail emits exactly the keys lib/api.ts reads'
 );
 
@@ -126,18 +126,47 @@ select is(
 delete from public.settlements where id = 'ffff1111-0000-0000-0000-000000000001';
 
 -- ---------------------------------------------------------------- who may mark
+--
+-- 0040 opened this. A debtor marking their own debt paid is now allowed — the safeguard is that
+-- the record says who did it, and that anyone can undo it. Both are asserted below.
 
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-0000000000b1","role":"authenticated"}';
 
-select throws_ok(
+select lives_ok(
   $$ select app.mark_expense_paid('eeee1111-0000-0000-0000-000000000001',
                                   '99999999-0000-0000-0000-000000000010') $$,
-  '42501',
-  null,
-  'a debtor cannot mark their own debt paid — only the person owed the money can'
+  'a debtor can mark their own debt paid — the open rule from 0040'
 );
 
+select is(
+  app.expense_marked_by('eeee1111-0000-0000-0000-000000000001') ->> 'display_name',
+  'Priya',
+  'and the record names them, which is the whole safeguard'
+);
+
+select is(
+  (select count(*) from public.settlements
+   where expense_id = 'eeee1111-0000-0000-0000-000000000001'
+     and status = 'recorded' and to_profile_id = 'aaaaaaaa-0000-0000-0000-000000000001'),
+  2::bigint,
+  'marking settles EVERY outstanding edge, including the one Priya was not party to'
+);
+
+-- Ann, who is owed the money, reverses it. She did not make the mark; under 0039 she could not
+-- have touched it, which is exactly the trap 0040 had to avoid.
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-0000000000a1","role":"authenticated"}';
+
+select lives_ok(
+  $$ select app.unmark_expense_paid('eeee1111-0000-0000-0000-000000000001',
+                                    '99999999-0000-0000-0000-00000000000f') $$,
+  'somebody else can undo it — the half that makes the open rule safe'
+);
+
+select is(
+  app.expense_paid_in_full_at('eeee1111-0000-0000-0000-000000000001'),
+  null,
+  'and the stamp goes with it'
+);
 
 select lives_ok(
   $$ select app.mark_expense_paid('eeee1111-0000-0000-0000-000000000001',
@@ -182,7 +211,7 @@ select lives_ok(
 
 select is(
   (select count(*) from public.settlements
-   where expense_id = 'eeee1111-0000-0000-0000-000000000001'),
+   where expense_id = 'eeee1111-0000-0000-0000-000000000001' and status = 'recorded'),
   2::bigint,
   'and writes nothing more — a no-op, never a second set of settlement rows'
 );
@@ -243,7 +272,7 @@ select lives_ok(
 select is(
   (select count(*) from public.settlements
    where expense_id = 'eeee1111-0000-0000-0000-000000000001' and status = 'voided'),
-  4::bigint,
+  6::bigint,
   'every linked settlement is voided, not deleted — the record is history'
 );
 
@@ -299,7 +328,7 @@ select is(
 select throws_ok(
   $$ select app.mark_expense_paid('eeee1111-0000-0000-0000-000000000002',
                                   '99999999-0000-0000-0000-000000000020') $$,
-  '42501',
+  'P0002',
   null,
   'and marking it is refused rather than silently writing nothing'
 );
@@ -340,7 +369,7 @@ select is(
 -- voided-by-delete rows for exactly that reason.
 select is(
   jsonb_array_length(
-    app.get_expense_detail('eeee1111-0000-0000-0000-000000000001') -> 'settled_to_me'),
+    app.get_expense_detail('eeee1111-0000-0000-0000-000000000001') -> 'settled'),
   2,
   'a deleted expense still reports what restoring it would bring back — one entry per debtor'
 );
