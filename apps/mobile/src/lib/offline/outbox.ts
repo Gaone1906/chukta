@@ -44,6 +44,8 @@ export type OutboxOp =
   | 'restore_expense'
   | 'add_comment'
   | 'record_settlement'
+  | 'mark_expense_paid'
+  | 'unmark_expense_paid'
   | 'create_group'
   | 'upsert_contact_profile';
 

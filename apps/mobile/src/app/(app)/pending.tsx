@@ -169,6 +169,10 @@ function describe(row: OutboxRow): string {
       return 'Posting a comment';
     case 'record_settlement':
       return 'Recording a settlement';
+    case 'mark_expense_paid':
+      return 'Marking an expense paid in full';
+    case 'unmark_expense_paid':
+      return 'Undoing a paid-in-full mark';
     case 'create_group':
       return `Creating “${payload.name ?? 'a group'}”`;
     case 'upsert_contact_profile':

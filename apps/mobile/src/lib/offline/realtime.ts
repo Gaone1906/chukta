@@ -76,6 +76,11 @@ export function applyChangeEvent(client: QueryClient, event: ChangeEvent): void 
   switch (event.entity_type) {
     case 'expense':
     case 'settlement':
+    // A withdrawn settlement moves exactly the same balances as a recorded one, in the other
+    // direction. It is only a distinct type so the server can stay silent about it — see the
+    // comment on ChangeEvent in lib/api.ts — and dropping it here would leave the other person
+    // looking at a debt that has quietly come back.
+    case 'settlement_void':
       for (const key of afterExpenseChange(event.group_id)) invalidate(key);
       break;
 

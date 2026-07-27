@@ -22,6 +22,7 @@ import { describeDate } from '@/features/expenses/DateSheet';
 import { ScreenHeader } from '@/features/expenses/ScreenHeader';
 import { EmptyState } from '@/features/home/EmptyState';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
+import { PaidStamp, stampDate } from '@/features/expenses/PaidStamp';
 import { ReceiptStrip } from '@/features/expenses/ReceiptStrip';
 import { Avatar } from '@/features/people/Avatar';
 import { getExpenseDetail, type ExpenseDetail } from '@/lib/api';
@@ -30,7 +31,9 @@ import { useOffline } from '@/lib/offline/OfflineProvider';
 import {
   queueComment,
   queueDeleteExpense,
+  queueMarkExpensePaid,
   queueRestoreExpense,
+  queueUnmarkExpensePaid,
   shapeFromDetail,
 } from '@/lib/offline/writes';
 import { afterExpenseChange, queryKeys } from '@/lib/queryKeys';
@@ -65,8 +68,34 @@ export default function ExpenseDetailScreen() {
 
   const [comment, setComment] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmPaid, setConfirmPaid] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  /*
+   * Whether THIS screen is the one that did the stamping.
+   *
+   * The stamp presses down once, on the tap, and is simply there on every later visit. Deriving
+   * that from the data is impossible — a freshly-marked expense and one marked last week look
+   * identical to `paid_in_full_at` — so the moment has to be remembered by the thing that caused
+   * it. Local state is exactly the right lifetime: it dies with the screen, which is when the
+   * moment is over.
+   */
+  const [justStamped, setJustStamped] = useState(false);
+  /*
+   * What this screen has just queued, before any refetch: the per-person breakdown it settled.
+   *
+   * Non-null means "marked here, server not caught up yet". The write is queued rather than
+   * awaited, so `paid_in_full_at` stays null until the drain lands and the refetch returns — a
+   * second or two in which the balance has already moved (the outbox overlay does that
+   * immediately) but the screen would still be offering to mark it paid. With no signal, hours.
+   *
+   * It holds the breakdown rather than a boolean because undoing has to move the balance back by
+   * exactly what marking moved it by, and the cached `settled_to_me` does not know about a write
+   * the server has not seen.
+   */
+  const [pendingMark, setPendingMark] = useState<
+    { profileId: string; amountMinor: bigint }[] | null
+  >(null);
 
   const { data, isLoading, isRefetching, refetch, error } = useQuery({
     queryKey: queryKeys.expense(id!),
@@ -80,6 +109,19 @@ export default function ExpenseDetailScreen() {
         queryClient.invalidateQueries({ queryKey: key }),
       ),
     );
+
+  /*
+   * What has been settled against this expense and paid to me, in the shape the outbox wants.
+   *
+   * Read by three writes rather than one, which is why it lives here instead of being mapped
+   * three times: undoing reverses it, deleting voids it server-side, and restoring brings it
+   * back. All three have to move the balance by exactly this, or an expense that was stamped
+   * shows a wrong figure for as long as the queue takes to drain.
+   */
+  const settledToMe = (data?.settled_to_me ?? []).map((s) => ({
+    profileId: s.profile_id,
+    amountMinor: s.amount_minor,
+  }));
 
   /*
    * A comment was the one write in the app with no idempotency at all: it minted a fresh
@@ -114,6 +156,7 @@ export default function ExpenseDetailScreen() {
         id!,
         shapeFromDetail(data),
         data.expense.revision,
+        settledToMe,
       );
       setConfirmDelete(false);
       offline.refresh();
@@ -137,7 +180,7 @@ export default function ExpenseDetailScreen() {
     if (!data || !profile) return;
     setRestoring(true);
     try {
-      queueRestoreExpense(profile.id, id!, shapeFromDetail(data));
+      queueRestoreExpense(profile.id, id!, shapeFromDetail(data), settledToMe);
       offline.refresh();
       offline.sync();
       void invalidate();
@@ -148,8 +191,80 @@ export default function ExpenseDetailScreen() {
     }
   };
 
+  /*
+   * Confirm that everything owed to you here has come back.
+   *
+   * Queued rather than awaited, like every other money write, so it works with no signal — and
+   * `queueMarkExpensePaid` carries the per-person balance movement with it, so the group and
+   * person totals drop the moment this returns rather than when the network next appears.
+   *
+   * The button that opens this sheet is only rendered when `outstanding_to_me` is non-empty,
+   * which is the same condition `app.mark_expense_paid` enforces server-side. That is deliberate
+   * duplication: hiding a control the server would refuse is a UI nicety, and the server refusing
+   * it is the actual rule.
+   */
+  const markPaid = () => {
+    if (!data || !profile) return;
+    const breakdown = data.outstanding_to_me.map((o) => ({
+      profileId: o.profile_id,
+      amountMinor: o.amount_minor,
+    }));
+
+    try {
+      queueMarkExpensePaid(profile.id, id!, data.expense.group_id, breakdown);
+      setConfirmPaid(false);
+      setPendingMark(breakdown);
+      setJustStamped(true);
+      offline.refresh();
+      offline.sync();
+      void invalidate();
+    } catch (err) {
+      setConfirmPaid(false);
+      setToast((err as Error).message);
+    }
+  };
+
+  /*
+   * Undo. No confirmation sheet, deliberately: this is the safe direction — it puts a debt back
+   * rather than clearing one — and a dialog in front of it would make recovering from a mistake
+   * harder than making one. Same reasoning as `restore`.
+   */
+  const unmarkPaid = () => {
+    if (!data || !profile) return;
+    // What the server knows it holds, or — if it has not seen the mark yet — exactly what this
+    // screen told the outbox to move, so the two overlays cancel instead of stacking.
+    const breakdown = settledToMe.length > 0 ? settledToMe : (pendingMark ?? []);
+
+    try {
+      queueUnmarkExpensePaid(profile.id, id!, data.expense.group_id, breakdown);
+      setPendingMark(null);
+      offline.refresh();
+      offline.sync();
+      void invalidate();
+    } catch (err) {
+      setToast((err as Error).message);
+    }
+  };
+
   const e = data?.expense;
   const net = data ? data.my_paid_minor - data.my_share_minor : 0n;
+
+  const owedToMe = (data?.outstanding_to_me ?? []).reduce((sum, o) => sum + o.amount_minor, 0n);
+  const paidAt = data?.paid_in_full_at ?? null;
+  /*
+   * A deleted expense never shows the stamp. Its settlements have been voided server-side, so a
+   * stamp here would be claiming a payment that no longer counts towards anything.
+   */
+  const stamped = !e?.deleted_at && (paidAt != null || pendingMark != null);
+  const canMarkPaid = !e?.deleted_at && !stamped && owedToMe > 0n;
+  /*
+   * There is something of MINE to withdraw — not merely "this expense is stamped".
+   *
+   * On a multi-payer expense another creditor's confirmation can complete the coverage and stamp
+   * it while the caller holds no linked settlement at all. Offering undo there would be a button
+   * that voids nothing, which reads as broken rather than as refused.
+   */
+  const canUnmark = stamped && (pendingMark != null || settledToMe.length > 0);
 
   return (
     <KeyboardAvoidingView
@@ -214,9 +329,39 @@ export default function ExpenseDetailScreen() {
               </GlassSurface>
             ) : null}
 
+            {/*
+              * The stamp's stage.
+              *
+              * It lands across the amount rather than beside it: the stamp is a statement about
+              * the money, and the amount is what anyone scanning this screen looks at first. The
+              * figures dim underneath instead of disappearing — the number still matters, it just
+              * stops being a question.
+              */}
             <GlassSurface radius={radius.panel} elevation="glass" style={styles.summarySpacing} contentStyle={styles.summary}>
-              <Text style={styles.total}>{formatAmount(money(e.amount_minor, 'INR'))}</Text>
-              <Text style={styles.splitType}>{SPLIT_LABEL[e.split_type]}</Text>
+              <View style={styles.amountRow}>
+                <View style={styles.amountBlock}>
+                  <Text style={[styles.total, stamped ? styles.paidDim : null]}>
+                    {formatAmount(money(e.amount_minor, 'INR'))}
+                  </Text>
+                  <Text style={[styles.splitType, stamped ? styles.paidDim : null]}>
+                    {SPLIT_LABEL[e.split_type]}
+                  </Text>
+                </View>
+
+                {/* Next to the amount, and it LEAVES once used. Nothing on a settled expense
+                    should offer to settle it again, and the stamp is the receipt saying so. */}
+                {canMarkPaid ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Mark this expense paid in full"
+                    hitSlop={8}
+                    onPress={() => setConfirmPaid(true)}
+                    style={({ pressed }) => [styles.markPill, pressed ? styles.markPillOn : null]}
+                  >
+                    <Text style={styles.markPillLabel}>Mark paid in full</Text>
+                  </Pressable>
+                ) : null}
+              </View>
 
               <View style={styles.divider} />
 
@@ -228,6 +373,7 @@ export default function ExpenseDetailScreen() {
                   style={[
                     styles.netAmount,
                     { color: net > 0n ? color.creamWarm : net < 0n ? color.creamRose : color.cream },
+                    stamped ? styles.paidDim : null,
                   ]}
                 >
                   {net === 0n
@@ -235,11 +381,30 @@ export default function ExpenseDetailScreen() {
                     : formatAmount(money(net, 'INR'), { signed: false })}
                 </Text>
               </View>
-              <Text style={styles.netHelp}>
+              <Text style={[styles.netHelp, stamped ? styles.paidDim : null]}>
                 You paid {formatAmount(money(data.my_paid_minor, 'INR'))} and your share is{' '}
                 {formatAmount(money(data.my_share_minor, 'INR'))}.
               </Text>
+
+              {stamped ? (
+                <PaidStamp
+                  date={paidAt ? stampDate(paidAt) : stampDate(new Date().toISOString())}
+                  animate={justStamped}
+                />
+              ) : null}
             </GlassSurface>
+
+            {canUnmark ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Undo marking this expense paid in full"
+                hitSlop={8}
+                onPress={unmarkPaid}
+                style={styles.undo}
+              >
+                <Text style={styles.undoLabel}>Not paid after all — undo</Text>
+              </Pressable>
+            ) : null}
 
             <Section title="Who paid">
               {data.payers.map((p) => (
@@ -395,6 +560,42 @@ export default function ExpenseDetailScreen() {
         )}
       </ScrollView>
 
+      {/*
+        * The confirm sheet names the amount the balance MOVES BY.
+        *
+        * "This will affect your balance" is not good enough on a screen that moves money. The
+        * sentence below is the approved wording, and the figure in it is `owedToMe` — the same
+        * number the write is about to hand the outbox — rather than the expense total, which on
+        * anything but a two-person split is a different number.
+        */}
+      <Sheet
+        visible={confirmPaid}
+        onClose={() => setConfirmPaid(false)}
+        title="Mark this as paid in full?"
+        subtitle={
+          data
+            ? `${debtorLabel(data.outstanding_to_me, data.splits, profile?.id)} has settled the whole ${formatAmount(money(owedToMe, 'INR'))} for ${data.expense.description}.`
+            : undefined
+        }
+        footer={
+          <View style={styles.confirmButtons}>
+            <GlassButton label="Yes, it's settled" variant="primary" onPress={markPaid} />
+            <GlassButton
+              label="Not yet"
+              variant="secondary"
+              onPress={() => setConfirmPaid(false)}
+            />
+          </View>
+        }
+      >
+        <Text style={styles.sheetBody}>
+          This records a real payment.{' '}
+          <Text style={styles.sheetEmphasis}>{data?.expense.description}</Text> stops counting
+          towards what you&rsquo;re owed, and your balance drops by{' '}
+          <Text style={styles.sheetEmphasis}>{formatAmount(money(owedToMe, 'INR'))}</Text>.
+        </Text>
+      </Sheet>
+
       <Sheet
         visible={confirmDelete}
         onClose={() => setConfirmDelete(false)}
@@ -429,6 +630,26 @@ const ACTION_VERB: Record<string, string> = {
   restored: 'restored',
   merged_participants: 'merged people on',
 };
+
+/**
+ * Who is being said to have paid, for the confirm sheet.
+ *
+ * One name when it is one person, a count when it is more — "Priya has settled" reads as a fact
+ * about somebody, and "3 people have settled" is the honest version when it is not. Falls back to
+ * "This" so the sentence still parses if a name cannot be resolved, which happens when the
+ * debtor is on the expense but the splits list has been trimmed by an edit.
+ */
+function debtorLabel(
+  owed: ExpenseDetail['outstanding_to_me'],
+  splits: ExpenseDetail['splits'],
+  meId: string | undefined,
+): string {
+  if (owed.length === 0) return 'This';
+  if (owed.length > 1) return `${owed.length} people`;
+  const id = owed[0]!.profile_id;
+  if (id === meId) return 'You';
+  return splits.find((s) => s.profile_id === id)?.display_name ?? 'They';
+}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -480,8 +701,34 @@ const styles = StyleSheet.create({
   deletedText: { fontFamily: font.light, fontSize: 13.5, lineHeight: 20, color: color.creamRose },
   summarySpacing: { marginTop: 20 },
   summary: { padding: 20, gap: 6 },
+  amountRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 },
+  amountBlock: { flex: 1, gap: 6 },
   total: { fontFamily: font.semibold, fontSize: 38, color: color.textHighlight },
   splitType: { fontFamily: font.light, fontSize: 13, color: color.textMuted },
+  /** What is settled stops competing for attention, without pretending it is not there. */
+  paidDim: { opacity: 0.55 },
+  markPill: {
+    borderWidth: 1,
+    borderColor: 'rgba(184,150,60,0.55)',
+    backgroundColor: 'rgba(184,150,60,0.14)',
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+    minHeight: layout.touchTarget,
+    maxWidth: 132,
+  },
+  markPillOn: { backgroundColor: 'rgba(184,150,60,0.24)' },
+  markPillLabel: {
+    fontFamily: font.medium,
+    fontSize: 12.5,
+    lineHeight: 17,
+    color: color.creamWarm,
+    textAlign: 'center',
+  },
+  undo: { alignSelf: 'center', marginTop: 12, minHeight: layout.touchTarget, justifyContent: 'center' },
+  undoLabel: { fontFamily: font.light, fontSize: 13, color: color.textFaint },
+  sheetBody: { fontFamily: font.light, fontSize: 14.5, lineHeight: 22, color: color.textSecondary },
+  sheetEmphasis: { fontFamily: font.medium, color: color.cream },
   divider: { marginVertical: 12, height: 1, backgroundColor: 'rgba(255,255,255,0.09)' },
   netRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 },
   netLabel: {

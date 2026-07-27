@@ -188,6 +188,7 @@ export default function GroupDetail() {
                     amountMinor={e.amount_minor}
                     myShareMinor={e.my_share_minor}
                     meta={`${payerLabel(e.payers, data.members, profile?.id)} · split ${e.split_count} ways`}
+                    paidInFull={e.paid_in_full_at != null}
                     onPress={(at) => rippleTo(at, () => router.push(`/expense/${e.id}`))}
                   />
                 ))}

@@ -158,6 +158,39 @@ export function effectsOfSettlement(
   );
 }
 
+/**
+ * Marking one expense paid in full.
+ *
+ * Which is N settlements, not one — a single-payer expense split four ways settles three debt
+ * edges — so this takes the per-person breakdown the server hands back in `outstanding_to_me`
+ * rather than a total. A total could not be split back into the pairs it came from, and the
+ * balance the overlay corrects is per pair.
+ *
+ * The edges are built pointing AWAY from me for the same reason `effectsOfSettlement` does it:
+ * a payment cancels a debt, so it is the debt with its direction reversed. Each person here owes
+ * me *less* afterwards, which is a negative delta against them.
+ */
+export function effectsOfMarkPaid(
+  me: string,
+  groupId: string | null,
+  owed: readonly { profileId: string; amountMinor: bigint }[],
+): PendingEffect[] {
+  return foldEdges(
+    owed.map((o) => ({ from: me, to: o.profileId, amountMinor: o.amountMinor })),
+    me,
+    groupId,
+  );
+}
+
+/** Taking it back. The exact inverse — the debts come back. */
+export function effectsOfUnmarkPaid(
+  me: string,
+  groupId: string | null,
+  settled: readonly { profileId: string; amountMinor: bigint }[],
+): PendingEffect[] {
+  return negate(effectsOfMarkPaid(me, groupId, settled));
+}
+
 function negate(effects: PendingEffect[]): PendingEffect[] {
   return effects.map((e) => ({ ...e, deltaMinor: -e.deltaMinor }));
 }

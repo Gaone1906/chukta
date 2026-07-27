@@ -5,9 +5,12 @@ import type { ExpenseDetail, ExpenseDraft } from '@/lib/api';
 import {
   effectsOfCreate,
   effectsOfDelete,
+  effectsOfMarkPaid,
   effectsOfRestore,
   effectsOfSettlement,
+  effectsOfUnmarkPaid,
   effectsOfUpdate,
+  merge,
   type ExpenseShape,
 } from './effects';
 import { enqueue } from './outbox';
@@ -115,17 +118,28 @@ export function queueUpdateExpense(
   });
 }
 
+/**
+ * @param settledToMe What has been settled against this expense and paid to you, per person —
+ *   `ExpenseDetail.settled_to_me`. Deleting an expense also **voids its linked settlements**
+ *   (migration 0039), so the overlay has to undo those alongside the debts. Without it, deleting
+ *   a stamped expense briefly shows the payer in the red for money that was both owed to them
+ *   and repaid: the debt is removed and the repayment is not.
+ */
 export function queueDeleteExpense(
   me: string,
   expenseId: string,
   before: ExpenseShape,
   expectedRevision: number,
+  settledToMe: readonly { profileId: string; amountMinor: bigint }[] = [],
 ): void {
   enqueue({
     clientMutationId: newId(),
     op: 'delete_expense',
     payload: { expenseId },
-    effects: effectsOfDelete(me, before),
+    effects: merge([
+      ...effectsOfDelete(me, before),
+      ...effectsOfUnmarkPaid(me, before.groupId, settledToMe),
+    ]),
     entityId: expenseId,
     groupId: before.groupId,
     baseRevision: expectedRevision,
@@ -138,17 +152,26 @@ export function queueDeleteExpense(
  * No `baseRevision`, deliberately: the server's precondition is "this expense is deleted", not
  * "this expense is at revision N". Sending one would invent a conflict that cannot happen and
  * push the row into the pending inbox for a reason the user could not act on.
+ *
+ * @param settledToMe The mirror of the delete's argument. On a deleted expense
+ *   `ExpenseDetail.settled_to_me` reports the settlements the delete voided, which are exactly
+ *   the ones `restore_expense` brings back — so the two overlays are inverses and a
+ *   delete-then-restore leaves the balance where it started.
  */
 export function queueRestoreExpense(
   me: string,
   expenseId: string,
   before: ExpenseShape,
+  settledToMe: readonly { profileId: string; amountMinor: bigint }[] = [],
 ): void {
   enqueue({
     clientMutationId: newId(),
     op: 'restore_expense',
     payload: { expenseId },
-    effects: effectsOfRestore(me, before),
+    effects: merge([
+      ...effectsOfRestore(me, before),
+      ...effectsOfMarkPaid(me, before.groupId, settledToMe),
+    ]),
     entityId: expenseId,
     groupId: before.groupId,
   });
@@ -192,6 +215,49 @@ export function queueSettlement(
       amountMinor: input.amountMinor,
     }),
     groupId: input.groupId ?? null,
+  });
+}
+
+/**
+ * Confirm that everything owed to you on one expense has come back.
+ *
+ * Queued like every other money write, so it works at a restaurant table with no signal — and
+ * carries its own balance movement, so the amount drops the instant the sheet is confirmed
+ * rather than whenever the network next appears.
+ *
+ * No `baseRevision`: the server's precondition is "something is still outstanding to me", not
+ * "this expense is at revision N". Sending one would invent a conflict the user could not act
+ * on. Same reasoning as `queueRestoreExpense`.
+ */
+export function queueMarkExpensePaid(
+  me: string,
+  expenseId: string,
+  groupId: string | null,
+  owed: readonly { profileId: string; amountMinor: bigint }[],
+): void {
+  enqueue({
+    clientMutationId: newId(),
+    op: 'mark_expense_paid',
+    payload: { expenseId },
+    effects: effectsOfMarkPaid(me, groupId, owed),
+    entityId: expenseId,
+    groupId,
+  });
+}
+
+export function queueUnmarkExpensePaid(
+  me: string,
+  expenseId: string,
+  groupId: string | null,
+  settled: readonly { profileId: string; amountMinor: bigint }[],
+): void {
+  enqueue({
+    clientMutationId: newId(),
+    op: 'unmark_expense_paid',
+    payload: { expenseId },
+    effects: effectsOfUnmarkPaid(me, groupId, settled),
+    entityId: expenseId,
+    groupId,
   });
 }
 

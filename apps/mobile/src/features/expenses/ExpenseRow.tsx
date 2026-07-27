@@ -12,6 +12,14 @@ export interface ExpenseRowProps {
   meta: string;
   /** Shown above the description on Person detail; null for a one-off. */
   groupName?: string | null;
+  /**
+   * Settled in full: every debt this expense created has been paid back against it.
+   *
+   * Marked with a small `PAID` tag and dimmed figures rather than the full seal — the pressed
+   * stamp is a moment, and a list of them would be wallpaper. The detail screen is where it
+   * lands; this is only the reminder that it did.
+   */
+  paidInFull?: boolean;
   /** Reports the tap point in window coordinates, so the ripple starts under the finger. */
   onPress?: (event: { x: number; y: number }) => void;
 }
@@ -29,12 +37,17 @@ export function ExpenseRow({
   myShareMinor,
   meta,
   groupName,
+  paidInFull = false,
   onPress,
 }: ExpenseRowProps) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${description}, ${formatAmount(money(amountMinor, 'INR'))}`}
+      accessibilityLabel={
+        paidInFull
+          ? `${description}, ${formatAmount(money(amountMinor, 'INR'))}, paid in full`
+          : `${description}, ${formatAmount(money(amountMinor, 'INR'))}`
+      }
       onPress={(e) => onPress?.({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
     >
       <GlassSurface radius={radius.card}>
@@ -45,16 +58,28 @@ export function ExpenseRow({
                 {groupName ?? 'One-off'}
               </Text>
             ) : null}
-            <Text style={styles.description} numberOfLines={1}>
-              {description}
-            </Text>
+            <View style={styles.titleRow}>
+              <Text
+                style={[styles.description, paidInFull ? styles.dim : null]}
+                numberOfLines={1}
+              >
+                {description}
+              </Text>
+              {paidInFull ? (
+                <View style={styles.paidTag}>
+                  <Text style={styles.paidTagLabel}>PAID</Text>
+                </View>
+              ) : null}
+            </View>
             <Text style={styles.meta} numberOfLines={1}>
               {meta}
             </Text>
           </View>
 
           <View style={styles.right}>
-            <Text style={styles.amount}>{formatAmount(money(amountMinor, 'INR'))}</Text>
+            <Text style={[styles.amount, paidInFull ? styles.dim : null]}>
+              {formatAmount(money(amountMinor, 'INR'))}
+            </Text>
             <Text style={styles.share}>
               your share {formatAmount(money(myShareMinor, 'INR'), { signed: false })}
             </Text>
@@ -82,7 +107,25 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: color.textGhost,
   },
-  description: { fontFamily: font.medium, fontSize: 16, color: color.cream },
+  // `flexShrink` rather than `flex: 1`: the description gives way to the tag when it has to, but
+  // a short name does not get padded out into the middle of the row.
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  description: { flexShrink: 1, fontFamily: font.medium, fontSize: 16, color: color.cream },
+  dim: { opacity: 0.6 },
+  paidTag: {
+    borderWidth: 1,
+    borderColor: 'rgba(184,150,60,0.5)',
+    backgroundColor: 'rgba(184,150,60,0.13)',
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  paidTagLabel: {
+    fontFamily: font.medium,
+    fontSize: 8.5,
+    letterSpacing: 1.1,
+    color: color.goldBright,
+  },
   meta: { fontFamily: font.light, fontSize: 12.5, color: color.textMuted },
   right: { alignItems: 'flex-end', gap: 3 },
   amount: { fontFamily: font.semibold, fontSize: 16, color: color.textHighlight },

@@ -223,6 +223,7 @@ export default function PersonDetail() {
                     myShareMinor={e.my_share_minor}
                     groupName={e.group_name}
                     meta={`${firstName(name)}'s share ${formatAmount(money(e.their_share_minor, 'INR'), { signed: false })}`}
+                    paidInFull={e.paid_in_full_at != null}
                     onPress={(at) => rippleTo(at, () => router.push(`/expense/${e.id}`))}
                   />
                 ))}

@@ -59,6 +59,8 @@ export interface ExpenseListItem {
   my_share_minor: bigint;
   split_count: number;
   payers: { profile_id: string; paid_amount_minor: bigint }[];
+  /** Set once every debt this expense created has been settled against it. Drives the row stamp. */
+  paid_in_full_at: string | null;
 }
 
 export interface GroupDetail {
@@ -76,6 +78,7 @@ export interface PersonExpenseItem {
   group_name: string | null;
   my_share_minor: bigint;
   their_share_minor: bigint;
+  paid_in_full_at: string | null;
 }
 
 export interface PersonDetail {
@@ -186,6 +189,7 @@ function toExpenseListItem(e: Record<string, unknown>): ExpenseListItem {
       profile_id: String(p.profile_id),
       paid_amount_minor: big(p.paid_amount_minor),
     })),
+    paid_in_full_at: (e.paid_in_full_at as string | null) ?? null,
   };
 }
 
@@ -220,6 +224,7 @@ export async function getPersonDetail(profileId: string): Promise<PersonDetail> 
       group_name: (e.group_name as string | null) ?? null,
       my_share_minor: big(e.my_share_minor),
       their_share_minor: big(e.their_share_minor),
+      paid_in_full_at: (e.paid_in_full_at as string | null) ?? null,
     })),
   };
 }
@@ -241,6 +246,25 @@ export interface ExpenseDetail {
   };
   my_share_minor: bigint;
   my_paid_minor: bigint;
+  /**
+   * When this expense was marked paid in full, or null.
+   *
+   * Computed on the server from settlement coverage rather than stored — see migration 0039.
+   * That is why there is no `paid_in_full` boolean to go with it: the timestamp IS the flag, and
+   * a second field could disagree with it.
+   */
+  paid_in_full_at: string | null;
+  /**
+   * Who still owes you on this expense, and how much.
+   *
+   * Per person rather than a total, because the outbox needs it that way: a queued write carries
+   * its own balance movement and balances are per-pair, so a total could not be split back into
+   * the pairs it came from. Non-empty is also exactly the condition the server enforces, so the
+   * button cannot offer an action `mark_expense_paid` is going to refuse.
+   */
+  outstanding_to_me: { profile_id: string; amount_minor: bigint }[];
+  /** What you have already confirmed here, per person. Drives the undo and its overlay. */
+  settled_to_me: { profile_id: string; amount_minor: bigint }[];
   payers: {
     profile_id: string;
     display_name: string;
@@ -300,6 +324,15 @@ export async function getExpenseDetail(expenseId: string): Promise<ExpenseDetail
     },
     my_share_minor: big(raw.my_share_minor),
     my_paid_minor: big(raw.my_paid_minor),
+    paid_in_full_at: (raw.paid_in_full_at as string | null) ?? null,
+    outstanding_to_me: (raw.outstanding_to_me ?? []).map((o: Record<string, unknown>) => ({
+      profile_id: String(o.profile_id),
+      amount_minor: big(o.amount_minor),
+    })),
+    settled_to_me: (raw.settled_to_me ?? []).map((o: Record<string, unknown>) => ({
+      profile_id: String(o.profile_id),
+      amount_minor: big(o.amount_minor),
+    })),
     payers: (raw.payers ?? []).map((p: Record<string, unknown>) => ({
       profile_id: String(p.profile_id),
       display_name: String(p.display_name),
@@ -346,7 +379,22 @@ export async function getExpenseDetail(expenseId: string): Promise<ExpenseDetail
 /** One change, as it arrives live or comes back from a catch-up pull. */
 export interface ChangeEvent {
   event_id: number;
-  entity_type: 'expense' | 'settlement' | 'comment' | 'group' | 'member' | 'profile';
+  /**
+   * `settlement_void` is a settlement being withdrawn. It is a separate type rather than
+   * `settlement` with `op: 'delete'` because the server maps `settlement` to a "Settled up" push
+   * regardless of op — so reusing it would tell the other person a payment had been *made* at the
+   * moment one was taken back. An unrecognised type is silent by design on the server (0028's
+   * `else null`), which is what a correction should be; the client still has to act on it, which
+   * is the `case` beside `settlement` in offline/realtime.ts.
+   */
+  entity_type:
+    | 'expense'
+    | 'settlement'
+    | 'settlement_void'
+    | 'comment'
+    | 'group'
+    | 'member'
+    | 'profile';
   entity_id: string;
   op: 'insert' | 'update' | 'delete';
   group_id: string | null;
@@ -541,6 +589,37 @@ export async function recordSettlement(
       note: input.note ?? null,
       settled_on: input.settledOn,
     },
+    p_client_mutation_id: mutationId,
+  });
+}
+
+/**
+ * Confirm that everything owed to you on one expense has come back.
+ *
+ * Writes real settlements — one per outstanding debt edge pointing at you — so the balance moves
+ * with the stamp rather than beside it. The server refuses anyone who is not owed money here, so
+ * the button's visibility and the server's rule are the same condition, not two that can drift.
+ *
+ * Takes no expected revision. The precondition is "something is still outstanding to me", which
+ * `app.mark_expense_paid` checks itself; a stale revision would invent a conflict the user could
+ * not act on. Same reasoning as `restoreExpense`.
+ */
+export async function markExpensePaid(
+  expenseId: string,
+  mutationId: string,
+): Promise<{ expense_id: string; settled_minor: string; paid_in_full_at: string | null }> {
+  return rpc('mark_expense_paid', {
+    p_expense_id: expenseId,
+    p_client_mutation_id: mutationId,
+  });
+}
+
+export async function unmarkExpensePaid(
+  expenseId: string,
+  mutationId: string,
+): Promise<{ expense_id: string; voided_minor: string; settlement_count: number }> {
+  return rpc('unmark_expense_paid', {
+    p_expense_id: expenseId,
     p_client_mutation_id: mutationId,
   });
 }

@@ -3,8 +3,10 @@ import {
   createExpense,
   createGroup,
   deleteExpense,
+  markExpensePaid,
   recordSettlement,
   restoreExpense,
+  unmarkExpensePaid,
   updateExpense,
   upsertContactProfile,
   type ExpenseDraft,
@@ -187,6 +189,16 @@ async function send(row: OutboxRow): Promise<void> {
     case 'record_settlement': {
       const input = row.payload as Parameters<typeof recordSettlement>[0];
       await recordSettlement(input, row.clientMutationId);
+      return;
+    }
+
+    case 'mark_expense_paid': {
+      await markExpensePaid(row.entityId!, row.clientMutationId);
+      return;
+    }
+
+    case 'unmark_expense_paid': {
+      await unmarkExpensePaid(row.entityId!, row.clientMutationId);
       return;
     }
 

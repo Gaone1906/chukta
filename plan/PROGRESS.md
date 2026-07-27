@@ -1830,10 +1830,15 @@ an edit.
 
 ---
 
-# PLANNED — "Paid in full" per expense (approved 2026-07-27, not yet built)
+# BUILT — "Paid in full" per expense (approved and shipped 2026-07-27)
 
 Design approved from the mockup in `prototypes/paid-stamp.html` (gitignored; regenerate from this
-spec if lost). **Nothing below is implemented.** This section is the brief.
+spec if lost). **Implemented in migration `0039_paid_in_full.sql` and the client files listed
+below.** 238 pgTAP assertions and 171 unit tests pass; typecheck and lint clean.
+
+Six things came out differently from the brief once it met the code. They are recorded at the end
+of this section, under "Where the build departed from the plan" — the authorisation rule and the
+stamp's artwork both changed for reasons worth knowing before touching either.
 
 ## Why
 
@@ -1880,10 +1885,10 @@ split where only one person has paid would satisfy that and stamp a half-paid ex
 ## RPC — `app.mark_expense_paid(p_expense_id, p_client_mutation_id)`
 
 1. `assert_signed_in`; `mutation_log` idempotency check first, like every other write.
-2. **Authorisation: the caller must be in `expense_payers` for this expense.** Only whoever fronted
-   the money can confirm it came back. Anyone else — including a debtor marking their own debt
-   cleared — is refused. This is the rule the UI enforces visually; the server has to enforce it
-   for real.
+2. **Authorisation: the caller must be owed money on this expense** — see departure 1 below, this
+   was tightened from "must be in `expense_payers`". Only whoever fronted the money can confirm it
+   came back. A debtor marking their own debt cleared is refused. This is the rule the UI enforces
+   visually; the server enforces it for real.
 3. Refuse if the expense is deleted, or already paid in full (idempotent no-op is fine, a second
    set of settlement rows is not).
 4. Insert one `settlements` row per outstanding debt edge, with `expense_id` set,
@@ -1956,10 +1961,90 @@ read RPC must diff the emitted keys against the client's reader.
 
 ## Verification
 
-- pgTAP for: payer-only authorisation (a debtor is refused); partial coverage does **not** stamp;
-  full coverage does; deleting a stamped expense voids its settlements and the balance returns;
-  editing the amount upward un-stamps; double-marking is idempotent; unmark restores the balance.
-- A regression test asserting `get_group_detail`'s expense payload contains `payers` and
-  `split_count` — the check that would have caught the bug above.
-- On device: mark paid → stamp animates once → reopen → static → group shows All square → unmark →
-  balance returns.
+`supabase/tests/paid_in_full.test.sql` — **32 assertions**, all passing, covering: authorisation
+(a debtor is refused); partial coverage does **not** stamp; full coverage does; deleting a stamped
+expense voids its settlements and the balance returns; editing the amount upward un-stamps while
+the payments survive; double-marking is a no-op; unmark restores the balance; an expense nobody
+owed anything on is not "paid in full"; and the exact payload key sets of all three read RPCs.
+
+`offline.test.ts` gained five: the sign of the mark overlay, that mark and undo cancel exactly,
+that marking agrees with recording the same settlements by hand, and the delete/restore round trip.
+
+Still to do **on device**: mark paid → stamp animates once → reopen → static → group row shows the
+PAID tag → undo → balance returns. Nothing here has run on hardware yet.
+
+---
+
+# Where the build departed from the plan
+
+## 1. The authorisation rule is stricter — and this one matters
+
+The brief said "the caller must be in `expense_payers`". That has a hole on a multi-payer expense:
+a caller who is a payer **and** also owes one of the other payers could clear their own debt with
+it. The rule implemented is the one that was actually meant —
+
+> **you may only settle debt edges that point AT you.**
+
+Money coming back to you is a fact you can attest to; money you owe someone else is theirs to
+confirm. On the ordinary single-payer expense this is identical to "the payer marks it" and one
+tap stamps the whole thing. On a multi-payer expense each creditor confirms their own portion and
+the stamp appears once every edge is covered — which is right, and falls out of the coverage
+definition with no extra branch.
+
+## 2. A new change-event type, `settlement_void`
+
+Un-marking has to reach the other phone or their balance stays wrong. It could not reuse
+`settlement`: 0028 maps that to the "Settled up · <name> recorded a settlement" push **regardless
+of `op`**, so withdrawing a payment would have notified the debtor that one had been *made*. A
+push saying the opposite of what happened is worse than silence.
+
+`settlement_void` is unrecognised by 0028, whose `else null` branch already means "structural —
+syncs the client, says nothing out loud". Three places had to learn it: the `change_events` check
+constraint, `ChangeEvent` in `lib/api.ts`, and the `case` beside `settlement` in
+`offline/realtime.ts`. **A silent sync tick is a deliberate trade**: the debtor's phone updates
+but they are not told the debt came back. Revisit if that turns out to matter.
+
+## 3. A fourth void status, `voided_by_delete`
+
+`restore_expense` has to bring back the settlements the *delete* voided without resurrecting ones
+the user withdrew on purpose. One status could not tell those apart.
+
+## 4. The stamp's ink filters do not work on native
+
+The approved mockup got its pressed edge from `feTurbulence` + `feDisplacementMap`.
+**react-native-svg 15.15.4 implements neither on iOS or Android** — `lib/module/lib/util.js` warns
+once and drops them — and the `mottle` filter composites `operator="out"` against that dropped
+source, which is a coin flip between "no effect" and "the stamp vanishes". Not a bet worth taking
+on a money screen.
+
+The irregularity is in the geometry instead: two hand-bowed border paths where every edge deviates
+by a point or two. Same read, no filter support required, identical on both platforms.
+
+## 5. The payload carries per-person breakdowns, not totals
+
+`outstanding_to_me` and `settled_to_me` are arrays of `{profile_id, amount_minor}` rather than the
+scalars first drafted. The outbox forced it: a queued write carries its own balance movement and
+balances are **per pair**, so a total cannot be split back into the pairs it came from. A scalar
+would have made the offline overlay guess.
+
+## 6. A bug the plan did not anticipate — deleting a stamped expense, client-side
+
+The server side was in the brief. The *client* side was not: `queueDeleteExpense` computed its
+overlay as "remove the debts" only. But the server also voids the linked settlements, so the
+ledger loses both halves and nets to zero — meaning the overlay showed the payer in the red for
+money that had been owed to them **and repaid**, until the refetch landed. Offline, indefinitely.
+
+Fixed by threading `settled_to_me` into `queueDeleteExpense` and `queueRestoreExpense`, and by
+having `get_expense_detail` report the `voided_by_delete` rows when the expense is deleted — those
+are exactly what a restore brings back. Two unit tests pin the round trip.
+
+Found by reading the two delete paths against each other, not by a failing test. Worth naming: the
+server and the client each compute the same balance movement from different inputs, and **nothing
+checks that they agree**. That is a standing hazard in this codebase, not a one-off.
+
+## 7. `0035` had dropped a third key
+
+The plan named `payers` and `split_count`. It had also dropped `revision`, which
+`toExpenseListItem` reads and defaults to `1` — so every expense in a group list claimed revision
+1 regardless. All three are restored, and the new key-set assertions are exact rather than
+"contains", because a rename both adds and removes and only an exact set catches one.

@@ -4,7 +4,9 @@ import {
   deltaFor,
   effectsOfCreate,
   effectsOfDelete,
+  effectsOfMarkPaid,
   effectsOfSettlement,
+  effectsOfUnmarkPaid,
   effectsOfUpdate,
   merge,
   type ExpenseShape,
@@ -127,6 +129,80 @@ describe('pending balance effects', () => {
     });
 
     expect(deltaFor(effects, 'person', OTHER)).toBe(-135000n);
+  });
+
+  /*
+   * Marking one expense paid in full.
+   *
+   * The sign is the whole test. Getting it backwards would double the amount owed instead of
+   * clearing it, and it would not crash — it would just show a debt twice the size on the screen
+   * of the person who had just been paid.
+   */
+  it('marking an expense paid clears what each person owed me on it', () => {
+    const effects = effectsOfMarkPaid(ME, 'group-1', [
+      { profileId: OTHER, amountMinor: 144000n },
+      { profileId: THIRD, amountMinor: 144000n },
+    ]);
+
+    expect(deltaFor(effects, 'person', OTHER)).toBe(-144000n);
+    expect(deltaFor(effects, 'person', THIRD)).toBe(-144000n);
+    // The group moves by the whole of it, once — not once per person.
+    expect(deltaFor(effects, 'group', 'group-1')).toBe(-288000n);
+  });
+
+  it('undoing it puts the debts back, exactly', () => {
+    const owed = [{ profileId: OTHER, amountMinor: 144000n }];
+    const cancelled = merge([
+      ...effectsOfMarkPaid(ME, 'group-1', owed),
+      ...effectsOfUnmarkPaid(ME, 'group-1', owed),
+    ]);
+
+    expect(cancelled).toEqual([]);
+  });
+
+  it('a mark and its undo agree with recording the same settlements by hand', () => {
+    // The two paths must move the balance identically, or an expense settled through the stamp
+    // and one settled through the settle screen would leave different numbers on Home.
+    const byStamp = effectsOfMarkPaid(ME, 'group-1', [{ profileId: OTHER, amountMinor: 50000n }]);
+    const byHand = effectsOfSettlement(ME, {
+      groupId: 'group-1',
+      fromProfileId: OTHER,
+      toProfileId: ME,
+      amountMinor: 50000n,
+    });
+
+    expect(byStamp).toEqual(byHand);
+  });
+
+  /*
+   * Deleting an expense that was already stamped.
+   *
+   * The server voids the linked settlements in the same transaction as the soft delete, so the
+   * ledger loses BOTH the debt and the repayment and nets to zero. An overlay that only removed
+   * the debt would show the payer in the red for money that had been owed to them and paid back
+   * — the exact class of wrong balance this whole feature exists to prevent. Found by reasoning
+   * through migration 0039's delete path against the client's, not by testing.
+   */
+  it('deleting a stamped expense moves nothing, because the payment goes with it', () => {
+    const owed = [{ profileId: OTHER, amountMinor: 50000n }];
+    const net = merge([
+      ...effectsOfDelete(ME, iPaid),
+      ...effectsOfUnmarkPaid(ME, 'group-1', owed),
+    ]);
+
+    expect(net).toEqual([]);
+  });
+
+  it('and restoring it puts both halves back', () => {
+    const owed = [{ profileId: OTHER, amountMinor: 50000n }];
+    const roundTrip = merge([
+      ...effectsOfDelete(ME, iPaid),
+      ...effectsOfUnmarkPaid(ME, 'group-1', owed),
+      ...effectsOfCreate(ME, iPaid),
+      ...effectsOfMarkPaid(ME, 'group-1', owed),
+    ]);
+
+    expect(roundTrip).toEqual([]);
   });
 
   it('sums several queued writes and drops the ones that cancel', () => {
