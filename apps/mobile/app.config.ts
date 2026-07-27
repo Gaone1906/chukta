@@ -117,6 +117,20 @@ const config: ExpoConfig = {
         'Chukta reads only the photo you pick, to attach it to an expense as a receipt.',
 
       /*
+       * Saving the UPI QR code to the camera roll.
+       *
+       * A SEPARATE key from the one above, and not optional: `NSPhotoLibraryUsageDescription`
+       * covers READING, and iOS terminates the process outright when an app writes to the
+       * library without the Add key — a crash, not a permission dialog.
+       *
+       * The code requests write-only access (`getPermissionsAsync(true)`), so this is the only
+       * photo key the save path touches. Asking for the full grant would mean requesting read
+       * access to somebody's entire photo library in order to add one picture to it.
+       */
+      NSPhotoLibraryAddUsageDescription:
+        'Chukta saves the payment QR code to your photos, so you can send it to whoever owes you.',
+
+      /*
        * Shown when adding someone from the contact picker.
        *
        * Worded to say what actually happens, because it is unusually narrow and the default
@@ -285,7 +299,19 @@ const config: ExpoConfig = {
      * system picker to return anything. It is the only contacts permission requested, and
      * READ_CONTACTS is the read-only one — no WRITE_CONTACTS anywhere.
      */
-    permissions: ['android.permission.READ_CONTACTS'],
+    /*
+     * `WRITE_EXTERNAL_STORAGE` is capped at API 28 on purpose. From API 29 (scoped storage) an
+     * app writes to the shared media store through MediaStore without holding it, and asking
+     * for it unqualified on a modern device is both useless and a thing Play flags.
+     *
+     * No `READ_MEDIA_IMAGES`: saving the QR is write-only, and reading the user's photos is not
+     * something this app does outside the receipt picker, which uses the system picker and
+     * needs no permission of its own.
+     */
+    permissions: [
+      'android.permission.READ_CONTACTS',
+      'android.permission.WRITE_EXTERNAL_STORAGE',
+    ],
   },
 
   // withDebugKeystore replaces Expo's shared debug keystore with ours, so the Android

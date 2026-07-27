@@ -1,4 +1,6 @@
 import type { Money } from '@chukta/core';
+import { Image } from 'expo-image';
+import { useState } from 'react';
 import { PixelRatio, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
@@ -16,6 +18,15 @@ export interface RowProps {
   balance?: Money;
   /** Initials shown in a circular avatar. Omit for group rows, which have no avatar. */
   avatar?: string;
+  /**
+   * A picture to show instead of the initials. Falls back to them when null, absent, or broken.
+   *
+   * This prop exists because the People list on Home was passing `initials(name)` and nothing
+   * else, so a person's photo — fetched, typed and mapped all the way through — was dropped at
+   * the last step and everyone appeared as two letters. `avatar` alone is typed `string` and
+   * rendered as text, so a URL passed there would have been drawn as the URL.
+   */
+  avatarUrl?: string | null;
   avatarTone?: AvatarTone;
   compact?: boolean;
   showChevron?: boolean;
@@ -45,12 +56,16 @@ export function Row({
   meta,
   balance,
   avatar,
+  avatarUrl,
   avatarTone = 'plain',
   compact = false,
   showChevron = true,
   onPress,
 }: RowProps) {
   const pressed = useSharedValue(0);
+  // Reset per URL, so a person whose picture changes is retried rather than stuck on initials.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const avatarFailed = failedUrl !== null && failedUrl === avatarUrl;
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: 1 - pressed.value * 0.01 }],
@@ -103,9 +118,24 @@ export function Row({
                   },
                 ]}
               >
-                <Text style={[styles.avatarText, compact ? styles.avatarTextCompact : null]}>
-                  {avatar}
-                </Text>
+                {avatarUrl && !avatarFailed ? (
+                  /*
+                   * `onError` is not optional here. A provider avatar is an external URL —
+                   * Google's start 403ing once someone changes their picture — and without a
+                   * fallback the circle would render empty rather than showing the initials it
+                   * already has to hand.
+                   */
+                  <Image
+                    source={{ uri: avatarUrl }}
+                    style={styles.avatarImage}
+                    contentFit="cover"
+                    onError={() => setFailedUrl(avatarUrl)}
+                  />
+                ) : (
+                  <Text style={[styles.avatarText, compact ? styles.avatarTextCompact : null]}>
+                    {avatar}
+                  </Text>
+                )}
               </View>
             ) : null}
 
@@ -180,6 +210,7 @@ const styles = StyleSheet.create({
   innerStacked: { flexDirection: 'column', alignItems: 'flex-start', gap: 10 },
   innerCompact: { gap: 12, paddingVertical: 13, paddingHorizontal: 14 },
   avatar: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' },
+  avatarImage: { width: '100%', height: '100%' },
   avatarText: { fontFamily: font.medium, fontSize: 15, color: color.cream },
   avatarTextCompact: { fontSize: 13 },
   text: { flex: 1, gap: 2 },

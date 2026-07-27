@@ -11,7 +11,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -32,7 +32,8 @@ import { ScreenHeader } from '@/features/expenses/ScreenHeader';
 import { EmptyState } from '@/features/home/EmptyState';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
 import { Avatar } from '@/features/people/Avatar';
-import { QrCode } from '@/features/settle/QrCode';
+import { QrCode, type QrHandle } from '@/features/settle/QrCode';
+import { qrSaveAvailable, saveQrToPhotos } from '@/features/settle/saveQr';
 import { discoverUpiApps, openUpiPayment, type UpiApp } from '@/features/settle/upiApps';
 import { getPersonDetail, newMutationId } from '@/lib/api';
 import { useOffline } from '@/lib/offline/OfflineProvider';
@@ -71,11 +72,32 @@ export default function SettleUp() {
   const [apps, setApps] = useState<UpiApp[]>([]);
   const [nativePicker, setNativePicker] = useState(false);
   const [showQr, setShowQr] = useState(false);
+
+  /*
+   * One ref per QR, because the two are never on screen together — the paying code lives in the
+   * `iOwe` branch and the receiving code in the other, so a single shared ref would be pointed
+   * at an unmounted node half the time.
+   */
+  const payQrRef = useRef<QrHandle>(null);
+  const receiveQrRef = useRef<QrHandle>(null);
+
   const [toast, setToast] = useState<string | null>(null);
   // One idempotency key per visit to this screen: if the response is lost and the user taps
   // Mark as settled again, the same key makes it a no-op rather than a second settlement.
   // Held as state rather than a ref because it is read during render, to build the UPI `tr`.
   const [mutationId] = useState(newMutationId);
+
+  const saveQr = async (ref: React.RefObject<QrHandle | null>) => {
+    const outcome = await saveQrToPhotos(ref.current);
+    setToast(
+      outcome === 'saved'
+        ? 'Saved to your photos.'
+        : outcome === 'denied'
+          ? 'Chukta needs permission to save to your photos.'
+          : "Couldn't save the code — screenshot it instead.",
+    );
+    setTimeout(() => setToast(null), 2600);
+  };
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: queryKeys.person(profileId!),
@@ -104,9 +126,19 @@ export default function SettleUp() {
   const theirVpa = person?.upi_vpa ?? null;
   const firstName = (person?.display_name ?? 'them').trim().split(/\s+/)[0]!;
 
-  // The UPI link only makes sense in one direction: you can hand someone money, you cannot
-  // reach into their phone and take it. When they owe you, the screen offers a nudge instead.
+  /*
+   * A deep LINK only works in one direction — you can hand someone money, you cannot reach into
+   * their phone and take it. That is why this requires `iOwe`.
+   *
+   * A QR is a different transport and the direction reverses, which the rest of this screen used
+   * to miss. See `myUpiUri` below.
+   */
   const canPayByUpi = iOwe && Boolean(theirVpa) && isValidVpa(theirVpa ?? '') && amountMinor > 0n;
+
+  /** Your own id, for the case where they are the one paying. */
+  const myVpa = profile?.upi_vpa ?? null;
+  const canBePaidByUpi =
+    !iOwe && Boolean(myVpa) && isValidVpa(myVpa ?? '') && amountMinor > 0n;
 
   const upiUri = useMemo(() => {
     if (!canPayByUpi || !person) return null;
@@ -124,6 +156,36 @@ export default function SettleUp() {
       return null;
     }
   }, [canPayByUpi, person, theirVpa, amountMinor, profile, groupName, mutationId]);
+
+  /*
+   * The same URI, pointed the other way: **your** VPA, for them to scan.
+   *
+   * This screen used to say "a UPI link only works in the direction of paying" and stop there.
+   * True of a deep link, and wrong about a QR — the code is read by THEIR phone, so a QR carrying
+   * your id is precisely how you get paid. It is what every shop counter in India is doing. The
+   * old copy conflated the transport with the direction and left the receiving half of settle-up
+   * with nothing but "mark as settled".
+   *
+   * `pn` is your name rather than theirs, so their app confirms who they are paying — the one
+   * field that must not be copy-pasted from the paying branch.
+   *
+   * No `tr` reference. `mutationId` ties a payment to the settlement row this device is about to
+   * write, and here the payment happens on a device we will never hear from; a reference that
+   * cannot be reconciled is worse than none.
+   */
+  const myUpiUri = useMemo(() => {
+    if (!canBePaidByUpi || !profile) return null;
+    try {
+      return buildUpiUri({
+        vpa: myVpa!,
+        name: profile.display_name,
+        amountMinor,
+        note: settlementNote(person?.display_name ?? 'a friend', groupName ?? null),
+      });
+    } catch {
+      return null;
+    }
+  }, [canBePaidByUpi, profile, myVpa, amountMinor, person, groupName]);
 
   /*
    * Recording a settlement is queued like every other money write — with one difference that
@@ -316,10 +378,9 @@ export default function SettleUp() {
 
                     {showQr ? (
                       <View style={styles.qrBlock}>
-                        <QrCode value={upiUri} />
+                        <QrCode ref={payQrRef} value={upiUri} />
                         <Text style={styles.help}>
-                          Scan from any UPI app — including from a screenshot, if someone else
-                          is paying.
+                          Scan from any UPI app. Save it if someone else is doing the paying.
                         </Text>
                         <View style={styles.copyRow}>
                           <GlassButton
@@ -338,6 +399,9 @@ export default function SettleUp() {
                             style={styles.copyButton}
                           />
                         </View>
+                        {qrSaveAvailable() ? (
+                          <GlassButton label="Save to Photos" onPress={() => void saveQr(payQrRef)} />
+                        ) : null}
                       </View>
                     ) : null}
                   </>
@@ -346,10 +410,74 @@ export default function SettleUp() {
             ) : (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>They owe you</Text>
-                <Text style={styles.quiet}>
-                  Only {firstName} can send the money. Record it below once it arrives, or nudge
-                  them — a UPI link only works in the direction of paying.
-                </Text>
+
+                {myUpiUri ? (
+                  <>
+                    <Text style={styles.quiet}>
+                      Show {firstName} this code. Scanning it opens their UPI app with your id and{' '}
+                      {formatAmount(money(amountMinor, 'INR'))} already filled in.
+                    </Text>
+
+                    <View style={styles.qrBlock}>
+                      <QrCode ref={receiveQrRef} value={myUpiUri} />
+                      <View style={styles.copyRow}>
+                        <GlassButton
+                          label="Copy your UPI ID"
+                          onPress={() => void copy('UPI ID', myVpa!)}
+                          style={styles.copyButton}
+                        />
+                        <GlassButton
+                          label="Copy amount"
+                          onPress={() =>
+                            void copy('Amount', formatAmount(money(amountMinor, 'INR'), {
+                              symbol: false,
+                              decimals: 'always',
+                            }))
+                          }
+                          style={styles.copyButton}
+                        />
+                      </View>
+                      {/* The code most likely to leave the app: they will want to send this to
+                          whoever owes them rather than hold a phone up across a table. */}
+                      {qrSaveAvailable() ? (
+                        <GlassButton
+                          label="Save to Photos"
+                          onPress={() => void saveQr(receiveQrRef)}
+                        />
+                      ) : null}
+                    </View>
+
+                    {/* Money arriving and the ledger agreeing are two separate events, and only
+                        one of them happens on this screen. Showing a code is not evidence of
+                        payment, so Mark as settled stays a deliberate act below. */}
+                    <Text style={styles.help}>
+                      Nothing is recorded until you mark it settled below.
+                    </Text>
+                  </>
+                ) : myVpa ? (
+                  // A VPA that passed the pattern but could not build a URI. Rare, and not worth
+                  // a crash — say what still works.
+                  <Text style={styles.quiet}>
+                    Couldn&rsquo;t build a QR from your UPI ID. {firstName} can still send the
+                    money however they normally would — record it below once it arrives.
+                  </Text>
+                ) : (
+                  <>
+                    {/*
+                      * The one thing standing between the user and being paid, so this offers the
+                      * fix rather than stating the problem. Everyone who skipped the field during
+                      * onboarding lands here.
+                      */}
+                    <Text style={styles.quiet}>
+                      Add your UPI ID and this screen will show a code {firstName} can scan to pay
+                      you. Until then, they will have to send it however they normally would.
+                    </Text>
+                    <GlassButton
+                      label="Add your UPI ID"
+                      onPress={() => router.push('/settings')}
+                    />
+                  </>
+                )}
               </View>
             )}
           </>

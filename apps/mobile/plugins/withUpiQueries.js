@@ -31,6 +31,34 @@ const withUpiQueries = (config) =>
     );
 
     if (!alreadyDeclared) {
+      /*
+       * TWO entries, and the one with the host is the one that actually works.
+       *
+       * This declared `scheme="upi"` alone, and on a real phone with Google Pay and PhonePe
+       * installed it matched NOTHING — no tiles, and the generic "Open a UPI app" button fell
+       * straight through to the QR code. The emulator could never have caught it: it has no UPI
+       * apps to be invisible.
+       *
+       * The reason is that Android matches a `<queries>` declaration against each app's intent
+       * filter using ordinary IntentFilter rules. A declaration of `scheme` only describes the
+       * Uri `upi:`, which has no authority — and a filter that DECLARES an authority rejects a
+       * Uri without one. GPay and PhonePe register `<data android:scheme="upi"
+       * android:host="pay"/>`, so they stayed invisible and `queryIntentActivities` returned an
+       * empty list with no error to explain it.
+       *
+       * The inconsistency was already visible in our own code: `UpiModule.kt` probes with
+       * `upi://pay?...`, host included. Only the declaration that has to make those apps
+       * visible omitted it.
+       *
+       * The scheme-only entry is kept as well, for an app that registers without an authority —
+       * a filter with no authority matches any Uri of that scheme, so it is the host-less apps
+       * that need it. Both stay scoped to `upi:`, so this asks for no broader visibility than
+       * before; it asks for the RIGHT visibility.
+       */
+      queries.intent.push({
+        action: [{ $: { 'android:name': 'android.intent.action.VIEW' } }],
+        data: [{ $: { 'android:scheme': 'upi', 'android:host': 'pay' } }],
+      });
       queries.intent.push({
         action: [{ $: { 'android:name': 'android.intent.action.VIEW' } }],
         data: [{ $: { 'android:scheme': 'upi' } }],

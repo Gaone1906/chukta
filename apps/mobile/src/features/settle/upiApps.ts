@@ -13,10 +13,15 @@ import { hasNativeUpi, listUpiApps as listNative, payViaUpi } from '../../../mod
  *    names and icons and targets one specific package. Present only in a build that includes
  *    it — adding a native module needs a full rebuild, not a Metro restart.
  *
- * 2. **`Linking`**, which always works. On Android `upi://pay` is a real system-level intent,
- *    so `openURL` opens the OS's own UPI chooser — genuinely good, just not our design. On iOS
- *    there is no `upi://` handler at all (the NPCI spec is Android-only), so each app's own
- *    scheme is probed with `canOpenURL`.
+ * 2. **`Linking`**. On Android `upi://pay` is a real system-level intent, so `openURL` opens the
+ *    OS's own UPI chooser — genuinely good, just not our design. On iOS there is no `upi://`
+ *    handler at all (the NPCI spec is Android-only), so each app's own scheme is probed with
+ *    `canOpenURL`.
+ *
+ *    This used to claim `Linking` "always works". It does not, and the way it failed was
+ *    instructive: `openURL` is unfiltered on Android, but the `canOpenURL` guard that used to
+ *    sit in front of it is not, so the fallback was vetoed by the very visibility problem it
+ *    existed to work around. See `openUpiPayment`.
  *
  * Both degrade to the QR code, which is the only thing that works everywhere — including when
  * a bank app ignores the intent, and when someone else is doing the paying.
@@ -110,8 +115,28 @@ export async function openUpiPayment(
       ? uri.replace('upi://pay', `${app.iosScheme}://${app.iosPath ?? 'pay'}`)
       : uri;
 
+  /*
+   * ---------------------------------------------------------------- why Android does not pre-flight
+   *
+   * This used to `canOpenURL` first on both platforms, and on Android that guard was the thing
+   * breaking payment. `canOpenURL` resolves through `resolveActivity`, which is subject to the
+   * SAME Android 11+ package-visibility filtering as the native query — while `openURL` is a
+   * plain `startActivity` with an implicit intent, which is not filtered at all.
+   *
+   * So on a phone with Google Pay installed but not visible to us, the guard returned false and
+   * we never attempted the launch that would have worked. It converted a working OS chooser into
+   * a dead end at the QR code, and reported it as "no UPI app answered".
+   *
+   * Just try it, and let the throw be the answer. `startActivity` with no handler raises
+   * ActivityNotFoundException, which surfaces here as a rejected promise — a real signal, unlike
+   * a visibility-filtered guess.
+   *
+   * iOS keeps the pre-flight: there is no `upi://` handler to fall back on, `canOpenURL` is the
+   * only way to test a custom scheme, and an unhandled scheme there opens nothing rather than
+   * throwing.
+   */
   try {
-    if (!(await Linking.canOpenURL(target))) return false;
+    if (Platform.OS === 'ios' && !(await Linking.canOpenURL(target))) return false;
     await Linking.openURL(target);
     return true;
   } catch {

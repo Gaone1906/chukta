@@ -1,5 +1,5 @@
 import createQr from 'qrcode-generator';
-import { useMemo } from 'react';
+import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 
@@ -17,15 +17,45 @@ import Svg, { Path, Rect } from 'react-native-svg';
  * The quiet zone is not decoration — scanners need four modules of margin to find the
  * finder patterns, and codes that "sometimes don't scan" are usually missing it.
  */
-export function QrCode({
-  value,
-  size = 220,
-  quietZone = 4,
-}: {
+/**
+ * What the parent gets to ask for. Only rasterisation — the caller owns where the bytes go,
+ * so this file never learns about the filesystem or the photo library.
+ */
+export interface QrHandle {
+  /** Bare base64 PNG (no `data:` prefix), rendered at `px` square. */
+  toPngBase64: (px?: number) => Promise<string>;
+}
+
+export const QrCode = forwardRef<QrHandle, {
   value: string;
   size?: number;
   quietZone?: number;
-}) {
+}>(function QrCode({ value, size = 220, quietZone = 4 }, ref) {
+  const svgRef = useRef<Svg>(null);
+
+  /*
+   * `toDataURL` is native, and already in the binary — react-native-svg ships it on both
+   * platforms, so saving the code costs no new native code.
+   *
+   * Rendered at 1024 rather than the on-screen 220 because the point of saving is that it gets
+   * scanned later, possibly off another screen. The viewBox already contains the quiet zone, so
+   * scaling up preserves it rather than cropping it away.
+   *
+   * Width AND height together: iOS rejects a partial options object and logs "Invalid width or
+   * height given to toDataURL" rather than failing loudly.
+   */
+  useImperativeHandle(ref, () => ({
+    toPngBase64: (px = 1024) =>
+      new Promise<string>((resolve, reject) => {
+        const node = svgRef.current;
+        if (!node) {
+          reject(new Error('QR is not on screen'));
+          return;
+        }
+        node.toDataURL((base64) => resolve(base64), { width: px, height: px });
+      }),
+  }));
+
   const { path, cells } = useMemo(() => {
     // Type 0 lets the library pick the smallest version that fits. 'M' recovers ~15% of a
     // damaged or partly-obscured code, which is the level UPI QRs conventionally use.
@@ -47,7 +77,7 @@ export function QrCode({
 
   return (
     <View style={[styles.frame, { width: size, height: size }]}>
-      <Svg width={size} height={size} viewBox={`0 0 ${cells} ${cells}`}>
+      <Svg ref={svgRef} width={size} height={size} viewBox={`0 0 ${cells} ${cells}`}>
         {/* Light background is required, not stylistic: scanners expect dark-on-light, and
             this app is otherwise entirely dark. */}
         <Rect x={0} y={0} width={cells} height={cells} fill="#F4EDE4" />
@@ -55,7 +85,7 @@ export function QrCode({
       </Svg>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   frame: {

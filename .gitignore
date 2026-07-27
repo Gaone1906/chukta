@@ -79,3 +79,7 @@ maestro/**/*.mp4
 # NOTE: design-reference/screens/support.js and design-reference/assets/image-slot.js are
 # vendored third-party prototype-viewer runtime, deliberately tracked so the reference
 # screens still render in a browser. See design-reference/README.md.
+
+# Gradle output from local Expo modules. Was tracked (778 files, including .aar and .dex),
+# and with requireCommit these uploaded to every EAS build.
+apps/mobile/modules/*/android/build/

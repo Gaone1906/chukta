@@ -196,6 +196,9 @@ export default function Home() {
                 }
                 balance={money(p.net_minor, 'INR')}
                 avatar={initials(p.display_name)}
+                // Both, not either: the initials are the fallback the Row falls back TO when the
+                // picture is absent or fails to load, so they are still needed when a URL exists.
+                avatarUrl={p.avatar_url}
                 avatarTone={p.net_minor > 0n ? 'gold' : p.net_minor < 0n ? 'oxblood' : 'plain'}
                 onPress={(at) => rippleTo(at, () => router.push(`/person/${p.id}`))}
               />
