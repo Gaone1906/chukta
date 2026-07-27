@@ -10,7 +10,8 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { FAB, Row, SegmentedSwitcher, color, space, useRippleNav } from '@/design';
 import { EmptyState } from '@/features/home/EmptyState';
 import { RowSkeleton } from '@/features/home/RowSkeleton';
-import { initials } from '@/features/people/Avatar';
+import { useSession } from '@/features/auth/session';
+import { Avatar, initials } from '@/features/people/Avatar';
 import { Sidebar } from '@/features/sidebar/Sidebar';
 import { getHomeSummary } from '@/lib/api';
 import { deltaFor } from '@/lib/offline/effects';
@@ -33,6 +34,7 @@ export default function Home() {
   const { rippleTo, rippleFrom } = useRippleNav();
   const [tab, setTab] = useState<'groups' | 'people'>('groups');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { profile } = useSession();
   const { effects, pendingPeople } = useOffline();
 
   const { data, isLoading, isRefetching, refetch, error } = useQuery({
@@ -106,18 +108,33 @@ export default function Home() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Open profile"
-            style={styles.profileButton}
+            style={profile ? styles.profileAvatar : styles.profileButton}
             onPress={() => setSidebarOpen(true)}
           >
-            <Svg width={17} height={18} viewBox="0 0 17 18" fill="none">
-              <Circle cx={8.5} cy={5.4} r={3.6} stroke="rgba(244,237,228,.85)" strokeWidth={1.4} />
-              <Path
-                d="M1.8 16.5c0-3.1 3-5.2 6.7-5.2s6.7 2.1 6.7 5.2"
-                stroke="rgba(244,237,228,.85)"
-                strokeWidth={1.4}
-                strokeLinecap="round"
-              />
-            </Svg>
+            {/*
+              * Your own face, when we have it.
+              *
+              * This was a hardcoded person glyph that never looked at the profile, so the one
+              * avatar guaranteed to exist — the signed-in user's, copied from their provider at
+              * signup — was the only one the app never showed. `Avatar` already falls back to
+              * initials, which still says whose account this is; the glyph says nothing.
+              *
+              * The bordered style is dropped when Avatar renders, because Avatar draws its own
+              * circle and border and two of them stack into a visible double ring.
+              */}
+            {profile ? (
+              <Avatar name={profile.display_name} url={profile.avatar_url} size={42} tone="plain" />
+            ) : (
+              <Svg width={17} height={18} viewBox="0 0 17 18" fill="none">
+                <Circle cx={8.5} cy={5.4} r={3.6} stroke="rgba(244,237,228,.85)" strokeWidth={1.4} />
+                <Path
+                  d="M1.8 16.5c0-3.1 3-5.2 6.7-5.2s6.7 2.1 6.7 5.2"
+                  stroke="rgba(244,237,228,.85)"
+                  strokeWidth={1.4}
+                  strokeLinecap="round"
+                />
+              </Svg>
+            )}
           </Pressable>
 
           <Image source={WORDMARK} style={styles.wordmark} contentFit="contain" />
@@ -234,6 +251,8 @@ const styles = StyleSheet.create({
     borderColor: color.glassBorder,
     backgroundColor: 'rgba(255,255,255,0.05)',
   },
+  /** Avatar draws its own circle, so the button is just a 42pt tap target around it. */
+  profileAvatar: { width: 42, height: 42, borderRadius: 21 },
   wordmark: { width: 124, height: 40, opacity: 0.92 },
   switcher: { marginTop: 20 },
   list: { marginTop: 18, gap: 11 },
