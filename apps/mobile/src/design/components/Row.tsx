@@ -209,7 +209,21 @@ const styles = StyleSheet.create({
    */
   innerStacked: { flexDirection: 'column', alignItems: 'flex-start', gap: 10 },
   innerCompact: { gap: 12, paddingVertical: 13, paddingHorizontal: 14 },
-  avatar: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' },
+  /*
+   * `overflow: 'hidden'` is what makes the picture round.
+   *
+   * `borderRadius` on this View rounds the View — it does not clip a child, so the first build
+   * with avatars showed a square photo sitting inside a circular frame. It was invisible while
+   * the only child was a `<Text>`, which never reached the corners. `Avatar.tsx` has always had
+   * this; copying the border and the radius without it was the miss.
+   */
+  avatar: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+    overflow: 'hidden',
+  },
   avatarImage: { width: '100%', height: '100%' },
   avatarText: { fontFamily: font.medium, fontSize: 15, color: color.cream },
   avatarTextCompact: { fontSize: 13 },
