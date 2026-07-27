@@ -703,16 +703,22 @@ const ACTION_VERB: Record<string, string> = {
   merged_participants: 'merged people on',
 };
 
-/** "Sushrith marked this paid in full, today" — or "You" when it was you. */
+/**
+ * "Marked paid in full by Sushrith · Today, 27 Jul" — or "You" when it was you.
+ *
+ * Separated by a middot rather than a comma. `describeDate` returns "Today, 27 Jul", which
+ * already contains one, and "…paid in full, Today, 27 Jul" reads as a list of three things.
+ * Lower-casing it to fix that was worse: it turned the month into "27 jul".
+ */
 function markerLabel(
   marked: ExpenseDetail['marked_by'],
   meId: string | undefined,
   paidAt: string | null,
 ): string {
-  const when = paidAt ? describeDate(paidAt.slice(0, 10)).toLowerCase() : 'just now';
-  if (!marked) return `Marked paid in full ${when}`;
-  if (marked.profile_id === meId) return `You marked this paid in full, ${when}`;
-  return `Marked paid in full by ${marked.display_name}, ${when}`;
+  const when = paidAt ? describeDate(paidAt.slice(0, 10)) : 'Just now';
+  if (!marked) return `Marked paid in full · ${when}`;
+  if (marked.profile_id === meId) return `You marked this paid in full · ${when}`;
+  return `Marked paid in full by ${marked.display_name} · ${when}`;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

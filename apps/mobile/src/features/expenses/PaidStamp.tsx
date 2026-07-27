@@ -190,9 +190,14 @@ export function PaidStamp({
         pointerEvents="none"
       >
         <Defs>
+          {/*
+            * Measured on device, not guessed. At 0.24 the wash was invisible against the glass
+            * card — the mockup's figure was tuned against a list row, where the same gradient
+            * covers a far larger fraction of a much smaller surface.
+            */}
           <RadialGradient id={bleedId} cx="50%" cy="50%" rx="50%" ry="50%">
-            <Stop offset="0" stopColor={color.goldLeaf} stopOpacity={0.24} />
-            <Stop offset="0.45" stopColor={color.goldLeaf} stopOpacity={0.08} />
+            <Stop offset="0" stopColor={color.goldLeaf} stopOpacity={0.38} />
+            <Stop offset="0.4" stopColor={color.goldLeaf} stopOpacity={0.15} />
             <Stop offset="1" stopColor={color.goldLeaf} stopOpacity={0} />
           </RadialGradient>
         </Defs>
