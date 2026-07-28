@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Effective:** [EFFECTIVE_DATE] · **Applies to:** the Chukta mobile app for iOS and Android
+**Effective:** 16 August 2026 · **Applies to:** the Chukta mobile app for iOS and Android
 
 > ⚠️ Draft. Not reviewed legal advice. See `legal/README.md`.
 
@@ -8,17 +8,17 @@ Chukta is an expense-splitting app. It records who paid for what among friends s
 to keep a mental tally. This policy explains what it stores, why, and what you can do about it.
 
 Short version: we store what's needed to compute balances between you and the people you share
-expenses with. There are no ads, no analytics products, no data sales, and no third-party
+expenses with. There are no ads today, no analytics products, no data sales, and no third-party
 trackers.
 
 ---
 
 ## 1. Who we are
 
-Chukta is published by [ENTITY]. Contact: [CONTACT_EMAIL].
+Chukta is published by Pranav Yarasi. Contact: pranav.ccs5@gmail.com.
 
 For users in India, the Grievance Officer under the Digital Personal Data Protection Act 2023
-is [GRIEVANCE_OFFICER], reachable at [CONTACT_EMAIL].
+is Pranav Yarasi, reachable at pranav.ccs5@gmail.com.
 
 ## 2. What we collect
 
@@ -87,15 +87,15 @@ becomes yours. You can review and leave any group.
 | Sentry | Crash reporting | Diagnostics, device model, app version |
 | Frankfurter / European Central Bank | Currency rates | Nothing about you — we fetch rates, we send nothing |
 
-**We never sell your data, and we never share it for advertising.** There is no advertising in
-Chukta and no plans for any.
+**We never sell your data.** Chukta does not currently show advertising. If that changes, this
+policy — and what we collect — will change accordingly, and we'll tell you first (Section 10).
 
 **Legal disclosure:** we will disclose data if legally compelled, and will tell you unless
 prohibited from doing so.
 
 ## 5. Where data is stored
 
-On Supabase infrastructure, in [REGION]. Encrypted in transit (TLS) and at rest.
+On Supabase infrastructure, in Mumbai, India. Encrypted in transit (TLS) and at rest.
 
 ## 6. How long we keep it
 
@@ -119,7 +119,7 @@ You can, from inside the app:
 - **Delete** your account in Settings, subject to section 6
 
 To request a copy of your data in a portable format, or to object to processing, email
-[CONTACT_EMAIL]. We'll respond within 30 days.
+pranav.ccs5@gmail.com. We'll respond within 30 days.
 
 If you're in India, you may also complain to the Data Protection Board. In the EEA/UK, to your
 local supervisory authority.
@@ -136,7 +136,7 @@ data is unreachable from another, and no passwords to steal — sign-in goes thr
 Google. Payment handles like a UPI ID are visible to people you share expenses with, by design,
 since that's how they pay you back.
 
-No system is perfectly secure. If you find a vulnerability, email [CONTACT_EMAIL]; we'd rather
+No system is perfectly secure. If you find a vulnerability, email pranav.ccs5@gmail.com; we'd rather
 hear from you than not.
 
 ## 10. Changes
@@ -146,4 +146,4 @@ The current version is always at this URL, with its effective date at the top.
 
 ## 11. Contact
 
-[ENTITY] · [CONTACT_EMAIL]
+Pranav Yarasi · pranav.ccs5@gmail.com

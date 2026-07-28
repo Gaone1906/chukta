@@ -1,6 +1,6 @@
 # Terms of Service
 
-**Effective:** [EFFECTIVE_DATE] · **Applies to:** the Chukta mobile app for iOS and Android
+**Effective:** 16 August 2026 · **Applies to:** the Chukta mobile app for iOS and Android
 
 > ⚠️ Draft. Not reviewed legal advice. See `legal/README.md`.
 
@@ -60,14 +60,15 @@ Expenses are **shared records**. Once you add one, its participants can see it. 
 your account, the expense amounts stay so everyone else's balances remain correct, detached
 from your identity — see the Privacy Policy, section 6.
 
-## 6. Free, and the tip jar
+## 6. Pricing
 
-**Every feature is free. Forever.** No paid tier, no locked features, no ads, no upsell. This
-isn't a trial.
+Chukta is currently free to use, with no advertising. This may change — we may introduce
+advertising, or optional paid features, in the future. If we do, we'll tell you first: see
+Section 10.
 
-The tip jar is optional and one-time, with no subscription. **A tip unlocks nothing** — you
-already have everything. It's a thank-you, not a purchase. Tips are handled by Apple or Google
-and are non-refundable by us; refund requests go to the relevant store under its policy.
+The tip jar, where offered, is optional and one-time, with no subscription. **A tip unlocks
+nothing** — it's a thank-you, not a purchase. Tips are handled by Apple or Google and are
+non-refundable by us; refund requests go to the relevant store under its policy.
 
 ## 7. Fair use
 
@@ -98,7 +99,7 @@ Sections 3, 4, 5, 8 and 10 survive termination.
 We may update these terms; material changes get in-app notice before taking effect. Continuing
 to use Chukta after that means you accept them.
 
-Governed by the laws of [JURISDICTION], with courts there having jurisdiction, without
+Governed by the laws of India, with courts there having jurisdiction, without
 affecting mandatory consumer protections where you live.
 
-Questions: [ENTITY] · [CONTACT_EMAIL]
+Questions: Pranav Yarasi · pranav.ccs5@gmail.com
